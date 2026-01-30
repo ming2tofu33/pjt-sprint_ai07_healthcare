@@ -1,0 +1,45 @@
+# ============================================
+# 1. Project Specific (Data & Results)
+# ============================================
+# 대용량 이미지 및 정답 파일 제외
+data/
+
+# 개인별 실험 결과물(가중치, 로그) 제외
+experiments/
+
+# 학습된 모델 가중치 파일 직접 제외
+*.pt
+*.pth
+*.onnx
+
+# 결과 제출용 CSV 파일
+*.csv
+
+# ============================================
+# 2. Python & Jupyter Notebook
+# ============================================
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Jupyter Notebook 임시 저장 파일
+.ipynb_checkpoints/
+
+# 가상환경
+venv/
+env/
+.venv/
+
+# ============================================
+# 3. Environment Variables & IDEs
+# ============================================
+# 보안 및 로컬 설정 파일
+.env
+.flaskenv
+
+# IDE 설정 (VS Code, PyCharm 등)
+.vscode/
+.idea/
+
+# OS 생성 파일 (Mac의 경우)
+.DS_Store
