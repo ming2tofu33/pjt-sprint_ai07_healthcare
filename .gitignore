@@ -3,6 +3,9 @@
 # ============================================
 # 대용량 이미지 및 정답 파일 제외
 data/
+# 실험 결과물 폴더 (로그, 체크포인트, eval 결과, 예측 이미지/라벨 등)
+runs/*
+!runs/.gitkeep
 
 # 개인별 실험 결과물(가중치, 로그) 제외
 experiments/
@@ -43,3 +46,42 @@ env/
 
 # OS 생성 파일 (Mac의 경우)
 .DS_Store
+
+# ============================================
+# 4. ML / Training Tool Outputs (추가 추천)
+# ============================================
+# Ultralytics( YOLO ) 기본 출력/설정
+yolo_settings.json
+.ultralytics/
+
+# Weights & logs (추가 케이스)
+weights/
+checkpoints/
+logs/
+tb_logs/
+tensorboard/
+events.out.tfevents.*
+
+# Weights bias & experiment trackers
+wandb/
+mlruns/
+lightning_logs/
+ray_results/
+
+# Exported artifacts / reports
+outputs/
+reports/
+
+# OS / temp / logs
+*.log
+nohup.out
+
+# Python packaging / test / coverage
+dist/
+build/
+*.egg-info/
+.coverage
+htmlcov/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
