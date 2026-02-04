@@ -1,38 +1,26 @@
 import os
 
+# 현재 위치: ROOT/configs
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+# 프로젝트 루트: ROOT
 PROJECT_ROOT = os.path.dirname(CURRENT_DIR)
 
 CONFIG = {
-    # 1. 경로 설정
-    "RAW_CSV": os.path.join(PROJECT_ROOT, "data", "processed", "final_golden_dataset_v2.csv"),
+    # [1. 경로 설정] - 이미지와 JSON이 아무리 깊이 있어도 SEARCH_ROOT 아래에만 있으면 다 찾습니다.
+    "AIHUB_JSON": os.path.join(PROJECT_ROOT, "data", "raw", "ex_train_annotations"),
+    "KAGGLE_JSON": os.path.join(PROJECT_ROOT, "data", "raw", "train_annotations"),
     "SEARCH_ROOT": os.path.join(PROJECT_ROOT, "data", "raw"),
-    "OUTPUT_ROOT": os.path.join(PROJECT_ROOT, "data", "yolo_format"),
+    "PROCESSED_DIR": os.path.join(PROJECT_ROOT, "data", "processed"),
+    "FINAL_CSV": os.path.join(PROJECT_ROOT, "data", "processed", "final_golden_dataset_v2.csv"),
+    "YOLO_ROOT": os.path.join(PROJECT_ROOT, "data", "yolo_format"),
+
+    # [2. 분할 및 증강 설정]
     "SPLIT_RATIO": 0.2,
-    
-    # =====================================================
-    # 🧪 [실험실] 증강(Augmentation) 마스터 컨트롤
-    # =====================================================
-    "USE_AUGMENTATION": False,
-    "AUG_TARGET_ID": 114,
-    "AUG_COUNT": 300,
-    
-    # 1. 기하학적 변환 (모양)
-    "AUG_ROTATE_LIMIT": 30,    # 회전 각도 (±30도)
-    "AUG_ROTATE_PROB": 0.7,    # 회전 적용 확률
-    "AUG_FLIP_PROB": 0.5,      # 좌우 반전 확률
-    
-    # 2. 색상/조명 변환 (빛)
-    "AUG_BRIGHT_LIMIT": 0.2,   # 밝기/대비 조절 범위
-    "AUG_BRIGHT_PROB": 0.5,    # 밝기 적용 확률
-    
-    # 3. 색조 변환 (색감)
-    "AUG_HUE_LIMIT": 20,       # 색조(Hue)
-    "AUG_SAT_LIMIT": 30,       # 채도(Saturation)
-    "AUG_VAL_LIMIT": 20,       # 명도(Value)
-    "AUG_HSV_PROB": 0.5,       # 색조 적용 확률
-    
-    # 4. 픽셀 노이즈 (센서)
-    "AUG_RGB_SHIFT": 15,       # RGB 값 이동 범위
-    "AUG_RGB_PROB": 0.5        # RGB Shift 확률
+    "AUG_TARGET_ID": 114, 
+    "AUG_GOAL_COUNT": 300,
+
+    # [3. 증강 ON/OFF 스위치]
+    "AUG_GEOMETRIC_ON": True,   # 회전/반전 (필수)
+    "AUG_COLOR_ON": True,       # 밝기/대비/색상
+    "AUG_BLUR_ON": False,       # 흐림 효과
 }
