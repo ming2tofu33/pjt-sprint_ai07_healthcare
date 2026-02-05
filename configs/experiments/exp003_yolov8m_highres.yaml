@@ -1,0 +1,45 @@
+# Experiment 003: YOLOv8m with high resolution
+# Larger model with high-resolution images for small object detection
+
+# Experiment metadata
+experiment:
+  name: "yolov8m_highres"
+  description: "YOLOv8m with 1280px images for better small object detection"
+  tags: ["yolov8m", "highres", "small_objects"]
+
+# Override model settings
+model:
+  name: "yolov8m"  # Larger model
+
+# Override training settings
+training:
+  epochs: 100
+  batch_size: 8  # Smaller batch due to higher resolution
+  imgsz: 1280  # High resolution for small objects
+  
+  optimizer:
+    lr: 0.0005  # Lower LR for larger model
+  
+  scheduler:
+    warmup_epochs: 5
+  
+  early_stopping:
+    patience: 20
+
+# Augmentation tuned for small objects
+augmentation:
+  mosaic: 1.0
+  mixup: 0.1
+  fliplr: 0.5
+  scale: 0.9  # Careful with scale for small objects
+  translate: 0.1
+
+# Enable both logging backends
+logging:
+  wandb:
+    enabled: false  # Set to true if using W&B
+    tags: ["yolov8m", "exp003", "highres"]
+    notes: "YOLOv8m with high-resolution images for small object detection"
+  
+  tensorboard:
+    enabled: true

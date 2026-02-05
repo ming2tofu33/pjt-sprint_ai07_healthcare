@@ -1,0 +1,202 @@
+# Base Configuration for YOLO Pill Detection Project
+# This file contains default settings shared across all experiments
+
+# Project metadata
+project:
+  name: "pill-detection"
+  description: "Kaggle AI07 pill detection competition"
+  task: "object_detection"
+
+# Random seed for reproducibility
+seed: 42
+
+# Data configuration
+data:
+  raw_dir: "data/raw"
+  splits_dir: "data/splits"
+  coco_dir: "data/coco_data"
+  
+  # Image settings
+  train_images_dir: "data/raw/train_images"
+  train_annotations_dir: "data/raw/train_annotations"
+  test_images_dir: "data/raw/test_images"
+  
+  # Split settings
+  split:
+    method: "stratified"  # stratified, random, kfold
+    train_ratio: 0.8
+    val_ratio: 0.2
+    stratify_by: "object_count"  # object_count, class_distribution
+    min_samples_per_class: 1
+    
+    # K-Fold settings (when method='kfold')
+    n_folds: 5
+    current_fold: 0
+  
+  # Class filtering
+  class_filter:
+    enabled: false  # Set to true to filter specific classes
+    include_classes: []  # Empty = use all classes, or list of class IDs
+    exclude_classes: []  # List of class IDs to exclude
+
+# Model configuration
+model:
+  framework: "yolo"  # yolo, detectron2, mmdetection (extensible)
+  name: "yolov8n"  # yolov8n, yolov8s, yolov8m, yolov8l, yolov8x
+  
+  # YOLO-specific settings
+  yolo:
+    pretrained: true
+    pretrained_weights: null  # null = use default COCO weights, or path to custom weights
+    freeze_backbone: false  # Freeze backbone layers for transfer learning
+    freeze_layers: 0  # Number of layers to freeze (0 = none)
+
+# Training configuration
+training:
+  # Hardware
+  device: "cuda"  # cuda, cpu, mps
+  num_workers: 4
+  pin_memory: true
+  
+  # Batch settings
+  batch_size: 16
+  accumulation_steps: 1  # Gradient accumulation for larger effective batch size
+  
+  # Epochs and checkpointing
+  epochs: 50
+  save_period: 10  # Save checkpoint every N epochs
+  val_period: 1  # Validate every N epochs
+  
+  # Image size
+  imgsz: 640  # Input image size (640, 1280, etc.)
+  
+  # Optimizer
+  optimizer:
+    name: "AdamW"  # SGD, Adam, AdamW
+    lr: 0.001
+    momentum: 0.9  # For SGD
+    weight_decay: 0.0001
+    
+  # Learning rate scheduler
+  scheduler:
+    name: "CosineAnnealingLR"  # StepLR, CosineAnnealingLR, ReduceLROnPlateau, None
+    warmup_epochs: 3
+    warmup_lr: 0.0001
+    min_lr: 0.00001
+    
+    # StepLR settings
+    step_size: 30
+    gamma: 0.1
+    
+    # ReduceLROnPlateau settings
+    patience: 5
+    factor: 0.5
+  
+  # Early stopping
+  early_stopping:
+    enabled: true
+    patience: 15
+    min_delta: 0.001  # Minimum improvement to reset patience
+    monitor: "val/mAP_0.75-0.95"  # Metric to monitor
+  
+  # Mixed precision training
+  amp: true  # Automatic Mixed Precision
+  
+  # Gradient clipping
+  clip_grad_norm: 10.0  # Max gradient norm (null to disable)
+
+# Data augmentation
+augmentation:
+  # YOLO built-in augmentations
+  hsv_h: 0.015  # HSV-Hue augmentation
+  hsv_s: 0.7    # HSV-Saturation augmentation
+  hsv_v: 0.4    # HSV-Value augmentation
+  degrees: 0.0  # Rotation (+/- degrees)
+  translate: 0.1  # Translation (+/- fraction)
+  scale: 0.5    # Scale (+/- gain)
+  shear: 0.0    # Shear (+/- degrees)
+  perspective: 0.0  # Perspective (+/- fraction)
+  flipud: 0.0   # Flip up-down probability
+  fliplr: 0.5   # Flip left-right probability
+  mosaic: 1.0   # Mosaic augmentation probability
+  mixup: 0.0    # Mixup augmentation probability
+  
+  # Albumentations (if custom pipeline needed)
+  use_albumentations: false
+  albumentations_config: null  # Path to albumentations config
+
+# Evaluation configuration
+evaluation:
+  # Metrics to compute
+  metrics:
+    - "mAP_0.75-0.95"  # Primary metric (required)
+    - "mAP_0.50"       # Secondary metric (reference)
+    - "mAP_0.75"       # Secondary metric (reference)
+    - "precision"
+    - "recall"
+  
+  # IoU thresholds for mAP calculation
+  iou_thresholds: [0.75, 0.80, 0.85, 0.90, 0.95]
+  
+  # Confidence threshold for predictions
+  conf_threshold: 0.001  # Lower threshold for evaluation
+  
+  # NMS settings
+  nms:
+    iou_threshold: 0.6
+    max_det: 300  # Maximum detections per image
+  
+  # Visualization
+  visualize:
+    enabled: true
+    num_samples: 10  # Number of samples to visualize
+    save_predictions: true
+
+# Submission configuration
+submission:
+  output_dir: "submissions"
+  
+  # Prediction settings
+  conf_threshold: 0.25  # Confidence threshold for submission
+  nms_iou_threshold: 0.45
+  max_det_per_image: 4  # Maximum 4 detections per image
+  
+  # Test-Time Augmentation (TTA)
+  tta:
+    enabled: false
+    scales: [1.0]  # [0.8, 1.0, 1.2]
+    flips: []      # ['horizontal', 'vertical']
+  
+  # Ensemble (for multiple models)
+  ensemble:
+    enabled: false
+    method: "wbf"  # wbf (Weighted Box Fusion), nms, soft_nms
+    weights: [1.0]  # Weights for each model
+
+# Logging configuration
+logging:
+  # Console and file logging
+  log_level: "INFO"
+  log_to_file: true
+  
+  # Weights & Biases
+  wandb:
+    enabled: false  # Set to true to enable W&B logging
+    project: "pill-detection"
+    entity: null  # Your W&B username or team
+    tags: []
+    notes: ""
+  
+  # TensorBoard
+  tensorboard:
+    enabled: false  # Set to true to enable TensorBoard logging
+  
+  # Save frequency
+  log_interval: 10  # Log metrics every N batches
+
+# Output directories
+output:
+  runs_dir: "runs"
+  artifacts_dir: "artifacts"
+  checkpoints_dir: "checkpoints"
+  submissions_dir: "submissions"

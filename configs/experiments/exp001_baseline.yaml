@@ -1,0 +1,43 @@
+# Experiment 001: Baseline YOLOv8n
+# Quick baseline experiment with YOLOv8n for initial validation
+
+# Experiment metadata
+experiment:
+  name: "baseline"
+  description: "Baseline YOLOv8n experiment with default settings"
+  tags: ["baseline", "yolov8n", "quick"]
+
+# Override model settings
+model:
+  name: "yolov8n"  # Smallest model for fast iteration
+
+# Override training settings
+training:
+  epochs: 50
+  batch_size: 16
+  imgsz: 640
+  
+  optimizer:
+    lr: 0.001
+  
+  scheduler:
+    warmup_epochs: 3
+  
+  early_stopping:
+    patience: 15
+
+# Keep augmentation moderate for baseline
+augmentation:
+  mosaic: 1.0
+  mixup: 0.0
+  fliplr: 0.5
+
+# Enable logging for baseline
+logging:
+  wandb:
+    enabled: false  # Set to true if you want to use W&B
+    tags: ["baseline", "exp001"]
+    notes: "First baseline experiment with YOLOv8n"
+  
+  tensorboard:
+    enabled: true  # Enable TensorBoard for local monitoring

@@ -1,0 +1,49 @@
+# Experiment 002: YOLOv8s with extended training
+# Medium-sized model with longer training for better performance
+
+# Experiment metadata
+experiment:
+  name: "yolov8s_extended"
+  description: "YOLOv8s with 100 epochs and stronger augmentation"
+  tags: ["yolov8s", "extended", "augmentation"]
+
+# Override model settings
+model:
+  name: "yolov8s"  # Medium model for better accuracy
+
+# Override training settings
+training:
+  epochs: 100  # Extended training
+  batch_size: 16
+  imgsz: 640
+  
+  optimizer:
+    lr: 0.001
+  
+  scheduler:
+    warmup_epochs: 5
+  
+  early_stopping:
+    patience: 20
+
+# Stronger augmentation
+augmentation:
+  mosaic: 1.0
+  mixup: 0.1  # Add mixup
+  fliplr: 0.5
+  hsv_h: 0.02
+  hsv_s: 0.7
+  hsv_v: 0.4
+  degrees: 10.0  # Add rotation
+  translate: 0.2
+  scale: 0.9
+
+# Enable W&B for this experiment
+logging:
+  wandb:
+    enabled: false  # Set to true if using W&B
+    tags: ["yolov8s", "exp002", "extended"]
+    notes: "YOLOv8s with extended training and stronger augmentation"
+  
+  tensorboard:
+    enabled: true
