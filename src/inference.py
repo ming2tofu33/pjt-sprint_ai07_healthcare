@@ -170,6 +170,7 @@ class Inferencer:
         self,
         results: List,
         output_path: Path,
+        idx2id_map: Optional[Dict[int, int]] = None,
         top_k: int = 4,
     ) -> Path:
         """
@@ -178,11 +179,18 @@ class Inferencer:
         Args:
             results: model.predict() 결과 리스트
             output_path: 출력 CSV 파일 경로
+            idx2id_map: YOLO 인덱스 → 원본 category_id 매핑 (필수!)
             top_k: 이미지당 최대 객체 개수
         
         Returns:
             저장된 파일 경로
         """
+        if idx2id_map is None:
+            raise ValueError(
+                "idx2id_map is required for submission! "
+                "Load from label_map_full.json or label_map_whitelist.json"
+            )
+        
         rows = []
         annotation_id = 1
         
@@ -204,9 +212,16 @@ class Inferencer:
             top_indices = scores.argsort()[::-1][:top_k]
             
             for idx in top_indices:
-                cls = int(boxes.cls[idx].item())
+                cls_idx = int(boxes.cls[idx].item())  # YOLO 인덱스
                 score = float(boxes.conf[idx].item())
                 xyxy = boxes.xyxy[idx].cpu().numpy()
+                
+                # YOLO 인덱스 → 원본 category_id 변환
+                if cls_idx not in idx2id_map:
+                    if self.verbose:
+                        print(f"  ⚠️  Unknown class index: {cls_idx} (이미지 {image_id})")
+                    continue
+                category_id = idx2id_map[cls_idx]
                 
                 # xyxy → xywh
                 x1, y1, x2, y2 = xyxy
@@ -218,7 +233,7 @@ class Inferencer:
                 rows.append({
                     "annotation_id": annotation_id,
                     "image_id": image_id,
-                    "category_id": cls,
+                    "category_id": category_id,  # 원본 category_id
                     "bbox_x": x,
                     "bbox_y": y,
                     "bbox_w": w,

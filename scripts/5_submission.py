@@ -20,6 +20,7 @@ import sys
 import argparse
 from pathlib import Path
 import pandas as pd
+import json
 
 # src 모듈 import
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
@@ -83,8 +84,33 @@ def main():
     
     print(f"  ✅ Test 이미지: {len(test_images)}")
     
-    # 5) 추론 실행
-    print("\n[5] 추론 실행...")
+    # 5) Label map 로드 (YOLO idx → 원본 category_id 변환용)
+    print("\n[5] Label map 로드...")
+    cache_dir = paths["DATA_ROOT"] / "processed" / "cache" / args.run_name
+    
+    # label_map_whitelist 또는 label_map_full 찾기
+    label_map_path = cache_dir / "label_map_whitelist.json"
+    if not label_map_path.exists():
+        label_map_path = cache_dir / "label_map_full.json"
+    
+    if not label_map_path.exists():
+        print(f"  ❌ Label map 없음: {label_map_path}")
+        print(f"  ℹ️  먼저 scripts/1_create_coco_format.py를 실행하세요.")
+        sys.exit(1)
+    
+    with open(label_map_path, "r") as f:
+        label_map = json.load(f)
+    
+    # idx2id: YOLO 인덱스 → 원본 category_id
+    idx2id = label_map["idx2id"]
+    # 문자열 키를 정수로 변환
+    idx2id = {int(k): int(v) for k, v in idx2id.items()}
+    
+    print(f"  ✅ Label map 로드: {label_map_path.name}")
+    print(f"  ✅ 클래스 개수: {len(idx2id)}")
+    
+    # 6) 추론 실행
+    print("\n[6] 추론 실행...")
     try:
         from ultralytics import YOLO
     except ImportError:
@@ -108,8 +134,8 @@ def main():
     
     print(f"  ✅ 추론 완료!")
     
-    # 6) submission.csv 생성
-    print("\n[6] submission.csv 생성...")
+    # 7) submission.csv 생성 (YOLO idx → 원본 category_id 변환)
+    print("\n[7] submission.csv 생성...")
     rows = []
     annotation_id = 1
     
@@ -126,9 +152,15 @@ def main():
         top_indices = scores.argsort()[::-1][:max_det]
         
         for idx in top_indices:
-            cls = int(boxes.cls[idx].item())
+            cls_idx = int(boxes.cls[idx].item())  # YOLO 인덱스 (0~55)
             score = float(boxes.conf[idx].item())
             xyxy = boxes.xyxy[idx].cpu().numpy()
+            
+            # ⭐ YOLO 인덱스 → 원본 category_id 변환
+            if cls_idx not in idx2id:
+                print(f"  ⚠️  Unknown class index: {cls_idx} (이미지 {image_id})")
+                continue
+            category_id = idx2id[cls_idx]  # 원본 dl_idx (1900, 16548 등)
             
             # xyxy → xywh
             x1, y1, x2, y2 = xyxy
@@ -140,7 +172,7 @@ def main():
             rows.append({
                 "annotation_id": annotation_id,
                 "image_id": image_id,
-                "category_id": cls,
+                "category_id": category_id,  # ⭐ 원본 category_id 사용
                 "bbox_x": x,
                 "bbox_y": y,
                 "bbox_w": w,
@@ -159,14 +191,20 @@ def main():
     print(f"  ✅ 총 예측 객체: {len(df)}")
     print(f"  ✅ 이미지당 평균: {len(df)/len(test_images):.2f}")
     
-    # 7) 제출 파일 저장
-    print("\n[7] 제출 파일 저장...")
+    # category_id 분포 확인
+    if not df.empty:
+        unique_cats = df["category_id"].unique()
+        print(f"  ✅ 예측된 카테고리 개수: {len(unique_cats)}")
+        print(f"  ℹ️  카테고리 ID 샘플: {sorted(unique_cats)[:10]}")
+    
+    # 8) 제출 파일 저장
+    print("\n[8] 제출 파일 저장...")
     submission_path = paths["SUBMISSIONS"] / "submission.csv"
     df.to_csv(submission_path, index=False)
     print(f"  ✅ {submission_path.relative_to(paths['ROOT'])}")
     
-    # 8) 검증
-    print("\n[8] 제출 파일 검증...")
+    # 9) 검증
+    print("\n[9] 제출 파일 검증...")
     required_cols = ["annotation_id", "image_id", "category_id", "bbox_x", "bbox_y", "bbox_w", "bbox_h", "score"]
     missing_cols = [c for c in required_cols if c not in df.columns]
     
