@@ -126,6 +126,16 @@ def main():
     
     # 2) 필수 파일 확인
     print("\n[2] 필수 파일 확인...")
+    
+    # Config 로드 (dataset_prefix 가져오기 위해)
+    config_path = paths["CONFIG"] / "config.json"
+    if config_path.exists():
+        from utils import load_config
+        config = load_config(config_path)
+    else:
+        from utils import get_default_config
+        config = get_default_config(paths["RUN_NAME"], paths)
+    
     merged_coco = paths["CACHE"] / "train_merged_coco.json"
     label_map = paths["CACHE"] / "label_map_full.json"
     split_json = paths["CACHE"] / "splits" / "split_train_valid.json"
@@ -185,7 +195,10 @@ def main():
     
     # 5) YOLO 데이터셋 디렉터리 생성
     print("\n[5] YOLO 데이터셋 디렉터리 생성...")
-    dataset_root = paths["PROC_ROOT"] / "datasets" / f"pill_od_yolo_{paths['RUN_NAME']}"
+    
+    # Config에서 dataset_prefix 가져오기 (하드코딩 제거)
+    dataset_prefix = config.get("data", {}).get("dataset_prefix", "pill_od_yolo")
+    dataset_root = paths["PROC_ROOT"] / "datasets" / f"{dataset_prefix}_{paths['RUN_NAME']}"
     
     img_train_dir = dataset_root / "images" / "train"
     img_val_dir = dataset_root / "images" / "val"

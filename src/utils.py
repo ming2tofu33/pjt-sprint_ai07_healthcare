@@ -155,7 +155,91 @@ def count_files(folder: Path, exts: Optional[List[str]] = None) -> int:
 
 
 # ============================================================
-# 2. Reproducibility (Seed Fixing)
+# 2. Dependency & Environment Checks
+# ============================================================
+
+def check_dependencies(required_packages: Optional[List[str]] = None) -> Dict[str, bool]:
+    """
+    필수 패키지 설치 여부 확인
+    
+    Args:
+        required_packages: 체크할 패키지 리스트 (None이면 기본 패키지 체크)
+    
+    Returns:
+        {package_name: installed} dict
+    """
+    if required_packages is None:
+        required_packages = [
+            "numpy",
+            "pandas", 
+            "opencv-python",
+            "torch",
+            "ultralytics",
+            "PyYAML",
+            "scikit-learn",
+        ]
+    
+    results = {}
+    for pkg in required_packages:
+        try:
+            __import__(pkg.replace("-", "_").lower())
+            results[pkg] = True
+        except ImportError:
+            results[pkg] = False
+    
+    return results
+
+
+def ensure_dependencies(required_packages: Optional[List[str]] = None, exit_on_missing: bool = True):
+    """
+    필수 패키지 확인 및 누락 시 에러/경고
+    
+    Args:
+        required_packages: 체크할 패키지 리스트
+        exit_on_missing: True면 누락 시 sys.exit(1)
+    """
+    results = check_dependencies(required_packages)
+    missing = [pkg for pkg, installed in results.items() if not installed]
+    
+    if missing:
+        print("\n[ERROR] 필수 패키지가 설치되지 않았습니다:")
+        for pkg in missing:
+            print(f"  - {pkg}")
+        print("\n설치 방법:")
+        print(f"  pip install {' '.join(missing)}")
+        
+        if exit_on_missing:
+            sys.exit(1)
+        else:
+            print("\n[WARNING] 일부 기능이 작동하지 않을 수 있습니다.\n")
+
+
+def check_data_exists(paths: Dict[str, Path], required_keys: Optional[List[str]] = None) -> Dict[str, bool]:
+    """
+    데이터 디렉토리 존재 여부 확인
+    
+    Args:
+        paths: 경로 딕셔너리
+        required_keys: 체크할 키 리스트 (None이면 기본 INPUT 경로 체크)
+    
+    Returns:
+        {key: exists} dict
+    """
+    if required_keys is None:
+        required_keys = ["TRAIN_IMAGES", "TRAIN_ANN_DIR", "TEST_IMAGES"]
+    
+    results = {}
+    for key in required_keys:
+        if key in paths:
+            results[key] = paths[key].exists()
+        else:
+            results[key] = False
+    
+    return results
+
+
+# ============================================================
+# 3. Reproducibility (Seed Fixing)
 # ============================================================
 
 def set_seed(seed: int = 42, deterministic: bool = True) -> Dict[str, Any]:
@@ -251,6 +335,17 @@ def get_package_version(pkg_name: str) -> Optional[str]:
 # 3. Config Management
 # ============================================================
 
+def deep_merge_dict(base: Dict[str, Any], override: Dict[str, Any]) -> Dict[str, Any]:
+    """딕셔너리 깊은 병합 (override가 base를 덮어씀)"""
+    result = base.copy()
+    for key, value in override.items():
+        if key in result and isinstance(result[key], dict) and isinstance(value, dict):
+            result[key] = deep_merge_dict(result[key], value)
+        else:
+            result[key] = value
+    return result
+
+
 def load_config(config_path: Path) -> Dict[str, Any]:
     """JSON/YAML config 파일 로드"""
     config_path = Path(config_path)
@@ -258,14 +353,63 @@ def load_config(config_path: Path) -> Dict[str, Any]:
         raise FileNotFoundError(f"Config not found: {config_path}")
     
     if config_path.suffix in [".yaml", ".yml"]:
-        import yaml
+        try:
+            import yaml
+        except ImportError:
+            raise ImportError("PyYAML이 설치되지 않았습니다. 'pip install pyyaml'을 실행하세요.")
+        
         with open(config_path, "r", encoding="utf-8") as f:
-            return yaml.safe_load(f)
+            return yaml.safe_load(f) or {}
     elif config_path.suffix == ".json":
         with open(config_path, "r", encoding="utf-8") as f:
             return json.load(f)
     else:
         raise ValueError(f"Unsupported config format: {config_path.suffix}")
+
+
+def load_yaml_with_inheritance(yaml_path: Path, root: Optional[Path] = None) -> Dict[str, Any]:
+    """
+    YAML config 파일 로드 (_base_ 상속 지원)
+    
+    Args:
+        yaml_path: 로드할 YAML 파일 경로
+        root: 프로젝트 루트 경로 (상대 경로 해석용)
+    
+    Returns:
+        병합된 config dict
+    
+    Example:
+        # configs/experiments/exp001_baseline.yaml:
+        _base_: "../base.yaml"
+        train:
+          epochs: 100
+    """
+    yaml_path = Path(yaml_path)
+    if root is None:
+        root = yaml_path.parent
+    
+    config = load_config(yaml_path)
+    
+    # _base_ 상속 처리
+    if "_base_" in config:
+        base_path_str = config.pop("_base_")
+        
+        # 상대 경로 처리
+        if not base_path_str.startswith("/"):
+            base_path = (yaml_path.parent / base_path_str).resolve()
+        else:
+            base_path = Path(base_path_str)
+        
+        if not base_path.exists():
+            raise FileNotFoundError(f"Base config not found: {base_path} (referenced from {yaml_path})")
+        
+        # 재귀적으로 base config 로드
+        base_config = load_yaml_with_inheritance(base_path, root)
+        
+        # 병합 (current config가 base를 override)
+        config = deep_merge_dict(base_config, config)
+    
+    return config
 
 
 def save_config(config: Dict[str, Any], config_path: Path):
@@ -274,9 +418,13 @@ def save_config(config: Dict[str, Any], config_path: Path):
     config_path.parent.mkdir(parents=True, exist_ok=True)
     
     if config_path.suffix in [".yaml", ".yml"]:
-        import yaml
+        try:
+            import yaml
+        except ImportError:
+            raise ImportError("PyYAML이 설치되지 않았습니다. 'pip install pyyaml'을 실행하세요.")
+        
         with open(config_path, "w", encoding="utf-8") as f:
-            yaml.safe_dump(config, f, default_flow_style=False, allow_unicode=True)
+            yaml.safe_dump(config, f, default_flow_style=False, allow_unicode=True, sort_keys=False)
     elif config_path.suffix == ".json":
         with open(config_path, "w", encoding="utf-8") as f:
             json.dump(config, f, indent=2, ensure_ascii=False)
@@ -284,13 +432,27 @@ def save_config(config: Dict[str, Any], config_path: Path):
         raise ValueError(f"Unsupported config format: {config_path.suffix}")
 
 
+def get_project_defaults() -> Dict[str, Any]:
+    """프로젝트 기본 설정 반환 (하드코딩 제거)"""
+    return {
+        "project_name": "ai07_pill_od",
+        "dataset_prefix": "pill_od_yolo",
+        "max_objects_per_image": 4,  # 대회 규칙
+        "metric": "mAP@[0.75:0.95]",  # 대회 평가 지표
+        "max_submissions_per_day": 10,
+    }
+
+
 def get_default_config(run_name: str, paths: Dict[str, Path], seed: int = 42) -> Dict[str, Any]:
     """기본 Config 템플릿 생성"""
+    defaults = get_project_defaults()
+    
     return {
         "project": {
-            "name": "ai07_pill_od",
+            "name": defaults["project_name"],
             "run_name": run_name,
             "created_at": datetime.now().isoformat(timespec="seconds"),
+            "metric": defaults["metric"],
         },
         "paths": {k: str(v) for k, v in paths.items()},
         "reproducibility": {
@@ -299,9 +461,10 @@ def get_default_config(run_name: str, paths: Dict[str, Path], seed: int = 42) ->
         },
         "data": {
             "format": "coco_json_multi",
-            "max_objects_per_image": 4,
+            "max_objects_per_image": defaults["max_objects_per_image"],
             "num_classes": None,  # 추후 자동 추출
             "class_whitelist": None,  # [1900, 16548, ...] 또는 None (전체 사용)
+            "dataset_prefix": defaults["dataset_prefix"],
         },
         "split": {
             "strategy": "stratify_by_num_objects",
@@ -322,6 +485,7 @@ def get_default_config(run_name: str, paths: Dict[str, Path], seed: int = 42) ->
                 "lr0": None,  # None이면 YOLO 기본값 사용
                 "weight_decay": None,
                 "workers": 4,
+                "patience": 50,
             },
             "augment": {
                 "enabled": True,
@@ -339,12 +503,12 @@ def get_default_config(run_name: str, paths: Dict[str, Path], seed: int = 42) ->
         "infer": {
             "conf_thr": 0.001,
             "nms_iou_thr": 0.5,
-            "max_det_per_image": 4,
+            "max_det_per_image": defaults["max_objects_per_image"],
             "tta": {"enabled": False},
         },
         "postprocess": {
             "strategy": "topk_by_score",
-            "topk": 4,
+            "topk": defaults["max_objects_per_image"],
             "classwise_threshold": None,  # {class_id: thr} 또는 None
             "clip_boxes": True,
         },

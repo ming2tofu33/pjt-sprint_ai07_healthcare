@@ -61,7 +61,14 @@ def main():
     
     # 3) data.yaml 확인
     print("\n[3] data.yaml 확인...")
-    dataset_root = paths["PROC_ROOT"] / "datasets" / f"pill_od_yolo_{paths['RUN_NAME']}"
+    
+    # Config 로드
+    config_path = paths["CONFIG"] / "config.json"
+    from utils import load_config
+    config = load_config(config_path)
+    
+    dataset_prefix = config.get("data", {}).get("dataset_prefix", "pill_od_yolo")
+    dataset_root = paths["PROC_ROOT"] / "datasets" / f"{dataset_prefix}_{paths['RUN_NAME']}"
     data_yaml = dataset_root / "data.yaml"
     
     if not data_yaml.exists():

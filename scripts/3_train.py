@@ -84,7 +84,8 @@ def main():
     
     # 4) data.yaml 확인
     print("\n[4] data.yaml 확인...")
-    dataset_root = paths["PROC_ROOT"] / "datasets" / f"pill_od_yolo_{paths['RUN_NAME']}"
+    dataset_prefix = config.get("data", {}).get("dataset_prefix", "pill_od_yolo")
+    dataset_root = paths["PROC_ROOT"] / "datasets" / f"{dataset_prefix}_{paths['RUN_NAME']}"
     data_yaml = dataset_root / "data.yaml"
     
     if not data_yaml.exists():
@@ -96,13 +97,14 @@ def main():
     
     # 5) 학습 파라미터
     print("\n[5] 학습 파라미터 설정...")
-    train_config = config["train"]
+    train_config = config.get("train", {})
     
-    # CLI 인자가 있으면 override
-    model_name = args.model or train_config["model"]["name"]
-    imgsz = args.imgsz or train_config["model"]["imgsz"]
-    epochs = args.epochs or train_config["hyperparams"]["epochs"]
-    batch = args.batch or train_config["hyperparams"]["batch"]
+    # CLI 인자가 있으면 override, 없으면 config에서, config에도 없으면 기본값
+    model_name = args.model or train_config.get("model_name") or train_config.get("model", {}).get("name", "yolov8s.pt")
+    imgsz = args.imgsz or train_config.get("imgsz") or train_config.get("model", {}).get("imgsz", 768)
+    epochs = args.epochs or train_config.get("epochs") or train_config.get("hyperparams", {}).get("epochs", 80)
+    batch = args.batch or train_config.get("batch") or train_config.get("hyperparams", {}).get("batch", 8)
+    patience = train_config.get("patience") or train_config.get("hyperparams", {}).get("patience", 50)
     
     print(f"  ✅ Model: {model_name}")
     print(f"  ✅ Image size: {imgsz}")
@@ -146,8 +148,7 @@ def main():
         project=str(paths["RUN_DIR"]),
         name="train",
         exist_ok=True,
-        # Ultralytics 기본값 사용 (필요 시 추가 설정)
-        patience=train_config["hyperparams"].get("patience", 50),
+        patience=patience,
         save=True,
         save_period=-1,  # 마지막에만 저장
         val=True,
@@ -191,10 +192,15 @@ def main():
     print(f"  ✅ {train_meta_path.relative_to(paths['ROOT'])}")
     
     # 9) Config 업데이트
-    config["train"]["model"]["name"] = model_name
-    config["train"]["model"]["imgsz"] = imgsz
-    config["train"]["hyperparams"]["epochs"] = epochs
-    config["train"]["hyperparams"]["batch"] = batch
+    if "train" not in config:
+        config["train"] = {}
+    
+    # base.yaml 구조를 따르도록 업데이트
+    config["train"]["model_name"] = model_name
+    config["train"]["imgsz"] = imgsz
+    config["train"]["epochs"] = epochs
+    config["train"]["batch"] = batch
+    
     save_config(config, config_path)
     print(f"  ✅ Config 업데이트")
     
