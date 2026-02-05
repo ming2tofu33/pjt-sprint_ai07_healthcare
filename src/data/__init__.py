@@ -13,6 +13,12 @@ from .split_utils import (
     save_split_info,
     load_split_info,
 )
+from .yolo_dataset import (
+    convert_bbox_coco_to_yolo,
+    create_yolo_dataset,
+    create_yolo_data_yaml,
+    prepare_yolo_dataset_from_coco,
+)
 
 __all__ = [
     # COCO utilities
@@ -26,4 +32,9 @@ __all__ = [
     'kfold_split',
     'save_split_info',
     'load_split_info',
+    # YOLO dataset
+    'convert_bbox_coco_to_yolo',
+    'create_yolo_dataset',
+    'create_yolo_data_yaml',
+    'prepare_yolo_dataset_from_coco',
 ]
