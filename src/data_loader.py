@@ -80,8 +80,10 @@ class PillPipeline:
         if not all_rows: return False
 
         raw_df = pd.DataFrame(all_rows)
-        self.df = raw_df.drop_duplicates(subset=['file_name'], keep='first').copy()
-        
+        # 파일명과 좌표가 모두 일치하는 '진짜 중복'만 제거합니다.
+        self.df = raw_df.drop_duplicates(subset=['file_name', 'anno_bbox'], keep='first').copy()
+        print(f"♻️ 중복 제거 완료: {len(raw_df)}건 -> {len(self.df)}건 (이미지 내 다중 객체 보존)")
+                
         if 'id' in self.df.columns: self.df = self.df.drop(columns=['id'])
             
         self.df.to_csv(self.cfg["FINAL_CSV"], index=False, encoding='utf-8-sig')
