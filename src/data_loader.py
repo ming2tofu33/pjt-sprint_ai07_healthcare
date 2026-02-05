@@ -32,10 +32,10 @@ class PillPipeline:
         self.df = pd.DataFrame()
 
     # ---------------------------------------------------------
-    # 0단계: [JSON 통합] 하위 폴더 수색 + 메타데이터 통합 + n개 객체 보존
+    # 0단계: [JSON 통합] ID 정합성 보정 로직 탑재
     # ---------------------------------------------------------
     def step0_build_golden_csv(self):
-        print("📊 [Step 0] 딥 폴더 수색 및 통합 장부 작성 시작...")
+        print("📊 [Step 0] ID 정합성 보정 및 통합 장부 작성 시작...")
         os.makedirs(os.path.dirname(self.cfg["FINAL_CSV"]), exist_ok=True)
         all_rows = []
         g_ann_id, g_img_id = 1, 1
@@ -57,9 +57,19 @@ class PillPipeline:
                         data = json.load(f)
                     
                     first_img = data['images'][0]
-                    true_cat_id = int(first_img['dl_idx'])
                     
-                    # [표준화] 약제 명칭을 'pill_name'으로 통일하여 KeyError 방지
+                    # [🚨 핵심 수정: ID 정합성 로직]
+                    # AIHUB의 249(K-000250) 문제를 해결하기 위해 drug_N에서 직접 ID를 추출합니다.
+                    # K-000250 -> 250 / K-027993 -> 27993
+                    drug_code = first_img.get('drug_N', '')
+                    if '-' in drug_code:
+                        # 하이픈(-) 뒤의 숫자를 가져와서 정수화 (가장 확실한 대회 기준 ID)
+                        true_cat_id = int(drug_code.split('-')[1])
+                    else:
+                        # 만약 형식이 다르면 기존 dl_idx를 사용하되 보정
+                        true_cat_id = int(first_img['dl_idx'])
+                    
+                    # 약제 명칭 표준화
                     raw_pill_name = first_img.get('dl_name', first_img.get('dl_name_en', 'Unknown'))
                     
                     img_lookup = {img['id']: img for img in data['images']}
@@ -71,7 +81,7 @@ class PillPipeline:
                             row_data = {
                                 "annotation_id": g_ann_id, 
                                 "image_id": g_img_id,
-                                "category_id": true_cat_id, 
+                                "category_id": true_cat_id, # 보정된 진짜 ID 저장
                                 "pill_name": raw_pill_name,
                                 "source": src_name,
                                 "anno_bbox": str(ann['bbox'])
@@ -85,13 +95,13 @@ class PillPipeline:
         if not all_rows: return False
 
         raw_df = pd.DataFrame(all_rows)
-        # [중복 제거] 파일명과 좌표가 모두 같을 때만 중복으로 간주 (n개 객체 보존)
+        # 중복 제거 (파일명 + 좌표 기준하여 다중 객체 보존)
         self.df = raw_df.drop_duplicates(subset=['file_name', 'anno_bbox'], keep='first').copy()
         
         if 'id' in self.df.columns: self.df = self.df.drop(columns=['id'])
             
         self.df.to_csv(self.cfg["FINAL_CSV"], index=False, encoding='utf-8-sig')
-        print(f"✅ 장부 생성 완료: {len(self.df)}건 저장.")
+        print(f"✅ 장부 생성 완료: {len(self.df)}건 저장 (ID 정합성 보정 완료).")
         return True
 
     # ---------------------------------------------------------
@@ -140,14 +150,13 @@ class PillPipeline:
                 H, W = img.shape[:2]
                 if bbox[0] < 0 or bbox[1] < 0 or (bbox[0]+bbox[2]) > W or (bbox[1]+bbox[3]) > H: continue
                 
-                # YOLO 정규화 공식: $$x_{c} = \frac{x + w/2}{W}, \quad y_{c} = \frac{y + h/2}{H}$$
+                # YOLO 정규화 공식 적용
                 x_c, y_c = (bbox[0] + bbox[2]/2) / W, (bbox[1] + bbox[3]/2) / H
                 wn, hn = bbox[2] / W, bbox[3] / H
                 
                 yolo_id = self.id_to_yolo[row['category_id']]
                 txt_name = os.path.splitext(row['file_name'])[0] + ".txt"
                 
-                # 'a' 모드로 열어서 한 이미지 내 n개의 객체를 한 파일에 작성
                 with open(os.path.join(self.label_temp, txt_name), 'a') as f:
                     f.write(f"{yolo_id} {x_c:.6f} {y_c:.6f} {wn:.6f} {hn:.6f}\n")
                 valid_indices.append(idx)
@@ -155,7 +164,7 @@ class PillPipeline:
         self.df = self.df.loc[valid_indices].copy()
 
     # ---------------------------------------------------------
-    # 3단계: [Dataset Split] 8:2 스마트 분할 및 복사
+    # 3단계: [Dataset Split] 8:2 스마트 분할
     # ---------------------------------------------------------
     def step2_split_dataset(self):
         print("\n📦 [Step 3] Train/Val 8:2 분할 및 복사 중...")
@@ -179,7 +188,7 @@ class PillPipeline:
         if os.path.exists(self.label_temp): shutil.rmtree(self.label_temp)
 
     # ---------------------------------------------------------
-    # 4단계: [Targeted Augmentation] 부족한 데이터 보충 수업
+    # 4단계: [Targeted Augmentation] 부족한 데이터 증강
     # ---------------------------------------------------------
     def step3_augment_train(self):
         print(f"\n🔥 [Step 4] 타겟 ID {self.cfg['AUG_TARGET_ID']} 증강 시작...")
@@ -190,7 +199,6 @@ class PillPipeline:
         y_id = self.id_to_yolo.get(self.cfg["AUG_TARGET_ID"])
         if y_id is None: return
 
-        # 증강 대상 파일 찾기
         target_files = []
         for f in os.listdir(train_lbl_dir):
             with open(os.path.join(train_lbl_dir, f), 'r') as lbl:
@@ -198,11 +206,8 @@ class PillPipeline:
                     target_files.append(f)
 
         needed = self.cfg["AUG_GOAL_COUNT"] - len(target_files)
-        if needed <= 0:
-            print("✨ 이미 목표 수량을 달성했습니다.")
-            return
+        if needed <= 0: return
 
-        # Albumentations 스위치 기반 설정
         augs = []
         if self.cfg["AUG_GEOMETRIC_ON"]:
             augs.extend([A.Rotate(limit=90, p=0.8), A.HorizontalFlip(p=0.5), A.VerticalFlip(p=0.5)])
@@ -216,23 +221,18 @@ class PillPipeline:
         for i in tqdm(range(needed), desc="Augmenting"):
             src_lbl = random.choice(target_files)
             base = os.path.splitext(src_lbl)[0]
-            
             img_path = None
             for ext in ['.png', '.jpg', '.jpeg']:
                 if os.path.exists(os.path.join(train_img_dir, base + ext)):
                     img_path = os.path.join(train_img_dir, base + ext); break
             if not img_path: continue
-            
             img = cv2.imread(img_path)
             img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-            
             with open(os.path.join(train_lbl_dir, src_lbl), 'r') as f:
                 lines = f.readlines()
                 bboxes = [list(map(float, l.split()[1:])) for l in lines]
                 cls_labels = [int(l.split()[0]) for l in lines]
-
             augmented = transform(image=img, bboxes=bboxes, class_labels=cls_labels)
-            
             new_name = f"aug_{i}_{base}"
             cv2.imwrite(os.path.join(train_img_dir, new_name + ".jpg"), cv2.cvtColor(augmented['image'], cv2.COLOR_RGB2BGR))
             with open(os.path.join(train_lbl_dir, new_name + ".txt"), 'w') as f:
@@ -240,7 +240,7 @@ class PillPipeline:
                     f.write(f"{c} {b[0]:.6f} {b[1]:.6f} {b[2]:.6f} {b[3]:.6f}\n")
 
     # ---------------------------------------------------------
-    # 6단계: [YAML 생성] 학습용 지도 제작
+    # 6단계: [YAML 생성] PROCESSED_DIR 저장
     # ---------------------------------------------------------
     def generate_yaml(self):
         print("📄 [Step 6] 학습용 지도(data.yaml) 생성 중...")
@@ -258,8 +258,8 @@ class PillPipeline:
             "names": class_names
         }
 
+        # 저장 위치: data/processed/data.yaml
         yaml_path = os.path.join(self.cfg["PROCESSED_DIR"], "data.yaml")
-        os.makedirs(self.cfg["PROCESSED_DIR"], exist_ok=True)
         with open(yaml_path, 'w', encoding='utf-8') as f:
             yaml.dump(yaml_data, f, allow_unicode=True, default_flow_style=False)
         print(f"✅ data.yaml 생성 완료: {yaml_path}")
