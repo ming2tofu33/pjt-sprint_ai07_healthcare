@@ -71,8 +71,9 @@ def main():
     
     # 3) Seed 설정
     print("\n[3] Seed 설정...")
-    seed = config["reproducibility"]["seed"]
-    set_seed(seed, deterministic=config["reproducibility"]["deterministic"])
+    seed = config.get("reproducibility", {}).get("seed", 42)
+    deterministic = config.get("reproducibility", {}).get("deterministic", True)
+    set_seed(seed, deterministic=deterministic)
     print(f"  ✅ Seed: {seed}")
     
     # 4) data.yaml 확인
