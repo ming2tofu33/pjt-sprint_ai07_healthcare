@@ -1,5 +1,5 @@
-# Experiment 001: Baseline
-# YOLOv8s with default settings on all 56 classes
+# Experiment 002: Whitelist (Test 40 classes)
+# YOLOv8s trained only on classes present in test set
 
 # Inherit base config
 _base_: "../base.yaml"
@@ -8,9 +8,9 @@ _base_: "../base.yaml"
 # Experiment Metadata
 # ============================================================
 experiment:
-  id: "exp001"
-  name: "baseline"
-  description: "Baseline experiment with YOLOv8s on full dataset (56 classes)"
+  id: "exp002"
+  name: "whitelist_40"
+  description: "Train only on 40 classes present in test set"
   author: "@DM"
   created: "2026-02-05"
 
@@ -18,8 +18,10 @@ experiment:
 # Data Configuration (Override)
 # ============================================================
 data:
-  class_whitelist: null  # Use all 56 classes
-  num_classes: 56
+  # TODO: Fill with actual test set category IDs
+  # Get from: artifacts/<run_name>/reports/train_only_category_ids.json
+  class_whitelist: []  # [1900, 16548, 19607, ...]
+  num_classes: 40
 
 # ============================================================
 # Training Configuration (Override)
@@ -27,22 +29,21 @@ data:
 train:
   model_name: "yolov8s.pt"
   imgsz: 768
-  epochs: 80
+  epochs: 100  # More epochs since fewer classes
   batch: 8
   lr0: 0.001
-  
-  # Standard augmentation
-  augment: true
-  mosaic: 1.0
-  mixup: 0.0
-  copy_paste: 0.0
 
 # ============================================================
 # Notes
 # ============================================================
 notes: |
-  Baseline experiment to establish performance benchmark.
-  - Full dataset (232 train images, 56 classes)
-  - Standard YOLOv8s configuration
-  - No special augmentation or tricks
-  - Target: mAP@0.5 >= 0.50
+  Train only on classes present in test set.
+  - Reduces class confusion
+  - Should improve mAP on test set
+  - May need more epochs to converge
+  
+  Steps:
+  1. Run exp001_baseline first to get train-only class list
+  2. Extract 40 test classes from that list
+  3. Fill class_whitelist above
+  4. Run this experiment

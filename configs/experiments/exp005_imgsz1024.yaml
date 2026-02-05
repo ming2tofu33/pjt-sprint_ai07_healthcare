@@ -1,0 +1,39 @@
+# Experiment 005: Higher Resolution
+# Train with larger image size (1024)
+
+# Inherit base config
+_base_: "../base.yaml"
+
+# ============================================================
+# Experiment Metadata
+# ============================================================
+experiment:
+  id: "exp005"
+  name: "imgsz_1024"
+  description: "Higher resolution (1024) for better small object detection"
+  author: "@DM"
+  created: "2026-02-05"
+
+# ============================================================
+# Training Configuration (Override)
+# ============================================================
+train:
+  model_name: "yolov8s.pt"
+  imgsz: 1024  # Higher resolution
+  epochs: 100
+  batch: 4     # Smaller batch due to memory
+  lr0: 0.001
+  
+  # Adjust augmentation for larger images
+  translate: 0.1
+  scale: 0.5
+
+# ============================================================
+# Notes
+# ============================================================
+notes: |
+  Higher resolution for better detection.
+  - Pills may be small → higher resolution helps
+  - Increased memory usage → smaller batch
+  - Longer training time
+  - May improve mAP on small objects
