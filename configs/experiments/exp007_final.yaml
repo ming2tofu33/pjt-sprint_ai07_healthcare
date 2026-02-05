@@ -1,0 +1,106 @@
+# Experiment 007: High Resolution + Heavy Augmentation
+# 최종 최적화: 1024 해상도 + 강한 증강
+
+_base_: "../base.yaml"
+
+experiment:
+  id: "exp007"
+  name: "final_1024_heavy"
+  description: "High resolution (1024) with heavy augmentation for best mAP"
+  author: "@DM"
+  created: "2026-02-05"
+
+# Data config (same as base)
+data:
+  class_whitelist: null
+  num_classes: 56
+
+# Split config (same as base)
+split:
+  strategy: "stratify_by_num_objects"
+  seed: 42
+  ratios:
+    train: 0.8
+    valid: 0.2
+
+# Training configuration
+train:
+  model_name: "yolov8s.pt"
+  imgsz: 1024              # High resolution
+  epochs: 120              # More epochs for heavy aug
+  batch: 4                 # Reduced batch for memory
+  workers: 4
+  device: "0"
+  
+  # Optimizer
+  optimizer: "auto"
+  lr0: 0.001
+  lrf: 0.01
+  momentum: 0.937
+  weight_decay: 0.0005
+  
+  # Scheduler
+  warmup_epochs: 3.0
+  warmup_momentum: 0.8
+  warmup_bias_lr: 0.1
+  
+  # Heavy augmentation
+  augment: true
+  hsv_h: 0.02              # HSV-Hue (0.015 → 0.02)
+  hsv_s: 0.8               # HSV-Saturation (0.7 → 0.8)
+  hsv_v: 0.5               # HSV-Value (0.4 → 0.5)
+  degrees: 5.0             # Rotation (0.0 → 5.0)
+  translate: 0.1           # Translation
+  scale: 0.7               # Scale variation (0.5 → 0.7)
+  shear: 0.0
+  perspective: 0.0
+  flipud: 0.0
+  fliplr: 0.5
+  mosaic: 1.0              # Mosaic augmentation
+  mixup: 0.15              # Mixup (0.0 → 0.15)
+  copy_paste: 0.1          # Copy-paste (0.0 → 0.1)
+  
+  # Loss weights
+  box: 7.5
+  cls: 0.5
+  dfl: 1.5
+  
+  # Checkpointing
+  save: true
+  save_period: -1
+  patience: 50
+  
+  # Misc
+  pretrained: true
+  verbose: true
+  plots: true
+
+# Inference configuration
+infer:
+  conf_thr: 0.35           # Optimized threshold
+  nms_iou_thr: 0.45
+  max_det_per_image: 4
+  device: "0"
+
+# Notes
+notes: |
+  최종 최적화 전략:
+  
+  1. High Resolution (1024):
+     - 알약의 작은 텍스트/엠보싱 디테일 보존
+     - mAP@0.75~0.95에서 정확한 bbox 필요 → 고해상도 유리
+     - Trade-off: batch=4로 감소, 학습 시간 증가
+  
+  2. Heavy Augmentation:
+     - Mosaic (1.0): 4장 이미지 합성
+     - Mixup (0.15): 2장 이미지 혼합
+     - Copy-paste (0.1): 객체 복사/붙여넣기
+     - 색상/기하 변형 강화
+     - 목적: 232장 작은 데이터셋 과적합 방지
+  
+  3. Extended Training (120 epochs):
+     - Heavy augmentation은 수렴에 더 많은 epoch 필요
+     - Patience=50: 조기 종료 여유 있게
+  
+  예상 성능: mAP 0.45~0.55
+  예상 학습 시간: 6-8시간 (GPU 기준)

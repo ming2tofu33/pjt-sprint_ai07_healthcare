@@ -1,0 +1,48 @@
+# Experiment 004: Heavy Augmentation
+# Strong data augmentation to prevent overfitting
+
+# Inherit base config
+_base_: "../base.yaml"
+
+# ============================================================
+# Experiment Metadata
+# ============================================================
+experiment:
+  id: "exp004"
+  name: "heavy_aug"
+  description: "Heavy augmentation (mosaic, mixup, copy-paste)"
+  author: "@DM"
+  created: "2026-02-05"
+
+# ============================================================
+# Training Configuration (Override)
+# ============================================================
+train:
+  model_name: "yolov8s.pt"
+  imgsz: 768
+  epochs: 120  # More epochs needed for augmentation
+  batch: 8
+  lr0: 0.001
+  
+  # Heavy augmentation
+  augment: true
+  mosaic: 1.0
+  mixup: 0.15      # Enable mixup
+  copy_paste: 0.1  # Enable copy-paste
+  hsv_h: 0.02
+  hsv_s: 0.8
+  hsv_v: 0.5
+  degrees: 5.0     # More rotation
+  translate: 0.15  # More translation
+  scale: 0.7       # More scale variation
+  fliplr: 0.5
+
+# ============================================================
+# Notes
+# ============================================================
+notes: |
+  Strong augmentation to improve generalization.
+  - Small dataset (232 images) → high overfitting risk
+  - Mosaic + Mixup + Copy-paste
+  - More geometric augmentations
+  - Requires more epochs to converge
