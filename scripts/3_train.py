@@ -21,6 +21,12 @@ import sys
 import argparse
 from pathlib import Path
 
+# Windows 인코딩 수정
+if sys.platform == 'win32':
+    import codecs
+    sys.stdout = codecs.getwriter('utf-8')(sys.stdout.buffer, 'strict')
+    sys.stderr = codecs.getwriter('utf-8')(sys.stderr.buffer, 'strict')
+
 # src 모듈 import
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 from utils import (
