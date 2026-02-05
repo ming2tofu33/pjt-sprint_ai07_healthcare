@@ -132,7 +132,8 @@ val:
 # ============================================================
 infer:
   # Confidence and NMS
-  conf_thr: 0.25        # Confidence threshold
+  # mAP@0.75~0.95는 정확한 bbox가 중요 → 높은 confidence 권장
+  conf_thr: 0.35        # Confidence threshold (0.25 → 0.35, 낮은 신뢰도 객체 제거)
   nms_iou_thr: 0.45     # NMS IoU threshold
   max_det_per_image: 4  # Max detections per image (competition rule)
   

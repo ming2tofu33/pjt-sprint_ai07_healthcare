@@ -1,0 +1,41 @@
+# Experiment 006: High Confidence Threshold
+# 높은 신뢰도 임계값으로 정확한 예측만 제출
+
+# Inherit base config
+_base_: "../base.yaml"
+
+# ============================================================
+# Experiment Metadata
+# ============================================================
+experiment:
+  id: "exp006"
+  name: "high_conf"
+  description: "High confidence threshold for mAP@0.75~0.95 optimization"
+  author: "@DM"
+  created: "2026-02-05"
+
+# ============================================================
+# Inference Configuration (Override)
+# ============================================================
+infer:
+  conf_thr: 0.5         # 높은 confidence (0.25 → 0.5)
+  nms_iou_thr: 0.45
+  max_det_per_image: 4
+
+# ============================================================
+# Notes
+# ============================================================
+notes: |
+  mAP@0.75~0.95 최적화 전략:
+  - 높은 confidence threshold (0.5)
+  - 정확한 bbox만 제출 → IoU 0.75+ 만족
+  - False Positive 감소
+  
+  Trade-off:
+  - Precision 증가, Recall 감소
+  - 일부 객체 누락 가능하지만 정확도는 높음
+  
+  언제 사용:
+  - Baseline보다 낮은 점수 나올 때
+  - False Positive가 많을 때
+  - 정밀도 > 재현율 전략
