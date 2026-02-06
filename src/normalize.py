@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from typing import Any, Optional, Tuple
 
@@ -24,6 +25,18 @@ def _clip_bbox_xywh(x: float, y: float, w: float, h: float, width: float, height
     x2c = min(max(x2, 0.0), width)
     y2c = min(max(y2, 0.0), height)
     return x1c, y1c, x2c - x1c, y2c - y1c
+
+
+def _extract_k_code_id(value: Any) -> Optional[str]:
+    if value is None:
+        return None
+    text = str(value).strip()
+    if text == "":
+        return None
+    m = re.search(r"K-(\d{6})", text)
+    if not m:
+        return None
+    return str(int(m.group(1)))
 
 
 def normalize_record(
@@ -225,13 +238,36 @@ def normalize_record(
             dl_idx = img0.get(key)
             dl_idx = "" if dl_idx is None else str(dl_idx).strip()
             mapped_id = None
+            mapped_lookup_key = dl_idx
+            fallback_key = None
+
+            # Prefer K-code fields when external dl_idx is off-by-one.
+            fallback_fields = mapping_cfg.get("fallback_fields", ["dl_mapping_code", "drug_N"])
+            if not isinstance(fallback_fields, list):
+                fallback_fields = ["dl_mapping_code", "drug_N"]
+            for field in fallback_fields:
+                if not isinstance(field, str):
+                    continue
+                candidate = _extract_k_code_id(img0.get(field))
+                if candidate is not None:
+                    fallback_key = candidate
+                    break
+
             if dl_idx != "" and mapping_id is not None and dl_idx in mapping_id:
-               mapped_id = mapping_id[dl_idx]
+                mapped_id = mapping_id[dl_idx]
+                mapped_lookup_key = dl_idx
+            elif fallback_key is not None and mapping_id is not None and fallback_key in mapping_id:
+                mapped_id = mapping_id[fallback_key]
+                mapped_lookup_key = fallback_key
             else:
-                # YAML 스위치에 따른 fallback 처리
                 on_unmapped = str(mapping_cfg.get("on_unmapped", "exclude")).lower()
-                if on_unmapped == "use_dl_idx" and dl_idx.isdigit():
-                    mapped_id = int(dl_idx)
+                if on_unmapped == "use_dl_idx":
+                    if fallback_key is not None and fallback_key.isdigit():
+                        mapped_id = int(fallback_key)
+                        mapped_lookup_key = fallback_key
+                    elif dl_idx.isdigit():
+                        mapped_id = int(dl_idx)
+                        mapped_lookup_key = dl_idx
 
             if mapped_id is None:
                 _log_excluded(
@@ -256,8 +292,8 @@ def normalize_record(
             if external_cfg.get("alignment", {}).get("categories_sync", {}).get(
                 "set_categories_name_from_train", True
             ):
-                if mapping_name and dl_idx in mapping_name:
-                    cat0["name"] = mapping_name[dl_idx]
+                if mapping_name and mapped_lookup_key in mapping_name:
+                    cat0["name"] = mapping_name[mapped_lookup_key]
 
     # bbox validation / casting
     validation_cfg = config.get("validation", {})
