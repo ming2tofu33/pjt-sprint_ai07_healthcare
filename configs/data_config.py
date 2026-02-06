@@ -31,7 +31,14 @@ CONFIG = {
     "AUG_GOAL_COUNT": 300,
 
     # [4. 증강 ON/OFF 스위치]
-    "AUG_GEOMETRIC_ON": True,
-    "AUG_COLOR_ON": True,
+    "AUG_GEOMETRIC_ON": False,
+    "AUG_COLOR_ON": False,
     "AUG_BLUR_ON": False,
+
+    # --------------------------------------------------------------------------
+    # [로직 제어 스위치] - ON/OFF를 여기서 결정합니다.
+    # --------------------------------------------------------------------------
+    "SWITCH_MY_COLLECTION": False,   # AB전용 데이터 수집 (현재 OFF)
+    "SWITCH_MY_CLEANING": False,     # AB전용 정제/YOLO변환 (현재 OFF)
+    "SWITCH_MY_AUGMENTATION": True,  # AB전용 증강 (이건 좋으니까 ON!)
 }
