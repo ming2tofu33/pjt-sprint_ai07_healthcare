@@ -102,9 +102,9 @@ def main():
         label_map = json.load(f)
     
     # idx2id: YOLO 인덱스 → 원본 category_id
-    idx2id = label_map["idx2id"]
-    # 문자열 키를 정수로 변환
-    idx2id = {int(k): int(v) for k, v in idx2id.items()}
+    # label_map은 {original_category_id: yolo_idx} 구조
+    # 따라서 뒤집어서 {yolo_idx: original_category_id} 만들기
+    idx2id = {v: int(k) for k, v in label_map.items()}
     
     print(f"  ✅ Label map 로드: {label_map_path.name}")
     print(f"  ✅ 클래스 개수: {len(idx2id)}")
