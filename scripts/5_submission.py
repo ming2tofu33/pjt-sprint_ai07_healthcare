@@ -98,7 +98,7 @@ def main():
         print(f"  ℹ️  먼저 scripts/1_create_coco_format.py를 실행하세요.")
         sys.exit(1)
     
-    with open(label_map_path, "r") as f:
+    with open(label_map_path, "r", encoding="utf-8") as f:
         label_map = json.load(f)
     
     # idx2id: YOLO 인덱스 → 원본 category_id
