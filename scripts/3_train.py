@@ -109,7 +109,9 @@ def main():
     train_config = config["train"]
 
     # CLI 인자가 있으면 override
-    model_name = args.model or train_config.get("model_name", "yolov8s")
+    model_name_raw = args.model or train_config.get("model_name", "yolov8s")
+    # .pt 확장자 정규화 (config에 "yolov8s.pt" 또는 "yolov8s" 모두 허용)
+    model_name = model_name_raw.removesuffix(".pt")
     imgsz = args.imgsz or train_config.get("imgsz", 768)
     epochs = args.epochs or train_config.get("epochs", 80)
     batch = args.batch or train_config.get("batch", 8)

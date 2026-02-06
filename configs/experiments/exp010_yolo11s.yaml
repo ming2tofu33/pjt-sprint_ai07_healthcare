@@ -22,12 +22,11 @@ experiment:
   author: "@DM"
   created: "2026-02-06"
 
+# --- base.yaml에서 변경하는 값만 ---
+
 train:
-  model_name: "yolo11s"   # YOLO11s (ultralytics 8.4.12+)
-  imgsz: 768
+  model_name: "yolo11s"   # yolov8s → yolo11s (ultralytics 8.4.12+)
   epochs: 100
-  batch: 8
-  patience: 50
 
 notes: |
   YOLO11s vs YOLOv8s 비교 실험.

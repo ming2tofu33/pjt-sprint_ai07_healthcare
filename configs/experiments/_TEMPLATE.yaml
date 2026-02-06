@@ -1,12 +1,11 @@
 # ==============================================================
-# Experiment Template
+# Experiment XXX: 실험 제목 (한줄 요약)
 # ==============================================================
-# 사용법:
-#   1. 이 파일을 복사: cp _TEMPLATE.yaml expXXX_실험이름.yaml
-#   2. 아래에서 base.yaml과 다른 값만 수정
-#   3. 실행: python scripts/3_train.py --run-name expXXX --config configs/experiments/expXXX_실험이름.yaml
+# 목적: 이 실험에서 테스트하는 것
 #
-# _base_ 상속: base.yaml의 모든 값을 상속받고, 여기서 지정한 값만 덮어씁니다.
+# 실행:
+#   python scripts/3_train.py --run-name expXXX --config configs/experiments/expXXX_name.yaml
+#   python scripts/5_submission.py --run-name expXXX --conf 0.25
 # ==============================================================
 
 _base_: "../base.yaml"
@@ -18,12 +17,13 @@ experiment:
   author: "@이름"
   created: "2026-02-XX"
 
-# base.yaml에서 변경할 값만 아래에 작성하세요.
-# 작성하지 않은 값은 base.yaml 기본값을 사용합니다.
+# --- base.yaml에서 변경하는 값만 아래에 작성 ---
+# 작성하지 않은 값은 base.yaml 기본값을 자동 상속합니다.
+# ⚠️ base.yaml과 같은 값은 적지 마세요 (Override-only 원칙)
 
-# --- 모델 변경 예시 ---
+# --- 모델/학습 변경 예시 ---
 # train:
-#   model_name: "yolov8m"    # yolov8n/s/m/l/x
+#   model_name: "yolo11s"    # yolov8n/s/m/l/x, yolo11n/s/m
 #   imgsz: 1024              # 해상도 (32의 배수)
 #   epochs: 100
 #   batch: 4                 # GPU 메모리에 맞게 조절
@@ -43,5 +43,9 @@ experiment:
 
 # --- Inference threshold 변경 예시 ---
 # infer:
-#   conf_thr: 0.40
-#   nms_iou_thr: 0.50
+#   conf_thr: 0.20
+
+notes: |
+  실험 설명과 결과 기록용.
+  - 변경 포인트 1
+  - 변경 포인트 2

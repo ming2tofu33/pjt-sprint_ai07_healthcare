@@ -26,9 +26,11 @@ experiment:
   author: "@DM"
   created: "2026-02-06"
 
+# --- base.yaml에서 변경하는 값만 ---
+
 train:
-  model_name: "yolo11s"   # YOLO11s
-  imgsz: 1024             # 고해상도
+  model_name: "yolo11s"   # yolov8s → yolo11s
+  imgsz: 1024             # 768 → 1024
   epochs: 150             # 충분한 학습
   batch: 4                # GPU 메모리 제약
   lr0: 0.001              # 표준 학습률

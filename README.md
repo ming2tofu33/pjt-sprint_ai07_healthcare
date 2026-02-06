@@ -62,15 +62,15 @@ pjt-sprint_ai07_healthcare/
 │       ├── exp004_heavy_aug.yaml
 │       ├── exp005_imgsz1024.yaml
 │       ├── exp006_high_conf.yaml
-│       └── exp007_final.yaml
+│       ├── exp007_final.yaml
+│       ├── exp010_yolo11s.yaml
+│       ├── exp012_yolo11s_1024.yaml
+│       ├── exp020_stage1.yaml
+│       └── exp020_stage2.yaml
 │
-├── src/                              # 🧩 핵심 모듈 (MVP: 평면 구조)
+├── src/                              # 🧩 핵심 모듈
 │   ├── __init__.py
-│   ├── utils.py                      # Config load/merge, 경로 헬퍼, seed, IO
-│   ├── data_loader.py                # [DEPRECATED] COCO 로드 + DataLoader
-│   ├── model.py                      # [DEPRECATED] YOLO 래퍼/모델 생성
-│   ├── trainer.py                    # [DEPRECATED] 학습 프로세스 관리
-│   └── inference.py                  # [DEPRECATED] 추론 및 결과 처리
+│   └── utils.py                      # Config load/merge, 경로 헬퍼, seed, IO
 │
 ├── scripts/                          # 🚀 실행 엔트리 포인트 (6단계 워크플로우)
 │   ├── 0_splitting.py                # STAGE 0: 데이터 분할
@@ -114,8 +114,8 @@ pjt-sprint_ai07_healthcare/
 │       └── submission_try_*.csv      # 제출 시도 기록
 │
 └── docs/
-    ├── SETUP.md                      # 환경 설정 가이드
-    └── WORKFLOW.md                   # 팀 규칙 & Guard 룰
+    ├── WORKFLOW_GUIDE.md             # 파이프라인 워크플로우 가이드
+    └── PRIORITY2_CONFIDENCE.md       # Confidence threshold 분석
 ```
 
 ---
@@ -175,12 +175,10 @@ python scripts/2_prepare_yolo_dataset.py --run-name exp_baseline
 # configs/experiments/exp001_baseline.yaml
 _base_: "../base.yaml"    # base.yaml 상속
 
+# ⚠️ base.yaml과 같은 값은 적지 마세요 (Override-only 원칙)
 train:
-  model_name: "yolov8s.pt"
-  imgsz: 768
-  epochs: 80
-  batch: 8
-  lr0: 0.001
+  epochs: 120             # 변경할 값만 명시
+  mixup: 0.15
 ```
 
 > 변경하고 싶은 값만 작성하면 나머지는 base.yaml에서 자동 상속됩니다.

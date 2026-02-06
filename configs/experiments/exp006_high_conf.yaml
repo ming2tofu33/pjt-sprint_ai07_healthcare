@@ -1,41 +1,29 @@
-# Experiment 006: High Confidence Threshold
-# 높은 신뢰도 임계값으로 정확한 예측만 제출
+# ==============================================================
+# Experiment 006: 높은 Confidence Threshold
+# ==============================================================
+# 목적: 높은 conf로 정확한 예측만 제출 — FP 감소 전략
+#
+# 실행:
+#   python scripts/5_submission.py --run-name exp001 --config configs/experiments/exp006_high_conf.yaml --conf 0.5
+# ==============================================================
 
-# Inherit base config
 _base_: "../base.yaml"
 
-# ============================================================
-# Experiment Metadata
-# ============================================================
 experiment:
   id: "exp006"
   name: "high_conf"
-  description: "High confidence threshold for mAP@0.75~0.95 optimization"
+  description: "높은 conf threshold(0.5)로 FP 감소 — 정밀도 우선 전략"
   author: "@DM"
   created: "2026-02-05"
 
-# ============================================================
-# Inference Configuration (Override)
-# ============================================================
-infer:
-  conf_thr: 0.5         # 높은 confidence (0.25 → 0.5)
-  nms_iou_thr: 0.45
-  max_det_per_image: 4
+# --- base.yaml에서 변경하는 값만 ---
 
-# ============================================================
-# Notes
-# ============================================================
+infer:
+  conf_thr: 0.5  # 0.35 → 0.5 (높은 confidence만 제출)
+
 notes: |
-  mAP@0.75~0.95 최적화 전략:
-  - 높은 confidence threshold (0.5)
-  - 정확한 bbox만 제출 → IoU 0.75+ 만족
-  - False Positive 감소
-  
-  Trade-off:
+  높은 conf threshold로 False Positive 감소.
+  - conf 0.5: 확신 높은 예측만 제출
   - Precision 증가, Recall 감소
-  - 일부 객체 누락 가능하지만 정확도는 높음
-  
-  언제 사용:
-  - Baseline보다 낮은 점수 나올 때
-  - False Positive가 많을 때
-  - 정밀도 > 재현율 전략
+  - FP가 많은 모델에 효과적
+  - 학습은 기존 모델 사용, 제출 설정만 변경

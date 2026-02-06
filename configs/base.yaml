@@ -59,7 +59,7 @@ split:
 # ============================================================
 train:
   # Model
-  model_name: "yolov8s.pt"  # yolov8n/s/m/l/x
+  model_name: "yolov8s"  # yolov8n/s/m/l/x, yolo11n/s/m (확장자 .pt 생략)
   
   # Image settings
   imgsz: 768  # Image size (must be multiple of 32)
@@ -68,7 +68,7 @@ train:
   epochs: 80
   batch: 8
   workers: 4
-  device: "0"  # GPU device (0, 1, ... or "cpu")
+  # device: "0"  # ⚠️ 코드 미사용 — CLI --device가 항상 override. 참고용.
   
   # Optimizer
   optimizer: "auto"  # auto, SGD, Adam, AdamW
@@ -83,7 +83,7 @@ train:
   warmup_bias_lr: 0.1
   
   # Augmentation
-  augment: true
+  # augment: true  # ⚠️ 코드 미사용 — 개별 aug 파라미터(mosaic, mixup 등)가 직접 전달됨
   hsv_h: 0.015    # HSV-Hue augmentation
   hsv_s: 0.7      # HSV-Saturation
   hsv_v: 0.4      # HSV-Value

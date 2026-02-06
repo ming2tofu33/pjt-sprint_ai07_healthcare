@@ -1,49 +1,35 @@
-# Experiment 002: Whitelist (Test 40 classes)
-# YOLOv8s trained only on classes present in test set
+# ==============================================================
+# Experiment 002: Whitelist (테스트셋 40클래스만 학습)
+# ==============================================================
+# 목적: 테스트셋에 존재하는 40개 클래스만으로 학습하여 혼동 감소
+#
+# 실행:
+#   python scripts/3_train.py --run-name exp002 --config configs/experiments/exp002_whitelist.yaml
+#   python scripts/5_submission.py --run-name exp002 --conf 0.25
+# ==============================================================
 
-# Inherit base config
 _base_: "../base.yaml"
 
-# ============================================================
-# Experiment Metadata
-# ============================================================
 experiment:
   id: "exp002"
   name: "whitelist_40"
-  description: "Train only on 40 classes present in test set"
+  description: "테스트셋 40클래스만 학습 — 클래스 혼동 감소"
   author: "@DM"
   created: "2026-02-05"
 
-# ============================================================
-# Data Configuration (Override)
-# ============================================================
+# --- base.yaml에서 변경하는 값만 ---
+
 data:
-  # TODO: Fill with actual test set category IDs
-  # Get from: artifacts/<run_name>/reports/train_only_category_ids.json
+  # TODO: 실제 테스트셋 category ID로 채우기
+  # 참고: artifacts/<run_name>/reports/train_only_category_ids.json
   class_whitelist: []  # [1900, 16548, 19607, ...]
   num_classes: 40
 
-# ============================================================
-# Training Configuration (Override)
-# ============================================================
 train:
-  model_name: "yolov8s.pt"
-  imgsz: 768
-  epochs: 100  # More epochs since fewer classes
-  batch: 8
-  lr0: 0.001
+  epochs: 100  # 클래스가 적어 더 오래 학습
 
-# ============================================================
-# Notes
-# ============================================================
 notes: |
-  Train only on classes present in test set.
-  - Reduces class confusion
-  - Should improve mAP on test set
-  - May need more epochs to converge
-  
-  Steps:
-  1. Run exp001_baseline first to get train-only class list
-  2. Extract 40 test classes from that list
-  3. Fill class_whitelist above
-  4. Run this experiment
+  테스트셋에 존재하는 40개 클래스만 학습.
+  - 불필요한 클래스 혼동 감소
+  - 테스트셋 mAP 향상 기대
+  - exp001 먼저 실행하여 클래스 목록 확보 필요

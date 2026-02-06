@@ -3,7 +3,10 @@
     "allow": [
       "Bash(source venv/Scripts/activate)",
       "Bash(PYTHONIOENCODING=utf-8 python:*)",
-      "Bash(python:*)"
+      "Bash(python:*)",
+      "Bash(du -sh:*)",
+      "Bash(xargs:*)",
+      "Bash(ls:*)"
     ]
   }
 }

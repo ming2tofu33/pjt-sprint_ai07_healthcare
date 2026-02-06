@@ -1,39 +1,31 @@
-# Experiment 005: Higher Resolution
-# Train with larger image size (1024)
+# ==============================================================
+# Experiment 005: 고해상도 (1024px)
+# ==============================================================
+# 목적: 해상도 증가로 bbox 정밀도 향상 (768 → 1024)
+#
+# 실행:
+#   python scripts/3_train.py --run-name exp005 --config configs/experiments/exp005_imgsz1024.yaml
+#   python scripts/5_submission.py --run-name exp005 --conf 0.25
+# ==============================================================
 
-# Inherit base config
 _base_: "../base.yaml"
 
-# ============================================================
-# Experiment Metadata
-# ============================================================
 experiment:
   id: "exp005"
   name: "imgsz_1024"
-  description: "Higher resolution (1024) for better small object detection"
+  description: "고해상도 1024px로 bbox 정밀도 향상"
   author: "@DM"
   created: "2026-02-05"
 
-# ============================================================
-# Training Configuration (Override)
-# ============================================================
-train:
-  model_name: "yolov8s.pt"
-  imgsz: 1024  # Higher resolution
-  epochs: 100
-  batch: 4     # Smaller batch due to memory
-  lr0: 0.001
-  
-  # Adjust augmentation for larger images
-  translate: 0.1
-  scale: 0.5
+# --- base.yaml에서 변경하는 값만 ---
 
-# ============================================================
-# Notes
-# ============================================================
+train:
+  imgsz: 1024  # 768 → 1024
+  epochs: 100
+  batch: 4     # 메모리 제약으로 줄임
+
 notes: |
-  Higher resolution for better detection.
-  - Pills may be small → higher resolution helps
-  - Increased memory usage → smaller batch
-  - Longer training time
-  - May improve mAP on small objects
+  고해상도(1024px) 실험.
+  - mAP@0.75:0.95는 tight bbox 필수 → 고해상도 유리
+  - 메모리 증가 → batch=4로 줄임
+  - 학습 시간 증가

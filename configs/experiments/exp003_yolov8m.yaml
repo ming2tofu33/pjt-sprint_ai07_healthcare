@@ -1,38 +1,33 @@
-# Experiment 003: Larger Model
-# YOLOv8m for higher capacity
+# ==============================================================
+# Experiment 003: YOLOv8m (큰 모델)
+# ==============================================================
+# 목적: 더 큰 모델(YOLOv8m)로 학습 용량 증가 실험
+#
+# 실행:
+#   python scripts/3_train.py --run-name exp003 --config configs/experiments/exp003_yolov8m.yaml
+#   python scripts/5_submission.py --run-name exp003 --conf 0.25
+# ==============================================================
 
-# Inherit base config
 _base_: "../base.yaml"
 
-# ============================================================
-# Experiment Metadata
-# ============================================================
 experiment:
   id: "exp003"
   name: "yolov8m"
-  description: "Larger model (YOLOv8m) for potentially better performance"
+  description: "YOLOv8m 큰 모델로 학습 용량 증가"
   author: "@DM"
   created: "2026-02-05"
 
-# ============================================================
-# Training Configuration (Override)
-# ============================================================
+# --- base.yaml에서 변경하는 값만 ---
+
 train:
-  model_name: "yolov8m.pt"  # Larger model
-  imgsz: 768
+  model_name: "yolov8m"  # s → m (더 큰 모델)
   epochs: 100
-  batch: 4  # Smaller batch due to larger model
-  lr0: 0.0005  # Lower LR for larger model
-  
-  # Patience for early stopping
+  batch: 4               # 모델 크기로 인해 줄임
+  lr0: 0.0005            # 큰 모델에 낮은 LR
   patience: 30
 
-# ============================================================
-# Notes
-# ============================================================
 notes: |
-  Larger model with more parameters.
-  - Better capacity for learning complex patterns
-  - Slower training and inference
-  - May overfit on small dataset (232 images)
-  - Reduced batch size due to memory constraints
+  더 큰 모델 YOLOv8m 실험.
+  - 파라미터 증가로 복잡한 패턴 학습 가능
+  - 232장 소규모 데이터셋에서 과적합 가능성
+  - batch=4, lr=0.0005로 안정적 학습

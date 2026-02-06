@@ -34,9 +34,11 @@ experiment:
   author: "@DM"
   created: "2026-02-06"
 
+# --- base.yaml에서 변경하는 값만 ---
+
 train:
-  model_name: "yolo11s"   # YOLO11s
-  imgsz: 1024             # 고해상도 유지
+  model_name: "yolo11s"   # yolov8s → yolo11s
+  imgsz: 1024             # 768 → 1024
   epochs: 60              # 미세조정이므로 적은 에폭
   batch: 4
   optimizer: "AdamW"      # AdamW (안정적 fine-tuning)
@@ -62,7 +64,6 @@ train:
   # bbox 정밀도 강화 (Loss 가중치 조정)
   box: 10.0               # 7.5 → 10.0 (bbox 위치 정확도 중시)
   dfl: 2.0                # 1.5 → 2.0  (distribution focal loss 강화)
-  cls: 0.5                # 분류는 기본값 유지
 
 infer:
   conf_thr: 0.20          # 낮은 conf (mAP는 PR 곡선 전체 사용)

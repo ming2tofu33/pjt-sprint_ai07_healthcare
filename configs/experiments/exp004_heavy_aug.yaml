@@ -1,48 +1,40 @@
-# Experiment 004: Heavy Augmentation
-# Strong data augmentation to prevent overfitting
+# ==============================================================
+# Experiment 004: 강한 증강 (Heavy Augmentation)
+# ==============================================================
+# 목적: 강한 데이터 증강으로 232장 소규모 데이터셋의 과적합 방지
+#
+# 실행:
+#   python scripts/3_train.py --run-name exp004 --config configs/experiments/exp004_heavy_aug.yaml
+#   python scripts/5_submission.py --run-name exp004 --conf 0.25
+# ==============================================================
 
-# Inherit base config
 _base_: "../base.yaml"
 
-# ============================================================
-# Experiment Metadata
-# ============================================================
 experiment:
   id: "exp004"
   name: "heavy_aug"
-  description: "Heavy augmentation (mosaic, mixup, copy-paste)"
+  description: "Mosaic + Mixup + Copy-paste 강한 증강으로 과적합 방지"
   author: "@DM"
   created: "2026-02-05"
 
-# ============================================================
-# Training Configuration (Override)
-# ============================================================
+# --- base.yaml에서 변경하는 값만 ---
+
 train:
-  model_name: "yolov8s.pt"
-  imgsz: 768
-  epochs: 120  # More epochs needed for augmentation
-  batch: 8
-  lr0: 0.001
-  
-  # Heavy augmentation
-  augment: true
-  mosaic: 1.0
-  mixup: 0.15      # Enable mixup
-  copy_paste: 0.1  # Enable copy-paste
+  epochs: 120    # 강한 증강은 수렴에 더 오래 걸림
+
+  # 강한 증강
+  mixup: 0.15
+  copy_paste: 0.1
   hsv_h: 0.02
   hsv_s: 0.8
   hsv_v: 0.5
-  degrees: 5.0     # More rotation
-  translate: 0.15  # More translation
-  scale: 0.7       # More scale variation
-  fliplr: 0.5
+  degrees: 5.0
+  translate: 0.15
+  scale: 0.7
 
-# ============================================================
-# Notes
-# ============================================================
 notes: |
-  Strong augmentation to improve generalization.
-  - Small dataset (232 images) → high overfitting risk
-  - Mosaic + Mixup + Copy-paste
-  - More geometric augmentations
-  - Requires more epochs to converge
+  강한 증강으로 일반화 성능 향상.
+  - 232장 소규모 데이터셋 → 과적합 위험 높음
+  - Mosaic(1.0) + Mixup(0.15) + Copy-paste(0.1) 적용
+  - 기하학적 변형 강화 (rotation 5도, scale 0.7)
+  - 수렴에 더 많은 에폭 필요 → 120ep
