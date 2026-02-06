@@ -109,8 +109,6 @@ python -c "import torch; print(f'CUDA: {torch.cuda.is_available()}, GPU: {torch.
                                    📤 Kaggle 제출
 ```
 
-> 💡 **스크립트 번호가 실행 순서와 같습니다.** `0 → 1 → 2 → 3 → 4 → 5` 순서로 실행하세요.
-
 ### 파이프라인 요약 테이블
 
 | 순서 | 스크립트 | 목적 | 입력 | 출력 | 데이터 형식 |
