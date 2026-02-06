@@ -1,4 +1,4 @@
-# 🏥 Healthcare AI Project - YOLO 기반 의료 이미지 객체 탐지
+﻿# 🏥 Healthcare AI Project - YOLO 기반 의료 이미지 객체 탐지
 
 > **AI-powered Healthcare Image Analysis System**  
 > YOLO 모델을 활용한 의료 이미지 객체 탐지 및 분류 프로젝트
@@ -40,17 +40,17 @@ pjt-sprint_ai07_healthcare/
 │   │   ├── train_annotations/        # 763개 JSON 파일
 │   │   └── test_images/              # 842개 테스트 이미지
 │   │
-│   ├── splits/                       # ✅ STAGE 0: 데이터 분할 결과
-│   │   ├── train_split/
-│   │   ├── val_split/
-│   │   └── test_split/               # (선택) 최종 평가용
+│   ├── coco_data/                    # ✅ STAGE 0: COCO 포맷 변환 결과
+│   │   ├── train_coco.json
+│   │   ├── val_coco.json
+│   │   └── meta/
+│   │       ├── class_mapping.json
+│   │       └── dataset_stats.json
 │   │
-│   └── coco_data/                    # ✅ STAGE 1: COCO 포맷 변환 결과
-│       ├── train_coco.json
-│       ├── val_coco.json
-│       └── meta/
-│           ├── class_mapping.json
-│           └── dataset_stats.json
+│   └── splits/                       # ✅ STAGE 1: 데이터 분할 결과
+│       ├── train_split/
+│       ├── val_split/
+│       └── test_split/               # (선택) 최종 평가용
 │
 ├── configs/                          # ⚙️ 실험 설정 (YAML)
 │   ├── base.yaml                     # 공통 기본 설정
@@ -73,8 +73,8 @@ pjt-sprint_ai07_healthcare/
 │   └── utils.py                      # Config load/merge, 경로 헬퍼, seed, IO
 │
 ├── scripts/                          # 🚀 실행 엔트리 포인트 (6단계 워크플로우)
-│   ├── 0_splitting.py                # STAGE 0: 데이터 분할
-│   ├── 1_create_coco_format.py       # STAGE 1: COCO JSON 생성
+│   ├── 0_create_coco_format.py       # STAGE 0: COCO JSON 생성
+│   ├── 1_splitting.py                # STAGE 1: 데이터 분할
 │   ├── 2_prepare_yolo_dataset.py     # STAGE 2: COCO→YOLO 포맷 변환
 │   ├── 3_train.py                    # STAGE 3: 모델 학습/튜닝
 │   ├── 4_evaluate.py                 # STAGE 4: 평가 (mAP 등)
@@ -124,7 +124,7 @@ pjt-sprint_ai07_healthcare/
 
 ```mermaid
 flowchart LR
-    A[0️⃣ Split] --> B[1️⃣ COCO Format]
+    A[0️⃣ COCO Format] --> B[1️⃣ Split]
     B --> C[2️⃣ Config]
     C --> D[3️⃣ Train/Tune]
     D --> E[4️⃣ Evaluate]
@@ -138,25 +138,25 @@ flowchart LR
     style F fill:#fce4ec
 ```
 
-### STAGE 0️⃣: 데이터 분할 (Data Splitting)
+### STAGE 0️⃣: COCO 포맷 변환
 ```bash
-python scripts/0_splitting.py --run-name exp_baseline
-# 또는 실험 config 지정
-python scripts/0_splitting.py --config configs/experiments/exp001_baseline.yaml --run-name exp_baseline
+python scripts/0_create_coco_format.py --run-name exp_baseline
 ```
 
-**입력**: `data/raw/train_images/`, `data/raw/train_annotations/`
-**출력**: `data/processed/cache/<run_name>/splits/`
+**입력**: `data/raw/train_annotations/`
+**출력**: `data/processed/cache/<run_name>/train_merged_coco.json`, `label_map_full.json`
 
 ---
 
-### STAGE 1️⃣: COCO 포맷 변환
+### STAGE 1️⃣: 데이터 분할 (Data Splitting)
 ```bash
-python scripts/1_create_coco_format.py --run-name exp_baseline
+python scripts/1_splitting.py --run-name exp_baseline
+# 또는 실험 config 지정
+python scripts/1_splitting.py --config configs/experiments/exp001_baseline.yaml --run-name exp_baseline
 ```
 
-**입력**: Split 결과 + 원본 annotations
-**출력**: `data/processed/cache/<run_name>/train_merged_coco.json`, `label_map_full.json`
+**입력**: `data/processed/cache/<run_name>/train_merged_coco.json`
+**출력**: `data/processed/cache/<run_name>/splits/`
 
 ---
 
@@ -246,8 +246,8 @@ EXP="exp_baseline"
 CONFIG="configs/experiments/exp001_baseline.yaml"
 
 # 데이터 파이프라인
-python scripts/1_create_coco_format.py --run-name $EXP
-python scripts/0_splitting.py --run-name $EXP
+python scripts/0_create_coco_format.py --run-name $EXP
+python scripts/1_splitting.py --run-name $EXP
 python scripts/2_prepare_yolo_dataset.py --run-name $EXP
 
 # 학습 → 평가 → 제출

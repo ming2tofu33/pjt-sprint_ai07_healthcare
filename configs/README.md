@@ -30,7 +30,7 @@ configs/
 
 ```bash
 # scripts가 base.yaml을 자동으로 읽음 (기본값)
-python scripts/1_create_coco_format.py --run-name exp_test
+python scripts/0_create_coco_format.py --run-name exp_test
 python scripts/3_train.py --run-name exp_test
 ```
 
@@ -39,8 +39,8 @@ python scripts/3_train.py --run-name exp_test
 ```bash
 # 모든 스크립트에 --config 플래그 지원
 CONFIG="configs/experiments/exp001_baseline.yaml"
-python scripts/1_create_coco_format.py --config $CONFIG --run-name exp001
-python scripts/0_splitting.py --config $CONFIG --run-name exp001
+python scripts/0_create_coco_format.py --config $CONFIG --run-name exp001
+python scripts/1_splitting.py --config $CONFIG --run-name exp001
 python scripts/2_prepare_yolo_dataset.py --config $CONFIG --run-name exp001
 python scripts/3_train.py --config $CONFIG --run-name exp001
 python scripts/4_evaluate.py --config $CONFIG --run-name exp001
@@ -197,8 +197,8 @@ notes: |
    ```bash
    EXP_NAME="exp008"
    CONFIG="configs/experiments/${EXP_NAME}_custom.yaml"
-   python scripts/1_create_coco_format.py --config $CONFIG --run-name ${EXP_NAME}
-   python scripts/0_splitting.py --config $CONFIG --run-name ${EXP_NAME}
+   python scripts/0_create_coco_format.py --config $CONFIG --run-name ${EXP_NAME}
+   python scripts/1_splitting.py --config $CONFIG --run-name ${EXP_NAME}
    python scripts/2_prepare_yolo_dataset.py --config $CONFIG --run-name ${EXP_NAME}
    python scripts/3_train.py --config $CONFIG --run-name ${EXP_NAME}
    python scripts/4_evaluate.py --config $CONFIG --run-name ${EXP_NAME}

@@ -7,8 +7,8 @@
 #       2단계: lr=5e-5, 60ep, 증강 전부 OFF → bbox 미세조정
 #
 # 실행:
-#   python scripts/1_create_coco_format.py --run-name exp020_s1
-#   python scripts/0_splitting.py --run-name exp020_s1
+#   python scripts/0_create_coco_format.py --run-name exp020_s1
+#   python scripts/1_splitting.py --run-name exp020_s1
 #   python scripts/2_prepare_yolo_dataset.py --run-name exp020_s1
 #   python scripts/3_train.py --run-name exp020_s1 --config configs/experiments/exp020_stage1.yaml
 #   python scripts/4_evaluate.py --run-name exp020_s1 --config configs/experiments/exp020_stage1.yaml

@@ -10,8 +10,8 @@
 #
 # 실행:
 #   # 데이터 준비
-#   python scripts/1_create_coco_format.py --run-name exp020_s2
-#   python scripts/0_splitting.py --run-name exp020_s2
+#   python scripts/0_create_coco_format.py --run-name exp020_s2
+#   python scripts/1_splitting.py --run-name exp020_s2
 #   python scripts/2_prepare_yolo_dataset.py --run-name exp020_s2
 #
 #   # 2단계 학습 (1단계 best.pt를 --ckpt-from으로 로드)

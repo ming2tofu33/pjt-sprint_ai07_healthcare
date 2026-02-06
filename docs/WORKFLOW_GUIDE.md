@@ -1,4 +1,4 @@
-# 🏥 경구약제 객체 검출 — 프로젝트 워크플로우 가이드
+﻿# 🏥 경구약제 객체 검출 — 프로젝트 워크플로우 가이드
 
 > **Team #4 | Kaggle Pill Detection Competition**
 > 타겟 지표: `mAP@[0.75:0.95]` | 모델: YOLO (Ultralytics) | 데이터: 232 Train + 842 Test 이미지
@@ -91,7 +91,7 @@ python -c "import torch; print(f'CUDA: {torch.cuda.is_available()}, GPU: {torch.
 ┌─────────────────────────────────────────────────────────────┐
 │                    데이터 준비 (1회만)                        │
 │                                                             │
-│  [1] COCO 생성 ─→ [0] Split ─→ [2] YOLO 변환                 │
+│  [0] COCO 생성 ─→ [1] Split ─→ [2] YOLO 변환                 │
 │   763 JSON         80/20         images/ + labels/          │
 │   → merged COCO    분할           → data.yaml                │
 └─────────────────────┬───────────────────────────────────────┘
@@ -109,18 +109,18 @@ python -c "import torch; print(f'CUDA: {torch.cuda.is_available()}, GPU: {torch.
                                    📤 Kaggle 제출
 ```
 
-> 💡 **스크립트 번호가 실행 순서와 다릅니다!** `1 → 0 → 2 → 3 → 4 → 5` 순서로 실행하세요.
+> 💡 **스크립트 번호가 실행 순서와 같습니다.** `0 → 1 → 2 → 3 → 4 → 5` 순서로 실행하세요.
 
 ### 파이프라인 요약 테이블
 
 | 순서 | 스크립트 | 목적 | 입력 | 출력 | 데이터 형식 |
 |:----:|----------|------|------|------|------------|
-| 1 | `1_create_coco_format.py` | 어노테이션 통합 | `data/raw/train_annotations/` (763 JSON) | `cache/<run>/train_merged_coco.json` | 개별 JSON → COCO JSON |
-| 2 | `0_splitting.py` | Train/Val 분할 | `cache/<run>/train_merged_coco.json` | `cache/<run>/splits/train_ids.txt`, `valid_ids.txt` | COCO JSON → Split 목록 |
-| 3 | `2_prepare_yolo_dataset.py` | YOLO 변환 | merged COCO + splits + images | `datasets/pill_od_yolo_<run>/` | COCO → YOLO (normalized xywh) |
-| 4 | `3_train.py` | 모델 학습 | `data.yaml` + Config | `runs/<run>/checkpoints/best.pt` | YOLO → 가중치 (.pt) |
-| 5 | `4_evaluate.py` | Val 평가 | `best.pt` + `data.yaml` | `reports/eval_results.json` | 가중치 → mAP 메트릭 |
-| 6 | `5_submission.py` | 제출 파일 | `best.pt` + test images | `submissions/submission.csv` | 가중치 → Kaggle CSV |
+| 0 | `0_create_coco_format.py` | 어노테이션 통합 | `data/raw/train_annotations/` (763 JSON) | `cache/<run>/train_merged_coco.json` | 개별 JSON → COCO JSON |
+| 1 | `1_splitting.py` | Train/Val 분할 | `cache/<run>/train_merged_coco.json` | `cache/<run>/splits/train_ids.txt`, `valid_ids.txt` | COCO JSON → Split 목록 |
+| 2 | `2_prepare_yolo_dataset.py` | YOLO 변환 | merged COCO + splits + images | `datasets/pill_od_yolo_<run>/` | COCO → YOLO (normalized xywh) |
+| 3 | `3_train.py` | 모델 학습 | `data.yaml` + Config | `runs/<run>/checkpoints/best.pt` | YOLO → 가중치 (.pt) |
+| 4 | `4_evaluate.py` | Val 평가 | `best.pt` + `data.yaml` | `reports/eval_results.json` | 가중치 → mAP 메트릭 |
+| 5 | `5_submission.py` | 제출 파일 | `best.pt` + test images | `submissions/submission.csv` | 가중치 → Kaggle CSV |
 
 ---
 
@@ -128,12 +128,12 @@ python -c "import torch; print(f'CUDA: {torch.cuda.is_available()}, GPU: {torch.
 
 > 💡 모든 명령어는 **프로젝트 루트 디렉토리**에서 실행합니다.
 
-### Stage 1: COCO 포맷 생성 (`1_create_coco_format.py`)
+### Stage 0: COCO 포맷 생성 (`0_create_coco_format.py`)
 
 763개의 개별 JSON 어노테이션을 하나의 COCO 포맷 JSON으로 통합합니다.
 
 ```bash
-python scripts/1_create_coco_format.py --run-name exp004
+python scripts/0_create_coco_format.py --run-name exp004
 ```
 
 **입력:**
@@ -159,12 +159,12 @@ artifacts/exp004/reports/
 
 ---
 
-### Stage 2: Train/Val 분할 (`0_splitting.py`)
+### Stage 1: Train/Val 분할 (`1_splitting.py`)
 
 232장의 이미지를 80:20으로 분할합니다 (이미지 내 객체 수 기준 층화추출).
 
 ```bash
-python scripts/0_splitting.py --run-name exp004
+python scripts/1_splitting.py --run-name exp004
 ```
 
 **입력:**
@@ -538,11 +538,11 @@ train:
   degrees: 5.0
 ```
 
-### Step 2: 데이터 준비 (1 → 0 → 2)
+### Step 2: 데이터 준비 (0 → 1 → 2)
 
 ```bash
-python scripts/1_create_coco_format.py --run-name exp004
-python scripts/0_splitting.py --run-name exp004
+python scripts/0_create_coco_format.py --run-name exp004
+python scripts/1_splitting.py --run-name exp004
 python scripts/2_prepare_yolo_dataset.py --run-name exp004
 ```
 
@@ -596,8 +596,8 @@ python scripts/5_submission.py --run-name exp004 --config configs/experiments/ex
 
 ```bash
 # ========= 1단계: 강한 증강으로 일반화 학습 =========
-python scripts/1_create_coco_format.py --run-name exp020_s1
-python scripts/0_splitting.py --run-name exp020_s1
+python scripts/0_create_coco_format.py --run-name exp020_s1
+python scripts/1_splitting.py --run-name exp020_s1
 python scripts/2_prepare_yolo_dataset.py --run-name exp020_s1
 python scripts/3_train.py --run-name exp020_s1 --config configs/experiments/exp020_stage1.yaml
 
@@ -606,8 +606,8 @@ python scripts/4_evaluate.py --run-name exp020_s1 --config configs/experiments/e
 python scripts/5_submission.py --run-name exp020_s1 --conf 0.25
 
 # ========= 2단계: 증강 OFF + bbox 미세조정 =========
-python scripts/1_create_coco_format.py --run-name exp020_s2
-python scripts/0_splitting.py --run-name exp020_s2
+python scripts/0_create_coco_format.py --run-name exp020_s2
+python scripts/1_splitting.py --run-name exp020_s2
 python scripts/2_prepare_yolo_dataset.py --run-name exp020_s2
 
 # ⭐ 핵심: --ckpt-from으로 1단계 best.pt를 불러옵니다!
@@ -654,9 +654,9 @@ python scripts/5_submission.py --run-name exp020_s2 --conf 0.30 --tta
 |------|------|------|
 | `❌ data.yaml 없음` | 2번 스크립트 미실행 | `scripts/2_prepare_yolo_dataset.py` 먼저 실행 |
 | `❌ 체크포인트 없음` | 3번 스크립트 미실행 | `scripts/3_train.py` 먼저 실행 |
-| `❌ Label map 없음` | 1번 스크립트 미실행 | `scripts/1_create_coco_format.py` 먼저 실행 |
+| `❌ Label map 없음` | 1번 스크립트 미실행 | `scripts/0_create_coco_format.py` 먼저 실행 |
 | `CUDA out of memory` | batch 크기 초과 | `--batch 4` 또는 `--batch 2`로 줄이기 |
-| `Unknown class index` | label_map 불일치 | 데이터 준비(1→0→2)를 같은 run-name으로 재실행 |
+| `Unknown class index` | label_map 불일치 | 데이터 준비(0→1→2)를 같은 run-name으로 재실행 |
 | `submission.csv에 category_id가 0~55` | 버전 오류 | 최신 `5_submission.py` 사용 확인 (idx2id 변환 포함) |
 
 ### 학습이 중단되었을 때
@@ -680,8 +680,8 @@ ls artifacts/exp004/submissions/
 ```bash
 # 한 줄로 전체 파이프라인 실행 (bash)
 RUN=exp004 && CONFIG=configs/experiments/exp004_heavy_aug.yaml && \
-python scripts/1_create_coco_format.py --run-name $RUN && \
-python scripts/0_splitting.py --run-name $RUN && \
+python scripts/0_create_coco_format.py --run-name $RUN && \
+python scripts/1_splitting.py --run-name $RUN && \
 python scripts/2_prepare_yolo_dataset.py --run-name $RUN && \
 python scripts/3_train.py --run-name $RUN --config $CONFIG && \
 python scripts/4_evaluate.py --run-name $RUN --config $CONFIG && \
@@ -691,8 +691,8 @@ python scripts/5_submission.py --run-name $RUN --config $CONFIG --conf 0.25
 ```powershell
 # PowerShell 버전
 $RUN="exp004"; $CONFIG="configs/experiments/exp004_heavy_aug.yaml"
-python scripts/1_create_coco_format.py --run-name $RUN; if($?) {
-python scripts/0_splitting.py --run-name $RUN }; if($?) {
+python scripts/0_create_coco_format.py --run-name $RUN; if($?) {
+python scripts/1_splitting.py --run-name $RUN }; if($?) {
 python scripts/2_prepare_yolo_dataset.py --run-name $RUN }; if($?) {
 python scripts/3_train.py --run-name $RUN --config $CONFIG }; if($?) {
 python scripts/4_evaluate.py --run-name $RUN --config $CONFIG }; if($?) {

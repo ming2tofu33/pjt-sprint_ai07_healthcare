@@ -10,12 +10,12 @@ COCO Format 생성 스크립트
 5. Image-level 통계 생성
 
 사용법:
-    python scripts/1_create_coco_format.py [--config CONFIG_PATH] [--run-name RUN_NAME]
+    python scripts/0_create_coco_format.py [--config CONFIG_PATH] [--run-name RUN_NAME]
     
     예시:
-    python scripts/1_create_coco_format.py
-    python scripts/1_create_coco_format.py --run-name exp_baseline_v1
-    python scripts/1_create_coco_format.py --config runs/exp_test/config/config.json
+    python scripts/0_create_coco_format.py
+    python scripts/0_create_coco_format.py --run-name exp_baseline_v1
+    python scripts/0_create_coco_format.py --config runs/exp_test/config/config.json
 """
 
 import sys
@@ -309,7 +309,7 @@ def main():
     parser.add_argument("--run-name", type=str, help="실험명 (선택, 자동 생성)")
     args = parser.parse_args()
     
-    print_section("Stage 1: COCO Format 생성")
+    print_section("Stage 0: COCO Format 생성")
     
     # 1) 경로 설정
     print("\n[1] 경로 설정...")
@@ -440,7 +440,7 @@ def main():
     
     print_section("✅ COCO Format 생성 완료")
     print(f"\n다음 단계:")
-    print(f"  python scripts/0_splitting.py --run-name {paths['RUN_NAME']}")
+    print(f"  python scripts/1_splitting.py --run-name {paths['RUN_NAME']}")
 
 
 if __name__ == "__main__":

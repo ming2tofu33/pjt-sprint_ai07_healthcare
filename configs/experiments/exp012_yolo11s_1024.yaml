@@ -5,8 +5,8 @@
 # 기대: 1024px에서 작은 알약도 정확하게 검출
 #
 # 실행:
-#   python scripts/1_create_coco_format.py --run-name exp012
-#   python scripts/0_splitting.py --run-name exp012
+#   python scripts/0_create_coco_format.py --run-name exp012
+#   python scripts/1_splitting.py --run-name exp012
 #   python scripts/2_prepare_yolo_dataset.py --run-name exp012
 #   python scripts/3_train.py --run-name exp012 --config configs/experiments/exp012_yolo11s_1024.yaml
 #   python scripts/4_evaluate.py --run-name exp012 --config configs/experiments/exp012_yolo11s_1024.yaml

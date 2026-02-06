@@ -107,7 +107,7 @@ def main():
     
     if not label_map_path.exists():
         print(f"  ❌ Label map 없음: {label_map_path}")
-        print(f"  ℹ️  먼저 scripts/1_create_coco_format.py를 실행하세요.")
+        print(f"  ℹ️  먼저 scripts/0_create_coco_format.py를 실행하세요.")
         sys.exit(1)
     
     with open(label_map_path, "r", encoding="utf-8") as f:

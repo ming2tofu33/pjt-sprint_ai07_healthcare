@@ -5,8 +5,8 @@
 # 기대: YOLO11은 더 적은 파라미터로 더 높은 정확도
 #
 # 실행:
-#   python scripts/1_create_coco_format.py --run-name exp010
-#   python scripts/0_splitting.py --run-name exp010
+#   python scripts/0_create_coco_format.py --run-name exp010
+#   python scripts/1_splitting.py --run-name exp010
 #   python scripts/2_prepare_yolo_dataset.py --run-name exp010
 #   python scripts/3_train.py --run-name exp010 --config configs/experiments/exp010_yolo11s.yaml
 #   python scripts/4_evaluate.py --run-name exp010 --config configs/experiments/exp010_yolo11s.yaml

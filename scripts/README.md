@@ -1,4 +1,4 @@
-# scripts/ - 데이터 파이프라인 및 학습 스크립트
+﻿# scripts/ - 데이터 파이프라인 및 학습 스크립트
 
 ## 📌 개요
 
@@ -8,18 +8,18 @@
 
 ## 🔄 실행 순서
 
-### Stage 1: 데이터 파이프라인
+### Stage 0-1: 데이터 파이프라인
 
 ```bash
 # 1. COCO Format 생성 (763개 JSON → 232개 이미지 통합)
-python scripts/1_create_coco_format.py
+python scripts/0_create_coco_format.py
 
 # 2. Train/Val Split (Stratified)
-python scripts/0_splitting.py
+python scripts/1_splitting.py
 
 # 선택: 특정 실험명 지정
-python scripts/1_create_coco_format.py --run-name exp_baseline_v1
-python scripts/0_splitting.py --run-name exp_baseline_v1
+python scripts/0_create_coco_format.py --run-name exp_baseline_v1
+python scripts/1_splitting.py --run-name exp_baseline_v1
 ```
 
 ### Stage 2: 학습 및 평가
@@ -42,9 +42,9 @@ python scripts/5_submission.py --run-name exp_baseline_v1
 
 ## 📄 스크립트 상세
 
-### Stage 1: 데이터 파이프라인
+### Stage 0-1: 데이터 파이프라인
 
-#### `1_create_coco_format.py`
+#### `0_create_coco_format.py`
 
 **기능**:
 - `train_annotations/` 아래 763개 JSON → 232개 이미지 단위 통합
@@ -54,7 +54,7 @@ python scripts/5_submission.py --run-name exp_baseline_v1
 
 **사용법**:
 ```bash
-python scripts/1_create_coco_format.py [--config CONFIG] [--run-name NAME]
+python scripts/0_create_coco_format.py [--config CONFIG] [--run-name NAME]
 ```
 
 **옵션**:
@@ -87,7 +87,7 @@ artifacts/<run_name>/reports/
 
 ---
 
-#### `0_splitting.py`
+#### `1_splitting.py`
 
 **기능**:
 - Stratified split (객체 수 기반)
@@ -97,7 +97,7 @@ artifacts/<run_name>/reports/
 
 **사용법**:
 ```bash
-python scripts/0_splitting.py [--config CONFIG] [--run-name NAME] [--kfold]
+python scripts/1_splitting.py [--config CONFIG] [--run-name NAME] [--kfold]
 ```
 
 **옵션**:
@@ -328,16 +328,16 @@ infer:
 ### 실험명 지정
 ```bash
 # 자동 생성 (exp_YYYYMMDD_HHMMSS)
-python scripts/1_create_coco_format.py
+python scripts/0_create_coco_format.py
 
 # 수동 지정
-python scripts/1_create_coco_format.py --run-name exp_baseline_v1
+python scripts/0_create_coco_format.py --run-name exp_baseline_v1
 ```
 
 ### Config 재사용
 ```bash
 # 기존 실험의 config 사용
-python scripts/0_splitting.py --config runs/exp_baseline_v1/config/config.json
+python scripts/1_splitting.py --config runs/exp_baseline_v1/config/config.json
 ```
 
 ---
@@ -379,9 +379,9 @@ pjt-sprint_ai07_healthcare/
 ### Q: `train_merged_coco.json`이 없다는 에러
 ```
 ❌ train_merged_coco.json이 없습니다
-ℹ️  먼저 scripts/1_create_coco_format.py를 실행하세요.
+ℹ️  먼저 scripts/0_create_coco_format.py를 실행하세요.
 ```
-→ **해결**: `scripts/1_create_coco_format.py`를 먼저 실행
+→ **해결**: `scripts/0_create_coco_format.py`를 먼저 실행
 
 ### Q: Class whitelist 설정 방법
 **방법 1**: Config 파일 수정
@@ -395,7 +395,7 @@ pjt-sprint_ai07_healthcare/
 
 **방법 2**: Config 파일 없이 실행 (기본값 사용)
 ```bash
-python scripts/1_create_coco_format.py  # class_whitelist=null (전체 사용)
+python scripts/0_create_coco_format.py  # class_whitelist=null (전체 사용)
 ```
 
 ### Q: Stratify fallback 경고
@@ -407,8 +407,8 @@ python scripts/1_create_coco_format.py  # class_whitelist=null (전체 사용)
 ### Q: 실험명이 너무 길어짐
 ```bash
 # 짧은 이름 권장
-python scripts/1_create_coco_format.py --run-name exp_v1
-python scripts/0_splitting.py --run-name exp_v1
+python scripts/0_create_coco_format.py --run-name exp_v1
+python scripts/1_splitting.py --run-name exp_v1
 ```
 
 ---
@@ -418,10 +418,10 @@ python scripts/0_splitting.py --run-name exp_v1
 ### 기본 실험
 ```bash
 # 1. COCO 생성 (전체 클래스)
-python scripts/1_create_coco_format.py --run-name exp_baseline
+python scripts/0_create_coco_format.py --run-name exp_baseline
 
 # 2. Split
-python scripts/0_splitting.py --run-name exp_baseline
+python scripts/1_splitting.py --run-name exp_baseline
 
 # 확인
 cat data/processed/cache/exp_baseline/splits/train_ids.txt | wc -l  # 185
@@ -435,10 +435,10 @@ vi runs/exp_whitelist/config/config.json
 # → "class_whitelist": [1900, 16548, 19607, ...]
 
 # 2. COCO 생성
-python scripts/1_create_coco_format.py --run-name exp_whitelist
+python scripts/0_create_coco_format.py --run-name exp_whitelist
 
 # 3. Split
-python scripts/0_splitting.py --run-name exp_whitelist
+python scripts/1_splitting.py --run-name exp_whitelist
 ```
 
 ### Config 재사용
@@ -447,8 +447,8 @@ python scripts/0_splitting.py --run-name exp_whitelist
 cp runs/exp_baseline/config/config.json /tmp/my_config.json
 # (필요 시 수정)
 
-python scripts/1_create_coco_format.py --config /tmp/my_config.json --run-name exp_v2
-python scripts/0_splitting.py --config /tmp/my_config.json --run-name exp_v2
+python scripts/0_create_coco_format.py --config /tmp/my_config.json --run-name exp_v2
+python scripts/1_splitting.py --config /tmp/my_config.json --run-name exp_v2
 ```
 
 ---
@@ -460,9 +460,9 @@ python scripts/0_splitting.py --config /tmp/my_config.json --run-name exp_v2
 ```bash
 CONFIG="configs/experiments/exp001_baseline.yaml"
 
-# Stage 1: 데이터 파이프라인
-python scripts/1_create_coco_format.py --run-name exp_baseline
-python scripts/0_splitting.py --run-name exp_baseline
+# Stage 0-1: 데이터 파이프라인
+python scripts/0_create_coco_format.py --run-name exp_baseline
+python scripts/1_splitting.py --run-name exp_baseline
 
 # Stage 2: 학습 및 평가
 python scripts/2_prepare_yolo_dataset.py --run-name exp_baseline
@@ -480,8 +480,8 @@ ls -lh artifacts/exp_baseline/submissions/submission.csv
 CONFIG="configs/experiments/exp002_whitelist.yaml"
 
 # 전체 파이프라인 실행
-python scripts/1_create_coco_format.py --config $CONFIG --run-name exp_whitelist
-python scripts/0_splitting.py --config $CONFIG --run-name exp_whitelist
+python scripts/0_create_coco_format.py --config $CONFIG --run-name exp_whitelist
+python scripts/1_splitting.py --config $CONFIG --run-name exp_whitelist
 python scripts/2_prepare_yolo_dataset.py --config $CONFIG --run-name exp_whitelist
 python scripts/3_train.py --config $CONFIG --run-name exp_whitelist
 python scripts/4_evaluate.py --config $CONFIG --run-name exp_whitelist
@@ -493,7 +493,7 @@ python scripts/5_submission.py --config $CONFIG --run-name exp_whitelist
 ## 🚀 다음 단계
 
 ### 개선 사항
-- [ ] K-Fold split 구현 (`0_splitting.py`)
+- [ ] K-Fold split 구현 (`1_splitting.py`)
 - [ ] Multi-GPU 지원 (`3_train.py`)
 - [ ] TTA (Test-Time Augmentation) 지원 (`5_submission.py`)
 - [ ] Config validation (YAML schema)

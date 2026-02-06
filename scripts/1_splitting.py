@@ -9,12 +9,12 @@ Train/Val 데이터 분할 스크립트
 4. Train/Val ID 리스트 저장
 
 사용법:
-    python scripts/0_splitting.py [--run-name RUN_NAME] [--config CONFIG_PATH]
+    python scripts/1_splitting.py [--run-name RUN_NAME] [--config CONFIG_PATH]
     
     예시:
-    python scripts/0_splitting.py
-    python scripts/0_splitting.py --run-name exp_baseline_v1
-    python scripts/0_splitting.py --config runs/exp_test/config/config.json --kfold
+    python scripts/1_splitting.py
+    python scripts/1_splitting.py --run-name exp_baseline_v1
+    python scripts/1_splitting.py --config runs/exp_test/config/config.json --kfold
 """
 
 import sys
@@ -238,7 +238,7 @@ def main():
     merged_coco_path = paths["CACHE"] / "train_merged_coco.json"
     if not merged_coco_path.exists():
         print(f"  ❌ train_merged_coco.json이 없습니다: {merged_coco_path}")
-        print(f"  ℹ️  먼저 scripts/1_create_coco_format.py를 실행하세요.")
+        print(f"  ℹ️  먼저 scripts/0_create_coco_format.py를 실행하세요.")
         sys.exit(1)
     
     print(f"  ✅ {merged_coco_path.relative_to(paths['ROOT'])}")

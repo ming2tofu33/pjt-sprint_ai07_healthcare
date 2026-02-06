@@ -141,7 +141,7 @@ def main():
     
     if missing:
         print(f"  ❌ 필수 파일 없음: {', '.join(missing)}")
-        print(f"  ℹ️  먼저 scripts/1_create_coco_format.py와 scripts/0_splitting.py를 실행하세요.")
+        print(f"  ℹ️  먼저 scripts/0_create_coco_format.py와 scripts/1_splitting.py를 실행하세요.")
         sys.exit(1)
     
     print(f"  ✅ 모든 필수 파일 존재")
