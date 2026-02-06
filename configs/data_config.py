@@ -6,21 +6,32 @@ CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.dirname(CURRENT_DIR)
 
 CONFIG = {
-    # [1. 경로 설정] - 이미지와 JSON이 아무리 깊이 있어도 SEARCH_ROOT 아래에만 있으면 다 찾습니다.
-    "AIHUB_JSON": os.path.join(PROJECT_ROOT, "data", "raw", "ex_train_annotations"),
+    # --------------------------------------------------------------------------
+    # [1. 원본 데이터 경로] - 팀 표준(external/combined) 구조로 동기화
+    # --------------------------------------------------------------------------
+    
+    # Kaggle 데이터 (기존 유지)
     "KAGGLE_JSON": os.path.join(PROJECT_ROOT, "data", "raw", "train_annotations"),
-    "SEARCH_ROOT": os.path.join(PROJECT_ROOT, "data", "raw"),
+    "KAGGLE_IMG": os.path.join(PROJECT_ROOT, "data", "raw", "train_images"),
+    
+    # AIHub 외부 데이터 (팀원 표준 경로로 수정 완료)
+    "AIHUB_JSON": os.path.join(PROJECT_ROOT, "data", "raw", "external", "combined", "annotations"),
+    "AIHUB_IMG": os.path.join(PROJECT_ROOT, "data", "raw", "external", "combined", "images"),
+
+    # --------------------------------------------------------------------------
+    # [2. 처리 및 출력 경로]
+    # --------------------------------------------------------------------------
     "PROCESSED_DIR": os.path.join(PROJECT_ROOT, "data", "processed"),
     "FINAL_CSV": os.path.join(PROJECT_ROOT, "data", "processed", "final_golden_dataset_v2.csv"),
     "YOLO_ROOT": os.path.join(PROJECT_ROOT, "data", "yolo_format"),
 
-    # [2. 분할 및 증강 설정]
+    # [3. 분할 및 증강 설정]
     "SPLIT_RATIO": 0.2,
     "AUG_TARGET_ID": 114, 
     "AUG_GOAL_COUNT": 300,
 
-    # [3. 증강 ON/OFF 스위치]
-    "AUG_GEOMETRIC_ON": True,   # 회전/반전 (필수)
-    "AUG_COLOR_ON": True,       # 밝기/대비/색상
-    "AUG_BLUR_ON": False,       # 흐림 효과
+    # [4. 증강 ON/OFF 스위치]
+    "AUG_GEOMETRIC_ON": True,
+    "AUG_COLOR_ON": True,
+    "AUG_BLUR_ON": False,
 }
