@@ -1,0 +1,49 @@
+# Experiment 002: Whitelist (Test 40 classes)
+# YOLOv8s trained only on classes present in test set
+
+# Inherit base config
+_base_: "../base.yaml"
+
+# ============================================================
+# Experiment Metadata
+# ============================================================
+experiment:
+  id: "exp002"
+  name: "whitelist_40"
+  description: "Train only on 40 classes present in test set"
+  author: "@DM"
+  created: "2026-02-05"
+
+# ============================================================
+# Data Configuration (Override)
+# ============================================================
+data:
+  # TODO: Fill with actual test set category IDs
+  # Get from: artifacts/<run_name>/reports/train_only_category_ids.json
+  class_whitelist: []  # [1900, 16548, 19607, ...]
+  num_classes: 40
+
+# ============================================================
+# Training Configuration (Override)
+# ============================================================
+train:
+  model_name: "yolov8s.pt"
+  imgsz: 768
+  epochs: 100  # More epochs since fewer classes
+  batch: 8
+  lr0: 0.001
+
+# ============================================================
+# Notes
+# ============================================================
+notes: |
+  Train only on classes present in test set.
+  - Reduces class confusion
+  - Should improve mAP on test set
+  - May need more epochs to converge
+  
+  Steps:
+  1. Run exp001_baseline first to get train-only class list
+  2. Extract 40 test classes from that list
+  3. Fill class_whitelist above
+  4. Run this experiment

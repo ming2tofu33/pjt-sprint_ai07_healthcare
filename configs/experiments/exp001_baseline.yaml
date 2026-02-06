@@ -1,0 +1,48 @@
+# Experiment 001: Baseline
+# YOLOv8s with default settings on all 56 classes
+
+# Inherit base config
+_base_: "../base.yaml"
+
+# ============================================================
+# Experiment Metadata
+# ============================================================
+experiment:
+  id: "exp001"
+  name: "baseline"
+  description: "Baseline experiment with YOLOv8s on full dataset (56 classes)"
+  author: "@DM"
+  created: "2026-02-05"
+
+# ============================================================
+# Data Configuration (Override)
+# ============================================================
+data:
+  class_whitelist: null  # Use all 56 classes
+  num_classes: 56
+
+# ============================================================
+# Training Configuration (Override)
+# ============================================================
+train:
+  model_name: "yolov8s.pt"
+  imgsz: 768
+  epochs: 80
+  batch: 8
+  lr0: 0.001
+  
+  # Standard augmentation
+  augment: true
+  mosaic: 1.0
+  mixup: 0.0
+  copy_paste: 0.0
+
+# ============================================================
+# Notes
+# ============================================================
+notes: |
+  Baseline experiment to establish performance benchmark.
+  - Full dataset (232 train images, 56 classes)
+  - Standard YOLOv8s configuration
+  - No special augmentation or tricks
+  - Target: mAP@0.5 >= 0.50

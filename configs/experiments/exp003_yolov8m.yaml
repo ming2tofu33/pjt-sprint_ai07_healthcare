@@ -1,0 +1,38 @@
+# Experiment 003: Larger Model
+# YOLOv8m for higher capacity
+
+# Inherit base config
+_base_: "../base.yaml"
+
+# ============================================================
+# Experiment Metadata
+# ============================================================
+experiment:
+  id: "exp003"
+  name: "yolov8m"
+  description: "Larger model (YOLOv8m) for potentially better performance"
+  author: "@DM"
+  created: "2026-02-05"
+
+# ============================================================
+# Training Configuration (Override)
+# ============================================================
+train:
+  model_name: "yolov8m.pt"  # Larger model
+  imgsz: 768
+  epochs: 100
+  batch: 4  # Smaller batch due to larger model
+  lr0: 0.0005  # Lower LR for larger model
+  
+  # Patience for early stopping
+  patience: 30
+
+# ============================================================
+# Notes
+# ============================================================
+notes: |
+  Larger model with more parameters.
+  - Better capacity for learning complex patterns
+  - Slower training and inference
+  - May overfit on small dataset (232 images)
+  - Reduced batch size due to memory constraints
