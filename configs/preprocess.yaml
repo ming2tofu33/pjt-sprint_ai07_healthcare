@@ -1,0 +1,138 @@
+version: v1.1
+random_seed: 42
+paths:
+  train_images_dir: data/raw/train_images
+  train_annotations_dir: data/raw/train_annotations
+  test_images_dir: data/raw/test_images
+  processed_dir: data/processed
+  metadata_dir: data/metadata
+outputs:
+  df_clean_name: df_clean.csv
+  excluded_rows_name: excluded_rows.csv
+  fixes_bbox_name: fixes_bbox.csv
+  manifest_name: preprocess_manifest.json
+  audit_prefix: audit_
+label_contract:
+  split_coco_json_one_object: true
+  bbox_format: xywh
+  bbox_unit: pixel
+  merge_key: file_name
+validation:
+  drop_missing_bbox: true
+  drop_invalid_bbox_len: true
+  drop_non_numeric_bbox: true
+  drop_non_positive_wh: true
+  bbox_cast: float
+oob:
+  policy: clip
+  drop_if_clipped_to_zero: true
+  extreme_exclude:
+    enabled: false
+    x_max_ratio: 2.0
+    y_max_ratio: 2.0
+missing_label:
+  policy: keep_flag
+  heuristic:
+    enabled: true
+    min_objects_per_image: 3
+dedup:
+  exact:
+    enabled: true
+    key:
+    - file_name
+    - category_id
+    - bbox_x
+    - bbox_y
+    - bbox_w
+    - bbox_h
+  iou:
+    enabled: false
+    threshold: 0.9
+    action: audit_only
+integrity:
+  drop_if_image_missing: true
+split:
+  enabled: true
+  group_id:
+    method: regex
+    regex: K-\d+-\d+-\d+
+    fallback: prefix_before_underscore
+  train_ratio: 0.8
+  val_ratio: 0.2
+  splits_name: splits.csv
+audit:
+  enabled: true
+  files:
+  - audit_missing_images.csv
+  - audit_missing_labels.csv
+  - audit_bad_bbox.csv
+  - audit_dup_exact.csv
+  - audit_dup_near.csv
+  - audit_iou_pairs.csv
+  - audit_suspect_files.csv
+external_data:
+  enabled: true
+  ingest:
+    normalize_and_copy: true
+    output_images_dir: data/processed/external_normalized/images
+    output_annotations_dir: data/processed/external_normalized/annotations
+    overwrite_outputs: false
+  banned_patterns:
+  - TL_2_조합.zip
+  - TS_2_조합.zip
+  sources:
+  - name: external_combined
+    images_dir: data/raw/external/combined/images
+    annotations_dir: data/raw/external/combined/annotations
+    recursive: true
+    annotation_format: split_coco_one_object
+  category_id_mapping:
+    enabled: true
+    mapping_key: dl_idx
+    canonical_source: train
+    on_unmapped: use_dl_idx
+    save_mapping_table: true
+    mapping_table_out: data/metadata/category_mapping.csv
+    unmapped_log_out: data/metadata/audit_unmapped_external.csv
+  alignment:
+    enforce_singletons:
+      images_len: 1
+      annotations_len: 1
+      categories_len: 1
+    bbox:
+      format: xywh
+      cast: float
+      drop_missing_bbox: true
+      drop_invalid_bbox_len: true
+      drop_non_numeric_bbox: true
+      drop_non_positive_wh: true
+    oob:
+      policy: clip
+      drop_if_clipped_to_zero: true
+      fixes_log_out: data/metadata/fixes_bbox_external.csv
+      excluded_log_out: data/metadata/excluded_rows_external.csv
+    categories_sync:
+      set_categories_id_from_annotation: true
+      set_categories_name_from_train: true
+    image_meta:
+      verify_image_exists: true
+      overwrite_width_height_from_image: true
+  dedup:
+    dedup_against_train: true
+    dedup_against_test: false
+    exact:
+      enabled: true
+      key:
+      - file_name
+      - category_id
+      - bbox_x
+      - bbox_y
+      - bbox_w
+      - bbox_h
+    iou:
+      enabled: false
+      threshold: 0.9
+      action: audit_only
+format:
+  df_clean_format: csv
+  csv_encoding: utf-8
