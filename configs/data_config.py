@@ -38,7 +38,7 @@ CONFIG = {
     # --------------------------------------------------------------------------
     # [로직 제어 스위치] - ON/OFF를 여기서 결정합니다. / 아직 사용하지 않음
     # --------------------------------------------------------------------------
-    #"SWITCH_MY_COLLECTION": True,   # AB전용 데이터 수집 (현재 OFF)
+    #"SWITCH_MY_COLLECTION": True,   # AB전용 데이터 수집 (현재 ON!)
     #"SWITCH_MY_CLEANING": False,     # AB전용 정제/YOLO변환 (현재 OFF)
     #"SWITCH_MY_AUGMENTATION": True,  # AB전용 증강 (이건 좋으니까 ON!)
 }
