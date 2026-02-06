@@ -32,6 +32,7 @@ from utils import (
     load_config,
     save_json,
     print_section,
+    get_dataset_dir,
 )
 
 
@@ -185,7 +186,7 @@ def main():
     
     # 5) YOLO 데이터셋 디렉터리 생성
     print("\n[5] YOLO 데이터셋 디렉터리 생성...")
-    dataset_root = paths["PROC_ROOT"] / "datasets" / f"pill_od_yolo_{paths['RUN_NAME']}"
+    dataset_root = get_dataset_dir(paths)
     
     img_train_dir = dataset_root / "images" / "train"
     img_val_dir = dataset_root / "images" / "val"

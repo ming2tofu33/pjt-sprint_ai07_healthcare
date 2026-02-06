@@ -34,6 +34,7 @@ from utils import (
 def main():
     parser = argparse.ArgumentParser(description="제출 파일 생성")
     parser.add_argument("--run-name", type=str, required=True, help="실험명")
+    parser.add_argument("--config", type=str, help="Config YAML 경로 (상속 지원)")
     parser.add_argument("--ckpt", type=str, default="best", choices=["best", "last"], help="체크포인트")
     parser.add_argument("--conf", type=float, help="Confidence threshold (기본: config 값)")
     parser.add_argument("--device", type=str, default="0", help="GPU device")
@@ -51,10 +52,18 @@ def main():
     )
     print(f"  ✅ RUN_NAME: {paths['RUN_NAME']}")
     
-    # 2) Config 로드
+    # 2) Config 로드 (우선순위: CLI --config > 기존 config.json > default)
     print("\n[2] Config 로드...")
     config_path = paths["CONFIG"] / "config.json"
-    config = load_config(config_path)
+    if args.config:
+        config = load_config(Path(args.config))
+        print(f"  ✅ Config from YAML: {args.config}")
+    elif config_path.exists():
+        config = load_config(config_path)
+    else:
+        from utils import get_default_config
+        config = get_default_config(paths["RUN_NAME"], paths)
+    save_config(config, config_path)
     
     conf_thr = args.conf or config["infer"]["conf_thr"]
     nms_iou = config["infer"]["nms_iou_thr"]
@@ -86,7 +95,7 @@ def main():
     
     # 5) Label map 로드 (YOLO idx → 원본 category_id 변환용)
     print("\n[5] Label map 로드...")
-    cache_dir = paths["DATA_ROOT"] / "processed" / "cache" / args.run_name
+    cache_dir = paths["CACHE"]
     
     # label_map_whitelist 또는 label_map_full 찾기
     label_map_path = cache_dir / "label_map_whitelist.json"
@@ -102,13 +111,11 @@ def main():
         label_map = json.load(f)
     
     # idx2id: YOLO 인덱스 → 원본 category_id
-    # label_map은 {original_category_id: yolo_idx, ...} 구조
-    # 숫자 키만 필터링하고 뒤집어서 {yolo_idx: original_category_id} 만들기
-    idx2id = {}
-    for k, v in label_map.items():
-        # 숫자 키만 처리 (메타데이터 키 무시)
-        if k.isdigit():
-            idx2id[v] = int(k)
+    # label_map 구조: {"idx2id": {"0": 1900, ...}, "id2idx": {"1900": 0, ...}, ...}
+    idx2id = {int(k): int(v) for k, v in label_map.get("idx2id", {}).items()}
+    if not idx2id:
+        # fallback: category_ids 리스트에서 생성
+        idx2id = {int(i): int(cid) for i, cid in enumerate(label_map.get("category_ids", []))}
     
     print(f"  ✅ Label map 로드: {label_map_path.name}")
     print(f"  ✅ 클래스 개수: {len(idx2id)}")

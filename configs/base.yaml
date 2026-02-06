@@ -48,7 +48,7 @@ split:
     train: 0.8
     valid: 0.2
   
-  # K-Fold (optional, not implemented yet)
+  # K-Fold (미구현 - 향후 확장용)
   kfold:
     enabled: false
     n_splits: 5
@@ -141,14 +141,14 @@ infer:
   device: "0"
 
 # ============================================================
-# Logging & Tracking
+# Logging & Tracking (미구현 - 향후 확장용)
 # ============================================================
 logging:
-  # TensorBoard / Weights & Biases (optional)
+  # TensorBoard / Weights & Biases (미구현)
   use_tensorboard: false
   use_wandb: false
-  
-  # Local logging
+
+  # Local logging (미구현)
   log_metrics: true
   log_frequency: 1  # Log every N epochs
 

@@ -10,29 +10,36 @@
 
 ```
 src/
-├── utils.py          # 공통 유틸리티 (경로, Config, 재현성, 로깅)
-├── data_loader.py    # 데이터 로딩 및 전처리
-├── model.py          # YOLO 모델 래퍼
-├── trainer.py        # 학습 프로세스 관리
-└── inference.py      # 추론 및 결과 처리
+├── utils.py          # ✅ 핵심 — 경로, Config 상속/병합, seed, 경로 헬퍼, 결과 기록
+├── data_loader.py    # [DEPRECATED] 데이터 로딩 및 전처리
+├── model.py          # [DEPRECATED] YOLO 모델 래퍼
+├── trainer.py        # [DEPRECATED] 학습 프로세스 관리
+└── inference.py      # [DEPRECATED] 추론 및 결과 처리
 ```
+
+> **NOTE**: `utils.py`만 현재 파이프라인(scripts/)에서 활발히 사용됩니다.
+> 나머지 4개 모듈은 참고용으로 보존되며, 실제 학습/추론은 scripts에서 ultralytics.YOLO를 직접 호출합니다.
 
 ---
 
 ## 📄 모듈 상세
 
-### `utils.py`
+### `utils.py` (핵심 모듈)
 **공통 유틸리티 함수**
 
 - `setup_project_paths()`: 프로젝트 경로 설정 및 폴더 생성
 - `set_seed()`: 재현성을 위한 seed 고정
-- `load_config()` / `save_config()`: Config 관리 (JSON/YAML)
+- `load_config()`: Config 로드 (JSON/YAML, `_base_` 상속 지원)
+- `merge_configs()`: 두 config dict 깊은 병합 (base + override)
+- `get_dataset_dir()`: YOLO 데이터셋 디렉토리 경로 헬퍼
+- `get_data_yaml()`: data.yaml 경로 헬퍼
+- `save_config()`: Config 저장 (JSON/YAML)
 - `create_run_manifest()`: 실험 메타데이터 생성
 - `record_result()`: 결과 기록 (CSV + JSONL)
 
 **사용 예시**:
 ```python
-from src.utils import setup_project_paths, set_seed, load_config
+from src.utils import setup_project_paths, set_seed, load_config, get_data_yaml
 
 # 경로 설정
 paths = setup_project_paths(run_name="exp001", create_dirs=True)
@@ -40,14 +47,17 @@ paths = setup_project_paths(run_name="exp001", create_dirs=True)
 # Seed 고정
 set_seed(42, deterministic=True)
 
-# Config 로드
-config = load_config("configs/base.yaml")
+# Config 로드 (_base_ 상속 자동 처리)
+config = load_config("configs/experiments/exp001_baseline.yaml")
+
+# YOLO data.yaml 경로
+data_yaml = get_data_yaml(paths)
 ```
 
 ---
 
-### `data_loader.py`
-**데이터셋 로딩 및 전처리**
+### `data_loader.py` [DEPRECATED]
+**데이터셋 로딩 및 전처리** (현재 파이프라인에서 미사용)
 
 #### COCODataset
 COCO 포맷 데이터셋 로더 (PyTorch Dataset)
@@ -83,8 +93,8 @@ print(wrapper.get_class_names())  # ['class1', 'class2', ...]
 
 ---
 
-### `model.py`
-**YOLO 모델 래퍼**
+### `model.py` [DEPRECATED]
+**YOLO 모델 래퍼** (현재 파이프라인에서 미사용)
 
 #### YOLOModel
 Ultralytics YOLO 모델 관리
@@ -112,8 +122,8 @@ val_results = model.validate()
 
 ---
 
-### `trainer.py`
-**학습 프로세스 관리**
+### `trainer.py` [DEPRECATED]
+**학습 프로세스 관리** (현재 파이프라인에서 미사용)
 
 #### Trainer
 Config 기반 학습 실행
@@ -148,8 +158,8 @@ trainer.load_checkpoint("runs/exp001/checkpoints/best.pt")
 
 ---
 
-### `inference.py`
-**추론 및 결과 처리**
+### `inference.py` [DEPRECATED]
+**추론 및 결과 처리** (현재 파이프라인에서 미사용, 5_submission.py가 직접 처리)
 
 #### Inferencer
 추론 실행 및 제출 파일 생성
@@ -195,10 +205,12 @@ print(validation["valid"])  # True/False
 ## 🔗 모듈 간 관계
 
 ```
-scripts/
-  ↓ (사용)
+scripts/ (0~5_*.py)
+  ↓ (직접 사용)
 src/
-  ├── utils.py          ← 모든 모듈이 사용
+  └── utils.py          ← 전 스크립트가 사용 (경로, config, seed, 기록)
+
+[DEPRECATED - 참고용]
   ├── data_loader.py    ← COCODataset, YOLO wrapper
   ├── model.py          ← YOLOModel (Ultralytics 래퍼)
   ├── trainer.py        ← utils + model (학습 실행)
@@ -313,6 +325,6 @@ python src/inference.py
 
 ---
 
-**구현 완료**: 2026-02-05  
-**담당**: @DM  
-**상태**: Stage 2 (src 모듈) 완료 ✅
+**구현 완료**: 2026-02-06
+**담당**: @DM
+**상태**: utils.py 리팩토링 완료 ✅ (config 상속, flat 구조, 경로 헬퍼)

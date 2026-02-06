@@ -1,0 +1,47 @@
+# ==============================================================
+# Experiment Template
+# ==============================================================
+# 사용법:
+#   1. 이 파일을 복사: cp _TEMPLATE.yaml expXXX_실험이름.yaml
+#   2. 아래에서 base.yaml과 다른 값만 수정
+#   3. 실행: python scripts/3_train.py --run-name expXXX --config configs/experiments/expXXX_실험이름.yaml
+#
+# _base_ 상속: base.yaml의 모든 값을 상속받고, 여기서 지정한 값만 덮어씁니다.
+# ==============================================================
+
+_base_: "../base.yaml"
+
+experiment:
+  id: "expXXX"
+  name: "실험 이름"
+  description: "이 실험에서 테스트하는 것"
+  author: "@이름"
+  created: "2026-02-XX"
+
+# base.yaml에서 변경할 값만 아래에 작성하세요.
+# 작성하지 않은 값은 base.yaml 기본값을 사용합니다.
+
+# --- 모델 변경 예시 ---
+# train:
+#   model_name: "yolov8m"    # yolov8n/s/m/l/x
+#   imgsz: 1024              # 해상도 (32의 배수)
+#   epochs: 100
+#   batch: 4                 # GPU 메모리에 맞게 조절
+
+# --- Augmentation 변경 예시 ---
+# train:
+#   mosaic: 1.0
+#   mixup: 0.15
+#   copy_paste: 0.1
+#   degrees: 5.0
+
+# --- Optimizer 변경 예시 ---
+# train:
+#   optimizer: "AdamW"
+#   lr0: 0.0005
+#   weight_decay: 0.001
+
+# --- Inference threshold 변경 예시 ---
+# infer:
+#   conf_thr: 0.40
+#   nms_iou_thr: 0.50

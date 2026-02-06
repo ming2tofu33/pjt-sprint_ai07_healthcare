@@ -1,7 +1,11 @@
 #!/usr/bin/env python3
 """
-Data Loader Module
+[DEPRECATED] Data Loader Module
 YOLO 데이터셋 로딩 및 전처리
+
+NOTE: 현재 파이프라인에서 사용되지 않습니다.
+      실제 데이터 처리는 scripts에서 직접 JSON/이미지를 처리합니다.
+      향후 필요 시 참고용으로 보존합니다.
 """
 
 import json

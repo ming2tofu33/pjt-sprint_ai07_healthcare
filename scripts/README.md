@@ -185,20 +185,22 @@ data/processed/datasets/<run_name>_yolo/
 
 **기능**:
 - Ultralytics YOLO 학습
+- Config의 **모든 학습 파라미터** (augmentation, optimizer, loss weight 등) YOLO에 전달
 - 체크포인트 저장 (best/last)
 - 학습 로그 기록 (metrics.jsonl, results.csv)
-- Config 기반 하이퍼파라미터 적용
 
 **사용법**:
 ```bash
-python scripts/3_train.py --run-name exp_baseline_v1 [OPTIONS]
+python scripts/3_train.py --run-name exp_baseline_v1 --config configs/experiments/exp001_baseline.yaml
 ```
 
 **옵션**:
 - `--run-name`: 실험명 (필수)
-- `--config`: Config 파일 경로 (선택)
+- `--config`: 실험 YAML 파일 경로 (선택, 없으면 config.json 또는 기본값)
 - `--device`: GPU device (기본: 0)
 - `--resume`: 중단된 학습 재개 (선택)
+
+**Config 로드 우선순위**: `--config` > `runs/<run_name>/config/config.json` > 기본값
 
 **출력 파일**:
 ```
@@ -210,19 +212,28 @@ runs/<run_name>/
     └── metrics.jsonl      # 학습 로그
 ```
 
-**Config 설정**:
-```json
-{
-  "train": {
-    "model_name": "yolov8s.pt",
-    "imgsz": 768,
-    "epochs": 80,
-    "batch": 8,
-    "lr0": 0.001,
-    "augment": true
-  }
-}
+**Config 설정** (flat 구조):
+```yaml
+# configs/experiments/exp001_baseline.yaml
+_base_: "../base.yaml"
+train:
+  model_name: "yolov8s.pt"
+  imgsz: 768
+  epochs: 80
+  batch: 8
+  lr0: 0.001
+  optimizer: "auto"
+  # augmentation
+  mosaic: 1.0
+  mixup: 0.0
+  copy_paste: 0.0
+  # loss weights
+  box: 7.5
+  cls: 0.5
+  dfl: 1.5
 ```
+
+> 모든 `train` 섹션의 값이 YOLO `model.train()`에 전달됩니다.
 
 ---
 
@@ -232,15 +243,16 @@ runs/<run_name>/
 - 학습된 모델 평가 (Val set)
 - mAP@0.75~0.95 계산 (대회 지표)
 - mAP@0.5, mAP@0.75 참고용 기록
-- 클래스별 성능 분석
+- Config의 `val` 섹션 (conf, iou, save_json) YOLO val에 전달
 
 **사용법**:
 ```bash
-python scripts/4_evaluate.py --run-name exp_baseline_v1 [OPTIONS]
+python scripts/4_evaluate.py --run-name exp_baseline_v1 --config configs/experiments/exp001_baseline.yaml
 ```
 
 **옵션**:
 - `--run-name`: 실험명 (필수)
+- `--config`: 실험 YAML 파일 경로 (선택)
 - `--ckpt`: 체크포인트 선택 (기본: best, 선택: last)
 - `--device`: GPU device (기본: 0)
 
@@ -264,16 +276,17 @@ artifacts/<run_name>/reports/
 **기능**:
 - Test 이미지 추론
 - Top-4 객체 선택 (대회 규칙)
-- `submission.csv` 생성
-- 제출 파일 검증
+- YOLO 클래스 인덱스 → 원본 COCO category_id 자동 변환
+- `submission.csv` 생성 및 검증
 
 **사용법**:
 ```bash
-python scripts/5_submission.py --run-name exp_baseline_v1 [OPTIONS]
+python scripts/5_submission.py --run-name exp_baseline_v1 --config configs/experiments/exp001_baseline.yaml
 ```
 
 **옵션**:
 - `--run-name`: 실험명 (필수)
+- `--config`: 실험 YAML 파일 경로 (선택)
 - `--ckpt`: 체크포인트 선택 (기본: best)
 - `--conf`: Confidence threshold (기본: config 값)
 - `--device`: GPU device (기본: 0)
@@ -289,18 +302,16 @@ artifacts/<run_name>/submissions/
 annotation_id,image_id,category_id,bbox_x,bbox_y,bbox_w,bbox_h,score
 1,1,1900,100.5,200.3,50.2,80.1,0.95
 2,1,16548,300.2,150.4,60.3,70.5,0.89
-...
 ```
 
+> category_id는 `label_map_full.json`의 `idx2id` 매핑을 사용하여 원본 COCO ID로 변환됩니다.
+
 **Config 설정**:
-```json
-{
-  "infer": {
-    "conf_thr": 0.25,
-    "nms_iou_thr": 0.45,
-    "max_det_per_image": 4
-  }
-}
+```yaml
+infer:
+  conf_thr: 0.25
+  nms_iou_thr: 0.45
+  max_det_per_image: 4
 ```
 
 ---
@@ -447,15 +458,17 @@ python scripts/0_splitting.py --config /tmp/my_config.json --run-name exp_v2
 ### 기본 실험 (전체 클래스)
 
 ```bash
+CONFIG="configs/experiments/exp001_baseline.yaml"
+
 # Stage 1: 데이터 파이프라인
 python scripts/1_create_coco_format.py --run-name exp_baseline
 python scripts/0_splitting.py --run-name exp_baseline
 
 # Stage 2: 학습 및 평가
 python scripts/2_prepare_yolo_dataset.py --run-name exp_baseline
-python scripts/3_train.py --run-name exp_baseline
-python scripts/4_evaluate.py --run-name exp_baseline
-python scripts/5_submission.py --run-name exp_baseline
+python scripts/3_train.py --run-name exp_baseline --config $CONFIG
+python scripts/4_evaluate.py --run-name exp_baseline --config $CONFIG
+python scripts/5_submission.py --run-name exp_baseline --config $CONFIG
 
 # 확인
 ls -lh artifacts/exp_baseline/submissions/submission.csv
@@ -464,16 +477,15 @@ ls -lh artifacts/exp_baseline/submissions/submission.csv
 ### Whitelist 실험 (Test 40개 클래스만)
 
 ```bash
-# 1. Config 수정 (class_whitelist 설정)
-# runs/exp_whitelist/config/config.json 생성
+CONFIG="configs/experiments/exp002_whitelist.yaml"
 
-# 2. 실행
-python scripts/1_create_coco_format.py --run-name exp_whitelist
-python scripts/0_splitting.py --run-name exp_whitelist
-python scripts/2_prepare_yolo_dataset.py --run-name exp_whitelist
-python scripts/3_train.py --run-name exp_whitelist
-python scripts/4_evaluate.py --run-name exp_whitelist
-python scripts/5_submission.py --run-name exp_whitelist
+# 전체 파이프라인 실행
+python scripts/1_create_coco_format.py --config $CONFIG --run-name exp_whitelist
+python scripts/0_splitting.py --config $CONFIG --run-name exp_whitelist
+python scripts/2_prepare_yolo_dataset.py --config $CONFIG --run-name exp_whitelist
+python scripts/3_train.py --config $CONFIG --run-name exp_whitelist
+python scripts/4_evaluate.py --config $CONFIG --run-name exp_whitelist
+python scripts/5_submission.py --config $CONFIG --run-name exp_whitelist
 ```
 
 ---
@@ -489,6 +501,6 @@ python scripts/5_submission.py --run-name exp_whitelist
 
 ---
 
-**구현 완료**: 2026-02-05  
-**담당**: @DM  
-**상태**: Stage 0~2 완료 ✅
+**구현 완료**: 2026-02-06
+**담당**: @DM
+**상태**: Stage 0~5 완료 ✅ (전 스크립트 --config 플래그 지원)

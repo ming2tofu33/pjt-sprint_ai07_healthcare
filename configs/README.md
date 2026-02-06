@@ -12,11 +12,14 @@ YAML 기반 실험 설정 관리. 모든 하이퍼파라미터와 실험 메타�
 configs/
 ├── base.yaml                    # 기본 설정 (모든 실험의 베이스)
 └── experiments/
+    ├── _TEMPLATE.yaml           # 새 실험 생성 템플릿
     ├── exp001_baseline.yaml     # Baseline (YOLOv8s, 56 classes)
     ├── exp002_whitelist.yaml    # Test 40 classes only
     ├── exp003_yolov8m.yaml      # Larger model
     ├── exp004_heavy_aug.yaml    # Heavy augmentation
-    └── exp005_imgsz1024.yaml    # Higher resolution
+    ├── exp005_imgsz1024.yaml    # Higher resolution
+    ├── exp006_high_conf.yaml    # 높은 Confidence threshold
+    └── exp007_final.yaml        # 최종 조합 (1024 + mixup + 120ep)
 ```
 
 ---
@@ -34,13 +37,14 @@ python scripts/3_train.py --run-name exp_test
 ### 2. 특정 실험 Config로 실행
 
 ```bash
-# 실험 config를 명시적으로 지정
-python scripts/1_create_coco_format.py --config configs/experiments/exp001_baseline.yaml --run-name exp001
-python scripts/0_splitting.py --config configs/experiments/exp001_baseline.yaml --run-name exp001
-python scripts/2_prepare_yolo_dataset.py --config configs/experiments/exp001_baseline.yaml --run-name exp001
-python scripts/3_train.py --config configs/experiments/exp001_baseline.yaml --run-name exp001
-python scripts/4_evaluate.py --run-name exp001
-python scripts/5_submission.py --run-name exp001
+# 모든 스크립트에 --config 플래그 지원
+CONFIG="configs/experiments/exp001_baseline.yaml"
+python scripts/1_create_coco_format.py --config $CONFIG --run-name exp001
+python scripts/0_splitting.py --config $CONFIG --run-name exp001
+python scripts/2_prepare_yolo_dataset.py --config $CONFIG --run-name exp001
+python scripts/3_train.py --config $CONFIG --run-name exp001
+python scripts/4_evaluate.py --config $CONFIG --run-name exp001
+python scripts/5_submission.py --config $CONFIG --run-name exp001
 ```
 
 ### 3. Config 값 Override
@@ -139,6 +143,17 @@ notes: |
 - **배치**: 4 (메모리 제약)
 - **특징**: 알약이 작을 수 있어 고해상도 필요
 
+### exp006_high_conf.yaml
+- **목적**: 높은 Confidence threshold 테스트
+- **모델**: YOLOv8s
+- **특징**: conf_thr=0.5로 False Positive 감소
+
+### exp007_final.yaml
+- **목적**: 최종 조합 실험
+- **모델**: YOLOv8s, 1024px, 120ep
+- **증강**: Mosaic + Mixup(0.15) + Copy-paste(0.1)
+- **특징**: exp004 + exp005 조합, 최고 성능 목표
+
 ---
 
 ## 🔧 Config 값 설명
@@ -172,21 +187,22 @@ notes: |
 
 ## ✅ 실험 실행 체크리스트
 
-1. **Config 작성**
+1. **Config 작성** (템플릿 활용)
    ```bash
-   cp configs/experiments/exp001_baseline.yaml configs/experiments/exp006_custom.yaml
-   # 수정...
+   cp configs/experiments/_TEMPLATE.yaml configs/experiments/exp008_custom.yaml
+   # 변경할 값만 수정 (나머지는 base.yaml에서 자동 상속)
    ```
 
 2. **전체 파이프라인 실행**
    ```bash
-   EXP_NAME="exp006"
-   python scripts/1_create_coco_format.py --config configs/experiments/${EXP_NAME}_custom.yaml --run-name ${EXP_NAME}
-   python scripts/0_splitting.py --config configs/experiments/${EXP_NAME}_custom.yaml --run-name ${EXP_NAME}
-   python scripts/2_prepare_yolo_dataset.py --config configs/experiments/${EXP_NAME}_custom.yaml --run-name ${EXP_NAME}
-   python scripts/3_train.py --config configs/experiments/${EXP_NAME}_custom.yaml --run-name ${EXP_NAME}
-   python scripts/4_evaluate.py --run-name ${EXP_NAME}
-   python scripts/5_submission.py --run-name ${EXP_NAME}
+   EXP_NAME="exp008"
+   CONFIG="configs/experiments/${EXP_NAME}_custom.yaml"
+   python scripts/1_create_coco_format.py --config $CONFIG --run-name ${EXP_NAME}
+   python scripts/0_splitting.py --config $CONFIG --run-name ${EXP_NAME}
+   python scripts/2_prepare_yolo_dataset.py --config $CONFIG --run-name ${EXP_NAME}
+   python scripts/3_train.py --config $CONFIG --run-name ${EXP_NAME}
+   python scripts/4_evaluate.py --config $CONFIG --run-name ${EXP_NAME}
+   python scripts/5_submission.py --config $CONFIG --run-name ${EXP_NAME}
    ```
 
 3. **결과 확인**

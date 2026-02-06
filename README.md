@@ -55,24 +55,30 @@ pjt-sprint_ai07_healthcare/
 ├── configs/                          # ⚙️ 실험 설정 (YAML)
 │   ├── base.yaml                     # 공통 기본 설정
 │   └── experiments/
+│       ├── _TEMPLATE.yaml            # 새 실험 템플릿
 │       ├── exp001_baseline.yaml
-│       ├── exp002_augmentation.yaml
-│       └── exp003_larger_model.yaml
+│       ├── exp002_whitelist.yaml
+│       ├── exp003_yolov8m.yaml
+│       ├── exp004_heavy_aug.yaml
+│       ├── exp005_imgsz1024.yaml
+│       ├── exp006_high_conf.yaml
+│       └── exp007_final.yaml
 │
 ├── src/                              # 🧩 핵심 모듈 (MVP: 평면 구조)
 │   ├── __init__.py
-│   ├── data_loader.py                # COCO 로드 + DataLoader
-│   ├── model.py                      # YOLO 래퍼/모델 생성
-│   ├── train_loop.py                 # Train/Validate 루프
-│   ├── infer.py                      # Inference 함수
-│   └── utils.py                      # Config load, logger, seed, IO
+│   ├── utils.py                      # Config load/merge, 경로 헬퍼, seed, IO
+│   ├── data_loader.py                # [DEPRECATED] COCO 로드 + DataLoader
+│   ├── model.py                      # [DEPRECATED] YOLO 래퍼/모델 생성
+│   ├── trainer.py                    # [DEPRECATED] 학습 프로세스 관리
+│   └── inference.py                  # [DEPRECATED] 추론 및 결과 처리
 │
 ├── scripts/                          # 🚀 실행 엔트리 포인트 (6단계 워크플로우)
-│   ├── splitting.py                  # STAGE 0: 데이터 분할
-│   ├── create_coco_format.py         # STAGE 1: COCO JSON 생성
-│   ├── train.py                      # STAGE 3: 모델 학습/튜닝
-│   ├── evaluate.py                   # STAGE 4: 평가 (mAP 등)
-│   └── submission.py                 # STAGE 5: submission.csv 생성
+│   ├── 0_splitting.py                # STAGE 0: 데이터 분할
+│   ├── 1_create_coco_format.py       # STAGE 1: COCO JSON 생성
+│   ├── 2_prepare_yolo_dataset.py     # STAGE 2: COCO→YOLO 포맷 변환
+│   ├── 3_train.py                    # STAGE 3: 모델 학습/튜닝
+│   ├── 4_evaluate.py                 # STAGE 4: 평가 (mAP 등)
+│   └── 5_submission.py               # STAGE 5: submission.csv 생성
 │
 ├── notebooks/                        # 📓 EDA & 분석
 │   ├── 01_eda.ipynb                  # 탐색적 데이터 분석
@@ -134,68 +140,60 @@ flowchart LR
 
 ### STAGE 0️⃣: 데이터 분할 (Data Splitting)
 ```bash
-python scripts/splitting.py \
-  --raw_dir data/raw \
-  --out_dir data/splits \
-  --train_ratio 0.8 \
-  --val_ratio 0.2 \
-  --seed 42
+python scripts/0_splitting.py --run-name exp_baseline
+# 또는 실험 config 지정
+python scripts/0_splitting.py --config configs/experiments/exp001_baseline.yaml --run-name exp_baseline
 ```
 
-**입력**: `data/raw/train_images/`, `data/raw/train_annotations/`  
-**출력**: `data/splits/train_split/`, `data/splits/val_split/`
-
-> 💡 **Tip**: 이미지를 실제로 복사하지 말고 `images.txt` 같은 manifest 파일로 관리하세요!
+**입력**: `data/raw/train_images/`, `data/raw/train_annotations/`
+**출력**: `data/processed/cache/<run_name>/splits/`
 
 ---
 
 ### STAGE 1️⃣: COCO 포맷 변환
 ```bash
-python scripts/create_coco_format.py \
-  --split_dir data/splits \
-  --anno_dir data/raw/train_annotations \
-  --out_dir data/coco_data \
-  --seed 42
+python scripts/1_create_coco_format.py --run-name exp_baseline
 ```
 
-**입력**: Split 결과 + 원본 annotations  
-**출력**: `train_coco.json`, `val_coco.json`, `class_mapping.json`
+**입력**: Split 결과 + 원본 annotations
+**출력**: `data/processed/cache/<run_name>/train_merged_coco.json`, `label_map_full.json`
 
 ---
 
-### STAGE 2️⃣: 설정 파일 준비
+### STAGE 2️⃣: YOLO 데이터셋 준비
+```bash
+python scripts/2_prepare_yolo_dataset.py --run-name exp_baseline
+```
+
+**입력**: COCO JSON + Split IDs
+**출력**: `data/processed/datasets/pill_od_yolo_<run_name>/` (data.yaml + images/ + labels/)
+
+---
+
+### STAGE 2.5: 설정 파일 준비 (실험 YAML)
 ```yaml
 # configs/experiments/exp001_baseline.yaml
-parent: configs/base.yaml
+_base_: "../base.yaml"    # base.yaml 상속
 
-experiment:
-  name: "exp001_baseline"
-  description: "Baseline YOLO model"
-
-model:
-  name: "yolov8n"
-  pretrained: true
-
-training:
-  epochs: 50
-  batch_size: 16
-  optimizer: "AdamW"
-  lr: 0.001
+train:
+  model_name: "yolov8s.pt"
+  imgsz: 768
+  epochs: 80
+  batch: 8
+  lr0: 0.001
 ```
+
+> 변경하고 싶은 값만 작성하면 나머지는 base.yaml에서 자동 상속됩니다.
 
 ---
 
 ### STAGE 3️⃣: 모델 학습
 ```bash
-python scripts/train.py \
-  --config configs/experiments/exp001_baseline.yaml \
-  --data_dir data/coco_data \
-  --output_dir runs \
-  --wandb_project healthcare-yolo
+python scripts/3_train.py --run-name exp_baseline --config configs/experiments/exp001_baseline.yaml
 ```
 
 **주요 기능**:
-- W&B 통합 실험 트래킹
+- Config의 모든 학습 파라미터(augmentation, optimizer, loss weight 등) YOLO에 전달
 - Config snapshot 자동 저장 (재현성)
 - Best/Last checkpoint 저장
 
@@ -203,33 +201,28 @@ python scripts/train.py \
 
 ### STAGE 4️⃣: 모델 평가
 ```bash
-python scripts/evaluate.py \
-  --checkpoint runs/exp_20260204_102745/checkpoints/best.pt \
-  --data_path data/coco_data/val_coco.json \
-  --output_dir runs/exp_20260204_102745/eval
+python scripts/4_evaluate.py --run-name exp_baseline --config configs/experiments/exp001_baseline.yaml
 ```
 
 **평가 지표**:
-- mAP@0.5, mAP@0.5:0.95
+- mAP@0.5, mAP@0.5:0.95, mAP@0.75:0.95 (대회 공식)
 - Precision, Recall
-- Confusion Matrix
-- PR Curve
+- Confusion Matrix, PR Curve
 
 ---
 
 ### STAGE 5️⃣: Kaggle 제출
 ```bash
-python scripts/submission.py \
-  --checkpoint artifacts/best_models/best.pt \
-  --test_dir data/raw/test_images \
-  --output artifacts/submissions/submission_$(date +%Y%m%d_%H%M%S).csv
+python scripts/5_submission.py --run-name exp_baseline --config configs/experiments/exp001_baseline.yaml
 ```
 
 **출력 포맷**:
 ```csv
-image_id,class_id,confidence,xmin,ymin,xmax,ymax
-test_001,0,0.95,100,150,300,400
+annotation_id,image_id,category_id,bbox_x,bbox_y,bbox_w,bbox_h,score
+1,1,1900,100.5,200.3,50.2,80.1,0.95
 ```
+
+> category_id는 원본 COCO ID(1900, 2483 등)로 자동 변환됩니다.
 
 ---
 
@@ -249,64 +242,50 @@ source venv/bin/activate  # Windows: venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-### 2️⃣ 데이터 준비
+### 2️⃣ 전체 파이프라인 실행
 ```bash
-# data/raw/ 폴더에 데이터 다운로드
-# - train_images/
-# - train_annotations/
-# - test_images/
+EXP="exp_baseline"
+CONFIG="configs/experiments/exp001_baseline.yaml"
 
-# 데이터 분할
-python scripts/splitting.py --raw_dir data/raw --out_dir data/splits
+# 데이터 파이프라인
+python scripts/1_create_coco_format.py --run-name $EXP
+python scripts/0_splitting.py --run-name $EXP
+python scripts/2_prepare_yolo_dataset.py --run-name $EXP
 
-# COCO 포맷 변환
-python scripts/create_coco_format.py \
-  --split_dir data/splits \
-  --anno_dir data/raw/train_annotations \
-  --out_dir data/coco_data
+# 학습 → 평가 → 제출
+python scripts/3_train.py --run-name $EXP --config $CONFIG
+python scripts/4_evaluate.py --run-name $EXP --config $CONFIG
+python scripts/5_submission.py --run-name $EXP --config $CONFIG
 ```
 
-### 3️⃣ Baseline 학습
+### 3️⃣ 새 실험 시작 (추천)
 ```bash
-python scripts/train.py \
-  --config configs/experiments/exp001_baseline.yaml \
-  --data_dir data/coco_data
-```
-
-### 4️⃣ 평가 및 제출
-```bash
-# 평가
-python scripts/evaluate.py \
-  --checkpoint runs/<experiment_name>/checkpoints/best.pt \
-  --data_path data/coco_data/val_coco.json
-
-# Kaggle 제출 파일 생성
-python scripts/submission.py \
-  --checkpoint runs/<experiment_name>/checkpoints/best.pt \
-  --test_dir data/raw/test_images
+# 템플릿 복사 후 원하는 값만 수정
+cp configs/experiments/_TEMPLATE.yaml configs/experiments/exp008_my_test.yaml
+# _base_: "../base.yaml" 덕분에 나머지는 자동 상속
 ```
 
 ---
 
 ## 📈 실험 관리
 
-### W&B 통합
-```bash
-# 환경 변수 설정
-export WANDB_API_KEY=<your_api_key>
-export WANDB_PROJECT=healthcare-yolo
+### Config 상속 시스템
+```yaml
+# configs/experiments/my_exp.yaml
+_base_: "../base.yaml"           # base.yaml 값 자동 상속
 
-# 학습 시 자동 로깅
-python scripts/train.py --config <config_file> --wandb_project healthcare-yolo
+train:
+  epochs: 120                    # 변경할 값만 명시
+  mixup: 0.15
 ```
+
+모든 실험 YAML은 `_base_` 키로 base.yaml을 상속합니다.
+override하지 않은 값은 base.yaml의 기본값이 자동 적용됩니다.
 
 ### 실험 비교
 ```bash
-# runs/_registry.csv 확인
-cat runs/_registry.csv
-
-# 또는 W&B Dashboard 사용
-# https://wandb.ai/<username>/healthcare-yolo
+# results.csv 확인
+cat artifacts/<run_name>/reports/results.csv
 ```
 
 ---

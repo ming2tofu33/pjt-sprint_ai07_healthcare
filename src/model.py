@@ -1,7 +1,11 @@
 #!/usr/bin/env python3
 """
-Model Module
+[DEPRECATED] Model Module
 YOLO 모델 래퍼 및 관리
+
+NOTE: 현재 파이프라인에서 사용되지 않습니다.
+      실제 학습/추론은 scripts에서 ultralytics.YOLO를 직접 호출합니다.
+      향후 필요 시 참고용으로 보존합니다.
 """
 
 from pathlib import Path

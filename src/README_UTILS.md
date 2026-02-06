@@ -15,10 +15,14 @@
    - CUDA deterministic 모드 설정
    - 환경 정보 수집 (패키지 버전, GPU 정보 등)
 
-3. **실험 관리** (`get_default_config`, `save_config`, `load_config`)
+3. **실험 관리** (`get_default_config`, `save_config`, `load_config`, `merge_configs`)
    - Config 파일 생성/저장/로드 (JSON/YAML 지원)
+   - `_base_` 키를 통한 YAML config 상속 (deep merge)
    - Run manifest 생성 (Git 정보 포함)
    - 실험 레지스트리 관리 (`runs/_registry.csv`)
+
+5. **경로 헬퍼** (`get_dataset_dir`, `get_data_yaml`)
+   - YOLO 데이터셋 디렉토리 및 data.yaml 경로 중앙 관리
 
 4. **결과 기록** (`record_result`)
    - 실험 결과를 `results.csv` 및 `results.jsonl`에 자동 기록
@@ -55,20 +59,24 @@ print(f"LOGS: {paths['LOGS']}")
 env_meta = set_seed(seed=42, deterministic=True)
 save_json(paths["CONFIG"] / "env_meta.json", env_meta)
 
-# 3) Config 생성
+# 3) Config 생성 (flat 구조)
 config = get_default_config(
     run_name=paths["RUN_NAME"],
     paths=paths,
     seed=42,
 )
 
-# Config 커스터마이징
-config["train"]["model"]["imgsz"] = 960  # 해상도 변경
-config["train"]["hyperparams"]["epochs"] = 100
+# Config 커스터마이징 (flat 접근)
+config["train"]["imgsz"] = 960              # 해상도 변경
+config["train"]["epochs"] = 100             # 에폭 변경
+config["train"]["mixup"] = 0.15             # augmentation
 config["data"]["class_whitelist"] = [1900, 16548, 19607]  # 특정 클래스만
 
 # Config 저장
 save_config(config, paths["CONFIG"] / "config.json")
+
+# 또는 실험 YAML 로드 (_base_ 상속 자동 처리)
+config = load_config("configs/experiments/exp007_final.yaml")
 ```
 
 ---
@@ -106,20 +114,23 @@ record_result(
 ### 3. Config 변경 패턴 (실험 변화)
 
 ```python
-# 기본 Config 로드
+# 방법 1: 실험 YAML 로드 (권장 — _base_ 상속 자동)
+config = load_config(Path("configs/experiments/exp001_baseline.yaml"))
+
+# 방법 2: JSON 로드
 config = load_config(Path("runs/exp_baseline_v1/config/config.json"))
 
-# 실험 변형 1: 해상도 증가
-config["train"]["model"]["imgsz"] = 960
+# 실험 변형 1: 해상도 증가 (flat 접근)
+config["train"]["imgsz"] = 960
 config["notes"] = "해상도 960px 실험"
 
 # 실험 변형 2: Class whitelist 적용
 config["data"]["class_whitelist"] = [1900, 16548, 19607, 29451]
 config["notes"] = "Test 클래스 40개만 사용"
 
-# 실험 변형 3: Augmentation 끄기
-config["train"]["augment"]["mosaic"] = False
-config["train"]["augment"]["mixup"] = False
+# 실험 변형 3: Augmentation 끄기 (flat 접근)
+config["train"]["mosaic"] = 0.0
+config["train"]["mixup"] = 0.0
 config["notes"] = "Augmentation 최소화"
 
 # 새 실험으로 저장
@@ -164,7 +175,7 @@ pjt-sprint_ai07_healthcare/
 
 ---
 
-## ⚙️ Config 구조 (기본값)
+## ⚙️ Config 구조 (기본값 — flat 구조)
 
 ```json
 {
@@ -179,8 +190,8 @@ pjt-sprint_ai07_healthcare/
   "data": {
     "format": "coco_json_multi",
     "max_objects_per_image": 4,
-    "num_classes": null,           # 자동 추출
-    "class_whitelist": null         # null=전체 / [id1,id2,...]=부분
+    "num_classes": null,
+    "class_whitelist": null
   },
   "split": {
     "strategy": "stratify_by_num_objects",
@@ -190,39 +201,54 @@ pjt-sprint_ai07_healthcare/
   },
   "train": {
     "framework": "ultralytics_yolo",
-    "model": {
-      "name": "yolov8s",           # yolov8n/s/m/l/x
-      "imgsz": 768,                # 640 / 768 / 960
-      "pretrained": true
-    },
-    "hyperparams": {
-      "epochs": 80,
-      "batch": 8,
-      "lr0": null,                 # null=YOLO 기본값
-      "weight_decay": null,
-      "workers": 4
-    },
-    "augment": {
-      "enabled": true,
-      "mosaic": true,
-      "mixup": false,
-      "hsv": true,
-      "flip": true
-    }
+    "model_name": "yolov8s",
+    "imgsz": 768,
+    "pretrained": true,
+    "epochs": 80,
+    "batch": 8,
+    "workers": 4,
+    "device": "0",
+    "optimizer": "auto",
+    "lr0": 0.001,
+    "lrf": 0.01,
+    "momentum": 0.937,
+    "weight_decay": 0.0005,
+    "warmup_epochs": 3.0,
+    "augment": true,
+    "hsv_h": 0.015,
+    "hsv_s": 0.7,
+    "hsv_v": 0.4,
+    "degrees": 0.0,
+    "translate": 0.1,
+    "scale": 0.5,
+    "flipud": 0.0,
+    "fliplr": 0.5,
+    "mosaic": 1.0,
+    "mixup": 0.0,
+    "copy_paste": 0.0,
+    "box": 7.5,
+    "cls": 0.5,
+    "dfl": 1.5,
+    "patience": 50,
+    "save": true,
+    "verbose": true,
+    "plots": true
   },
   "infer": {
-    "conf_thr": 0.001,             # 낮게 설정 후 후처리로 조정
+    "conf_thr": 0.001,
     "nms_iou_thr": 0.5,
-    "max_det_per_image": 4         # 대회 규칙
+    "max_det_per_image": 4
   },
   "postprocess": {
     "strategy": "topk_by_score",
     "topk": 4,
-    "classwise_threshold": null,   # {1900: 0.3, 16548: 0.25, ...}
+    "classwise_threshold": null,
     "clip_boxes": true
   }
 }
 ```
+
+> **NOTE**: `train` 섹션은 flat 구조입니다. 모든 값이 `train.model_name`, `train.epochs`, `train.mosaic` 등으로 직접 접근됩니다. 기존의 nested 구조(`train.model.name`, `train.hyperparams.epochs`)는 더 이상 사용되지 않습니다.
 
 ---
 
@@ -243,6 +269,50 @@ def setup_project_paths(
 - `TRAIN_IMAGES`, `TRAIN_ANN_DIR`, `TEST_IMAGES`
 - `RUNS`, `ARTIFACTS`, `RUN_DIR`, `ART_DIR`
 - `CKPT`, `LOGS`, `CONFIG`, `SUBMISSIONS`, `PLOTS`, `REPORTS`, `CACHE`
+
+---
+
+### `load_config()`
+```python
+def load_config(config_path: Path) -> Dict[str, Any]:
+```
+
+**기능**:
+- JSON/YAML 파일 로드
+- YAML의 `_base_` 키가 있으면 base config를 재귀적으로 로드하여 deep merge
+- override 파일에 명시된 값이 base 값을 덮어씁니다
+
+**예시**:
+```python
+# _base_: "../base.yaml" 가 있는 실험 YAML 로드
+config = load_config("configs/experiments/exp007_final.yaml")
+# → base.yaml 값 + exp007 override 값이 병합됨
+```
+
+---
+
+### `merge_configs()`
+```python
+def merge_configs(base: Dict, override: Dict) -> Dict:
+```
+
+**기능**: 두 config dict를 깊은 병합 (nested dict는 재귀, 나머지는 override)
+
+---
+
+### `get_dataset_dir()` / `get_data_yaml()`
+```python
+def get_dataset_dir(paths: Dict[str, Path]) -> Path:
+def get_data_yaml(paths: Dict[str, Path]) -> Path:
+```
+
+**기능**: YOLO 데이터셋 경로를 중앙에서 관리 (하드코딩 방지)
+
+**예시**:
+```python
+ds_dir = get_dataset_dir(paths)   # .../datasets/pill_od_yolo_<run_name>
+dy = get_data_yaml(paths)          # .../datasets/pill_od_yolo_<run_name>/data.yaml
+```
 
 ---
 
@@ -328,14 +398,14 @@ grep "20260204" runs/_registry.csv
        root = Path.cwd()
    ```
 
-2. **Config override**:
+2. **Config override** (flat 접근):
    ```python
    import argparse
    parser = argparse.ArgumentParser()
    parser.add_argument("--imgsz", type=int, default=768)
    args = parser.parse_args()
-   
-   config["train"]["model"]["imgsz"] = args.imgsz
+
+   config["train"]["imgsz"] = args.imgsz
    ```
 
 3. **실험 비교**:
@@ -363,5 +433,5 @@ grep "20260204" runs/_registry.csv
 
 ---
 
-**구현 완료**: 2026-02-05  
-**다음 단계**: Stage 1 (데이터 분할 및 COCO 변환 스크립트)
+**구현 완료**: 2026-02-06
+**상태**: flat config + `_base_` 상속 + 경로 헬퍼 리팩토링 완료 ✅

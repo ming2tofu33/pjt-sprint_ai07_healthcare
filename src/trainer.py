@@ -1,7 +1,11 @@
 #!/usr/bin/env python3
 """
-Trainer Module
+[DEPRECATED] Trainer Module
 학습 프로세스 관리 및 실행
+
+NOTE: 현재 파이프라인에서 사용되지 않습니다.
+      실제 학습은 scripts/3_train.py에서 ultralytics.YOLO를 직접 호출합니다.
+      향후 필요 시 참고용으로 보존합니다.
 """
 
 from pathlib import Path

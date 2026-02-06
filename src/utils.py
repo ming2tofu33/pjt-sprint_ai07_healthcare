@@ -144,6 +144,16 @@ def setup_project_paths(
     }
 
 
+def get_dataset_dir(paths: Dict[str, Path]) -> Path:
+    """YOLO dataset 디렉토리 경로 반환"""
+    return paths["PROC_ROOT"] / "datasets" / f"pill_od_yolo_{paths['RUN_NAME']}"
+
+
+def get_data_yaml(paths: Dict[str, Path]) -> Path:
+    """data.yaml 경로 반환"""
+    return get_dataset_dir(paths) / "data.yaml"
+
+
 def count_files(folder: Path, exts: Optional[List[str]] = None) -> int:
     """폴더 내 파일 개수 세기 (재귀)"""
     if not folder.exists():
@@ -251,16 +261,59 @@ def get_package_version(pkg_name: str) -> Optional[str]:
 # 3. Config Management
 # ============================================================
 
+def merge_configs(base: Dict[str, Any], override: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Deep merge: override 값을 base 위에 덮어쓰기
+
+    Args:
+        base: 기본 config dict
+        override: 덮어쓸 config dict
+
+    Returns:
+        병합된 config dict
+    """
+    import copy
+    result = copy.deepcopy(base)
+    for key, value in override.items():
+        if key in result and isinstance(result[key], dict) and isinstance(value, dict):
+            result[key] = merge_configs(result[key], value)
+        else:
+            result[key] = value
+    return result
+
+
 def load_config(config_path: Path) -> Dict[str, Any]:
-    """JSON/YAML config 파일 로드"""
+    """
+    JSON/YAML config 파일 로드 (_base_ 상속 지원)
+
+    YAML 파일에 _base_ 키가 있으면 해당 파일을 먼저 로드하고
+    현재 파일의 값으로 deep merge합니다.
+
+    예시:
+        # experiment.yaml
+        _base_: "../base.yaml"
+        train:
+          model_name: "yolov8m"
+    """
     config_path = Path(config_path)
     if not config_path.exists():
         raise FileNotFoundError(f"Config not found: {config_path}")
-    
+
     if config_path.suffix in [".yaml", ".yml"]:
         import yaml
         with open(config_path, "r", encoding="utf-8") as f:
-            return yaml.safe_load(f)
+            config = yaml.safe_load(f)
+
+        # _base_ 상속 처리
+        if config and "_base_" in config:
+            base_rel = config.pop("_base_")
+            base_path = (config_path.parent / base_rel).resolve()
+            if not base_path.exists():
+                raise FileNotFoundError(f"Base config not found: {base_path}")
+            base_config = load_config(base_path)  # 재귀 (다단계 상속 지원)
+            config = merge_configs(base_config, config)
+
+        return config or {}
     elif config_path.suffix == ".json":
         with open(config_path, "r", encoding="utf-8") as f:
             return json.load(f)
@@ -311,30 +364,51 @@ def get_default_config(run_name: str, paths: Dict[str, Path], seed: int = 42) ->
         },
         "train": {
             "framework": "ultralytics_yolo",
-            "model": {
-                "name": "yolov8s",
-                "imgsz": 768,
-                "pretrained": True,
-            },
-            "hyperparams": {
-                "epochs": 80,
-                "batch": 8,
-                "lr0": None,  # None이면 YOLO 기본값 사용
-                "weight_decay": None,
-                "workers": 4,
-            },
-            "augment": {
-                "enabled": True,
-                "mosaic": True,
-                "mixup": False,
-                "hsv": True,
-                "flip": True,
-            },
-            "checkpoint_policy": {
-                "save_best_on": "val_map_75_95",
-                "save_last": True,
-                "keep_top_k": 3,
-            },
+            # Model
+            "model_name": "yolov8s",
+            "imgsz": 768,
+            "pretrained": True,
+            # Training hyperparameters
+            "epochs": 80,
+            "batch": 8,
+            "workers": 4,
+            "device": "0",
+            # Optimizer
+            "optimizer": "auto",
+            "lr0": 0.001,
+            "lrf": 0.01,
+            "momentum": 0.937,
+            "weight_decay": 0.0005,
+            # Scheduler
+            "warmup_epochs": 3.0,
+            "warmup_momentum": 0.8,
+            "warmup_bias_lr": 0.1,
+            # Augmentation
+            "augment": True,
+            "hsv_h": 0.015,
+            "hsv_s": 0.7,
+            "hsv_v": 0.4,
+            "degrees": 0.0,
+            "translate": 0.1,
+            "scale": 0.5,
+            "shear": 0.0,
+            "perspective": 0.0,
+            "flipud": 0.0,
+            "fliplr": 0.5,
+            "mosaic": 1.0,
+            "mixup": 0.0,
+            "copy_paste": 0.0,
+            # Loss weights
+            "box": 7.5,
+            "cls": 0.5,
+            "dfl": 1.5,
+            # Checkpointing
+            "save": True,
+            "save_period": -1,
+            "patience": 50,
+            # Misc
+            "verbose": True,
+            "plots": True,
         },
         "infer": {
             "conf_thr": 0.001,
@@ -578,10 +652,10 @@ def record_result(
         "split.strategy": cfg_flat.get("split.strategy"),
         "split.ratios.train": cfg_flat.get("split.ratios.train"),
         "split.ratios.valid": cfg_flat.get("split.ratios.valid"),
-        "train.model.name": cfg_flat.get("train.model.name"),
-        "train.model.imgsz": cfg_flat.get("train.model.imgsz"),
-        "train.hyperparams.epochs": cfg_flat.get("train.hyperparams.epochs"),
-        "train.hyperparams.batch": cfg_flat.get("train.hyperparams.batch"),
+        "train.model.name": cfg_flat.get("train.model_name", cfg_flat.get("train.model.name")),
+        "train.model.imgsz": cfg_flat.get("train.imgsz", cfg_flat.get("train.model.imgsz")),
+        "train.hyperparams.epochs": cfg_flat.get("train.epochs", cfg_flat.get("train.hyperparams.epochs")),
+        "train.hyperparams.batch": cfg_flat.get("train.batch", cfg_flat.get("train.hyperparams.batch")),
         "infer.conf_thr": cfg_flat.get("infer.conf_thr"),
         "infer.nms_iou_thr": cfg_flat.get("infer.nms_iou_thr"),
         "postprocess.topk": cfg_flat.get("postprocess.topk"),

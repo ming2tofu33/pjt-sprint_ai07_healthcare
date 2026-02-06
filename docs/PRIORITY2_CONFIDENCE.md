@@ -35,16 +35,17 @@ infer:
 ### 2. 실험별 Config
 ```yaml
 # configs/experiments/exp006_high_conf.yaml
+_base_: "../base.yaml"
 infer:
   conf_thr: 0.5   # 높은 신뢰도
 ```
 
 ### 3. CLI로 동적 조정
 ```bash
-# 기본값 (0.35)
-python scripts/5_submission.py --run-name test_exp
+# 실험 config 사용
+python scripts/5_submission.py --run-name test_exp --config configs/experiments/exp006_high_conf.yaml
 
-# 특정 값 지정
+# 특정 값 지정 (CLI override)
 python scripts/5_submission.py --run-name test_exp --conf 0.40
 
 # 높은 신뢰도
