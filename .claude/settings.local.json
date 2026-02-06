@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(source venv/Scripts/activate)",
+      "Bash(PYTHONIOENCODING=utf-8 python:*)",
+      "Bash(python:*)"
+    ]
+  }
+}

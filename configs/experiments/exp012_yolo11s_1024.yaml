@@ -1,0 +1,35 @@
+# ==============================================================
+# Experiment 012: YOLO11s 고해상도 (1024px)
+# ==============================================================
+# 목적: YOLO11s + 고해상도로 bbox 정밀도 향상
+# 기대: 1024px에서 작은 알약도 정확하게 검출
+#
+# 실행:
+#   python scripts/1_create_coco_format.py --run-name exp012
+#   python scripts/0_splitting.py --run-name exp012
+#   python scripts/2_prepare_yolo_dataset.py --run-name exp012
+#   python scripts/3_train.py --run-name exp012 --config configs/experiments/exp012_yolo11s_1024.yaml
+#   python scripts/4_evaluate.py --run-name exp012 --config configs/experiments/exp012_yolo11s_1024.yaml
+#   python scripts/5_submission.py --run-name exp012 --config configs/experiments/exp012_yolo11s_1024.yaml --conf 0.25
+# ==============================================================
+
+_base_: "../base.yaml"
+
+experiment:
+  id: "exp012"
+  name: "yolo11s_1024"
+  description: "YOLO11s 고해상도 1024px"
+  author: "@DM"
+  created: "2026-02-06"
+
+train:
+  model_name: "yolo11s"   # YOLO11s
+  imgsz: 1024             # 고해상도 (768 → 1024)
+  epochs: 100
+  batch: 4                # GPU 메모리 제약으로 줄임
+  patience: 50
+
+notes: |
+  YOLO11s + 1024px 고해상도 실험.
+  mAP@0.75:0.95는 tight bbox가 필수이므로 해상도 증가가 유리.
+  batch=4로 줄여야 GPU 메모리 안에 맞음.

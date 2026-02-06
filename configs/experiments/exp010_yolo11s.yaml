@@ -1,0 +1,35 @@
+# ==============================================================
+# Experiment 010: YOLO11s 기본 비교 실험
+# ==============================================================
+# 목적: YOLO11s vs YOLOv8s 아키텍처 성능 비교
+# 기대: YOLO11은 더 적은 파라미터로 더 높은 정확도
+#
+# 실행:
+#   python scripts/1_create_coco_format.py --run-name exp010
+#   python scripts/0_splitting.py --run-name exp010
+#   python scripts/2_prepare_yolo_dataset.py --run-name exp010
+#   python scripts/3_train.py --run-name exp010 --config configs/experiments/exp010_yolo11s.yaml
+#   python scripts/4_evaluate.py --run-name exp010 --config configs/experiments/exp010_yolo11s.yaml
+#   python scripts/5_submission.py --run-name exp010 --config configs/experiments/exp010_yolo11s.yaml --conf 0.25
+# ==============================================================
+
+_base_: "../base.yaml"
+
+experiment:
+  id: "exp010"
+  name: "yolo11s_768"
+  description: "YOLO11s 768px 기본 실험 - YOLOv8s와 비교"
+  author: "@DM"
+  created: "2026-02-06"
+
+train:
+  model_name: "yolo11s"   # YOLO11s (ultralytics 8.4.12+)
+  imgsz: 768
+  epochs: 100
+  batch: 8
+  patience: 50
+
+notes: |
+  YOLO11s vs YOLOv8s 비교 실험.
+  동일 설정(768px, batch=8)에서 아키텍처 차이만 비교.
+  YOLO11은 C3k2, SPPF, C2PSA 블록 사용 → 더 효율적.

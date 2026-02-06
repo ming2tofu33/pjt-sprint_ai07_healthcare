@@ -1,0 +1,58 @@
+# ==============================================================
+# Experiment 020 Stage 1: 2단계 학습 - 강한 증강으로 일반화
+# ==============================================================
+# 목적: 2단계 학습의 1단계 — 강한 증강으로 다양한 패턴 학습
+# 전략: 팀원 검증 전략(Kaggle 0.96849) 기반
+#       1단계: lr=0.001, 150ep, 강한 augmentation → 일반화
+#       2단계: lr=5e-5, 60ep, 증강 전부 OFF → bbox 미세조정
+#
+# 실행:
+#   python scripts/1_create_coco_format.py --run-name exp020_s1
+#   python scripts/0_splitting.py --run-name exp020_s1
+#   python scripts/2_prepare_yolo_dataset.py --run-name exp020_s1
+#   python scripts/3_train.py --run-name exp020_s1 --config configs/experiments/exp020_stage1.yaml
+#   python scripts/4_evaluate.py --run-name exp020_s1 --config configs/experiments/exp020_stage1.yaml
+#   python scripts/5_submission.py --run-name exp020_s1 --config configs/experiments/exp020_stage1.yaml --conf 0.25
+#
+# 1단계 완료 후 → exp020_stage2.yaml로 2단계 진행
+# ==============================================================
+
+_base_: "../base.yaml"
+
+experiment:
+  id: "exp020_s1"
+  name: "yolo11s_1024_stage1_aug"
+  description: "2단계 학습 - 1단계: 강한 증강으로 일반화 학습"
+  author: "@DM"
+  created: "2026-02-06"
+
+train:
+  model_name: "yolo11s"   # YOLO11s
+  imgsz: 1024             # 고해상도
+  epochs: 150             # 충분한 학습
+  batch: 4                # GPU 메모리 제약
+  lr0: 0.001              # 표준 학습률
+  lrf: 0.01
+  patience: 60            # 여유 있는 patience
+
+  # 강한 증강 (다양한 패턴 학습)
+  mosaic: 1.0
+  mixup: 0.15
+  copy_paste: 0.15
+  hsv_h: 0.02
+  hsv_s: 0.8
+  hsv_v: 0.5
+  degrees: 10.0
+  translate: 0.15
+  scale: 0.7
+  fliplr: 0.5
+  flipud: 0.5
+
+notes: |
+  2단계 학습 전략의 1단계.
+  강한 증강으로 232장의 작은 데이터셋에서 일반화 능력을 최대화.
+
+  다음 단계:
+  python scripts/3_train.py --run-name exp020_s2 \
+    --ckpt-from runs/exp020_s1/checkpoints/best.pt \
+    --config configs/experiments/exp020_stage2.yaml

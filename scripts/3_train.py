@@ -16,6 +16,9 @@ YOLO 학습 스크립트
     python scripts/3_train.py --run-name exp_v1 --config configs/experiments/exp007_final.yaml
     python scripts/3_train.py --run-name exp_v1 --model yolov8m --epochs 100
     python scripts/3_train.py --run-name exp_v1 --resume
+
+    2단계 학습 (다른 run의 체크포인트로 시작):
+    python scripts/3_train.py --run-name exp020_s2 --ckpt-from runs/exp020_s1/checkpoints/best.pt --config configs/experiments/exp020_stage2.yaml
 """
 
 import sys
@@ -50,6 +53,7 @@ def main():
     parser.add_argument("--batch", type=int, help="Batch size")
     parser.add_argument("--imgsz", type=int, help="Image size")
     parser.add_argument("--resume", action="store_true", help="마지막 체크포인트에서 재개")
+    parser.add_argument("--ckpt-from", type=str, help="다른 run의 체크포인트 경로 (2단계 학습용, 예: runs/exp020_s1/checkpoints/best.pt)")
     parser.add_argument("--device", type=str, default="0", help="GPU device (0, 1, cpu)")
     args = parser.parse_args()
 
@@ -130,7 +134,18 @@ def main():
         sys.exit(1)
 
     # Model 로드
-    if args.resume:
+    if args.ckpt_from:
+        # 다른 run의 체크포인트로 시작 (2단계 학습용)
+        ckpt_from = Path(args.ckpt_from)
+        if not ckpt_from.is_absolute():
+            ckpt_from = paths["ROOT"] / ckpt_from
+        if ckpt_from.exists():
+            print(f"  ℹ️  외부 체크포인트 로드: {ckpt_from}")
+            model = YOLO(str(ckpt_from))
+        else:
+            print(f"  ❌ 체크포인트 없음: {ckpt_from}")
+            sys.exit(1)
+    elif args.resume:
         last_ckpt = paths["CKPT"] / "last.pt"
         if last_ckpt.exists():
             print(f"  ℹ️  Resume from: {last_ckpt}")

@@ -14,6 +14,7 @@ Kaggle 제출 파일 생성 스크립트 (Placeholder)
     예시:
     python scripts/5_submission.py --run-name exp_baseline_v1
     python scripts/5_submission.py --run-name exp_v1 --ckpt best --conf 0.25
+    python scripts/5_submission.py --run-name exp_v1 --conf 0.20 --tta
 """
 
 import sys
@@ -38,6 +39,7 @@ def main():
     parser.add_argument("--ckpt", type=str, default="best", choices=["best", "last"], help="체크포인트")
     parser.add_argument("--conf", type=float, help="Confidence threshold (기본: config 값)")
     parser.add_argument("--device", type=str, default="0", help="GPU device")
+    parser.add_argument("--tta", action="store_true", help="Test-Time Augmentation (다중 스케일 추론)")
     args = parser.parse_args()
     
     print_section("Stage 2-4: 제출 파일 생성")
@@ -72,6 +74,7 @@ def main():
     print(f"  ✅ Conf threshold: {conf_thr}")
     print(f"  ✅ NMS IoU: {nms_iou}")
     print(f"  ✅ Max det/image: {max_det}")
+    print(f"  ✅ TTA: {'ON' if args.tta else 'OFF'}")
     
     # 3) 체크포인트 확인
     print("\n[3] 체크포인트 확인...")
@@ -132,7 +135,7 @@ def main():
     
     print(f"  🚀 추론 중... ({len(test_images)} images)")
     
-    # 추론 실행
+    # 추론 실행 (TTA: augment=True → 다중 스케일 추론으로 정확도 향상)
     results = model.predict(
         source=str(paths["TEST_IMAGES"]),
         conf=conf_thr,
@@ -141,6 +144,7 @@ def main():
         device=args.device,
         save=False,
         verbose=False,
+        augment=args.tta,
     )
     
     print(f"  ✅ 추론 완료!")
