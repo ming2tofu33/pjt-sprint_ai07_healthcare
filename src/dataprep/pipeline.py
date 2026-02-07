@@ -6,13 +6,13 @@ from pathlib import Path
 from time import perf_counter
 from typing import Iterable, Optional, Tuple
 
-from src.config import resolve_path
-from src.dedup import add_train_dedup_key, dedup_exact_records, should_keep_external_record_after_dedup
-from src.export import write_outputs
-from src.io_utils import parse_one_json, scan_image_files, scan_json_files
-from src.manifest import write_manifest
-from src.normalize import normalize_record
-from src.split import add_group_id, make_group_split, write_splits
+from src.dataprep.config import resolve_path
+from src.dataprep.dedup import add_train_dedup_key, dedup_exact_records, should_keep_external_record_after_dedup
+from src.dataprep.export import write_outputs
+from src.dataprep.io_utils import parse_one_json, scan_image_files, scan_json_files
+from src.dataprep.manifest import write_manifest
+from src.dataprep.normalize import normalize_record
+from src.dataprep.split import add_group_id, make_group_split, write_splits
 
 
 def build_train_mapping(

@@ -9,8 +9,8 @@ PROJECT_ROOT = SCRIPT_PATH.parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from src.config import load_preprocess_config
-from src.pipeline import run
+from src.dataprep.config import load_preprocess_config
+from src.dataprep.pipeline import run
 
 
 def main(argv: list[str]) -> int:
