@@ -9,6 +9,7 @@ from PIL import Image
 
 
 def _cast_bbox_value(value: Any, cast_type: str) -> Optional[float]:
+    """bbox 원소 1개를 숫자로 캐스팅한다. 실패하면 None을 반환한다."""
     try:
         if cast_type == "int":
             return float(int(float(value)))
@@ -18,6 +19,7 @@ def _cast_bbox_value(value: Any, cast_type: str) -> Optional[float]:
 
 
 def _clip_bbox_xywh(x: float, y: float, w: float, h: float, width: float, height: float) -> Tuple[float, float, float, float]:
+    """xywh 박스를 이미지 경계(0~width/height) 안으로 잘라낸다."""
     x2 = x + w
     y2 = y + h
     x1c = min(max(x, 0.0), width)
@@ -28,6 +30,7 @@ def _clip_bbox_xywh(x: float, y: float, w: float, h: float, width: float, height
 
 
 def _extract_k_code_id(value: Any) -> Optional[str]:
+    """문자열에서 K-###### 패턴을 찾아 숫자 ID 문자열로 반환한다."""
     if value is None:
         return None
     text = str(value).strip()
@@ -37,6 +40,52 @@ def _extract_k_code_id(value: Any) -> Optional[str]:
     if not m:
         return None
     return str(int(m.group(1)))
+
+
+def _safe_int(value: Any) -> Optional[int]:
+    """정수 변환 보조 함수. 변환 불가 시 None."""
+    try:
+        return int(value)
+    except Exception:
+        return None
+
+
+def _normalize_file_name_set(values: Any) -> set[str]:
+    """수동 제외 파일명 리스트를 소문자 set으로 정규화한다."""
+    if not isinstance(values, list):
+        return set()
+    out: set[str] = set()
+    for item in values:
+        if not isinstance(item, str):
+            continue
+        key = item.strip().lower()
+        if key:
+            out.add(key)
+    return out
+
+
+def _manual_bbox_index(rule: dict) -> Optional[int]:
+    """수동 bbox 수정 룰에서 수정할 좌표 인덱스(x/y/w/h)를 해석한다."""
+    idx = rule.get("index")
+    if idx is not None:
+        try:
+            i = int(idx)
+            if 0 <= i <= 3:
+                return i
+        except Exception:
+            return None
+        return None
+
+    field = str(rule.get("field", "")).strip().lower()
+    if field in {"x", "bbox_x"}:
+        return 0
+    if field in {"y", "bbox_y"}:
+        return 1
+    if field in {"w", "bbox_w", "width"}:
+        return 2
+    if field in {"h", "bbox_h", "height"}:
+        return 3
+    return None
 
 
 def normalize_record(
@@ -55,28 +104,29 @@ def normalize_record(
     external_cfg: Optional[dict] = None,
 ) -> Tuple[Optional[dict], Optional[dict]]:
     """
-    Normalize one JSON into a clean row.
+    단일 JSON 라벨을 df_clean 1행 레코드로 정규화한다.
 
-    Input contract:
-    - `data` is original parsed JSON dict (mutated in-place when normalization applies).
-    - `image_index`/`image_duplicates` are filename-lowercase based lookup maps.
-    - `config`/`external_cfg` determine validation, cast, OOB, and category-sync behavior.
-    - `logs` is append-only and must include keys:
-      `excluded_rows`, `fixes_bbox`, `excluded_rows_external`, `fixes_bbox_external`.
-    - `audit` is append-only and keyed by audit file names (e.g. `audit_bad_bbox.csv`).
+    입력 계약:
+    - `data`는 파싱된 원본 JSON이며, 정규화 과정에서 in-place로 일부 값이 보정될 수 있다.
+    - `image_index`/`image_duplicates`는 파일명 소문자 기준 이미지 조회 맵이다.
+    - `config`/`external_cfg`는 검증, 캐스팅, OOB 처리, 카테고리 동기화 정책을 결정한다.
+    - `logs`는 append-only 구조이며 다음 키를 포함해야 한다.
+      `excluded_rows`, `fixes_bbox`, `excluded_rows_external`, `fixes_bbox_external`
+    - `audit`는 append-only 구조이며 audit 파일명 키(`audit_bad_bbox.csv` 등)를 사용한다.
 
-    Output contract:
-    - Success: `(record_dict, normalized_json_dict)` where `record_dict` matches df_clean row schema.
-    - Failure: `(None, None)` after appending exactly the same excluded/fix/audit rows
-      (field names, reason_code strings, and payload formats are unchanged).
+    출력 계약:
+    - 성공: `(record_dict, normalized_json_dict)` 반환 (`record_dict`는 df_clean 스키마)
+    - 실패: `(None, None)` 반환. 동시에 제외/수정/audit 로그를 누락 없이 append한다.
     """
 
     def _log_excluded(row: dict) -> None:
+        # 공통 제외 로그 + 외부 데이터 전용 제외 로그를 함께 유지한다.
         logs["excluded_rows"].append(row)
         if source == "external" and "excluded_rows_external" in logs:
             logs["excluded_rows_external"].append(row)
 
     def _log_fix(row: dict) -> None:
+        # 공통 수정 로그 + 외부 데이터 전용 수정 로그를 함께 유지한다.
         logs["fixes_bbox"].append(row)
         if source == "external" and "fixes_bbox_external" in logs:
             logs["fixes_bbox_external"].append(row)
@@ -88,6 +138,9 @@ def normalize_record(
     annotations = data.get("annotations") or []
     categories = data.get("categories") or []
 
+    # 1) JSON 구조 검증
+    # train은 split-coco(1 image/1 ann/1 cat) 계약을 기본으로 강제하고,
+    # external은 external_cfg의 singleton 계약을 따르게 한다.
     if source == "external" and external_cfg:
         enforce_cfg = external_cfg.get("alignment", {}).get("enforce_singletons", {})
         exp_images = int(enforce_cfg.get("images_len", 1))
@@ -139,7 +192,27 @@ def normalize_record(
     file_name = file_name.strip()
     file_key = file_name.lower()
 
+    # 2) 수동 제외 파일 적용
+    # 이미 라벨 불완전으로 알려진 파일은 early return으로 학습 데이터에서 제외한다.
+    manual_cfg = config.get("manual_overrides", {})
+    excluded_file_names = _normalize_file_name_set(manual_cfg.get("exclude_file_names", []))
+    if file_key in excluded_file_names:
+        reason_code = str(manual_cfg.get("exclude_reason_code", "manual_excluded_file_name"))
+        detail = str(manual_cfg.get("exclude_reason_detail", "known_incomplete_labels"))
+        _log_excluded(
+            {
+                "source": source,
+                "file_name": file_name,
+                "source_json": str(source_json),
+                "reason_code": reason_code,
+                "detail": detail,
+            }
+        )
+        audit["audit_missing_labels.csv"].append({"source_json": str(source_json), "reason": reason_code})
+        return None, None
+
     # Ambiguous image names in same source
+    # 동일 소스 내 같은 파일명이 여러 경로에 존재하면 이미지-라벨 매핑이 불안정하므로 제외.
     if file_key in image_duplicates:
         _log_excluded(
             {
@@ -158,6 +231,7 @@ def normalize_record(
     integrity_cfg = config.get("integrity", {}) if source == "train" else {}
     verify_image = bool(image_meta_cfg.get("verify_image_exists", False) or integrity_cfg.get("drop_if_image_missing", False))
 
+    # 3) 이미지 존재성 검증
     if verify_image and image_path is None:
         _log_excluded(
             {
@@ -174,7 +248,9 @@ def normalize_record(
     width = img0.get("width")
     height = img0.get("height")
 
-    # If external alignment requires overwrite, use actual image size
+    # 4) 이미지 크기 동기화
+    # 외부 데이터의 width/height 신뢰도가 낮을 수 있어, 설정 시 실제 이미지 크기로 덮어쓴다.
+    # 반복 열기 비용을 줄이기 위해 image_size_cache를 사용한다.
     overwrite_wh = bool(image_meta_cfg.get("overwrite_width_height_from_image", False))
     if image_path is not None and (overwrite_wh or width is None or height is None):
         try:
@@ -230,7 +306,8 @@ def normalize_record(
         )
         return None, None
 
-    # External category mapping (dl_idx -> canonical id)
+    # 5) 외부 카테고리 ID 정렬
+    # train 기준 canonical category_id로 강제 정렬하여 클래스 체계를 통일한다.
     if source == "external" and external_cfg:
         mapping_cfg = external_cfg.get("category_id_mapping", {})
         if mapping_cfg.get("enabled", False):
@@ -241,7 +318,7 @@ def normalize_record(
             mapped_lookup_key = dl_idx
             fallback_key = None
 
-            # Prefer K-code fields when external dl_idx is off-by-one.
+            # 외부 dl_idx가 어긋난 케이스를 대비해 K-code 필드에서 fallback key를 먼저 탐색한다.
             fallback_fields = mapping_cfg.get("fallback_fields", ["dl_mapping_code", "drug_N"])
             if not isinstance(fallback_fields, list):
                 fallback_fields = ["dl_mapping_code", "drug_N"]
@@ -284,6 +361,8 @@ def normalize_record(
                 )
 
                 return None, None
+
+            # 매핑 성공 시 annotation/category를 함께 맞춰 JSON 내부 정합성을 유지한다.
             ann0["category_id"] = mapped_id
             if external_cfg.get("alignment", {}).get("categories_sync", {}).get(
                 "set_categories_id_from_annotation", True
@@ -295,7 +374,8 @@ def normalize_record(
                 if mapping_name and mapped_lookup_key in mapping_name:
                     cat0["name"] = mapping_name[mapped_lookup_key]
 
-    # bbox validation / casting
+    # 6) bbox 검증 및 캐스팅
+    # 형식/길이/수치 변환 실패를 단계적으로 제거하여 하류 학습 에러를 방지한다.
     validation_cfg = config.get("validation", {})
     bbox_cfg = (
         external_cfg.get("alignment", {}).get("bbox", {}) if source == "external" and external_cfg else validation_cfg
@@ -350,6 +430,54 @@ def normalize_record(
             return None, None
         casted.append(float(fv))
 
+    # 7) 수동 bbox 오탈자 수정
+    # 알려진 라벨 오탈자는 룰 기반으로 1회 보정하고 fixes 로그에 남긴다.
+    manual_bbox_fixes = manual_cfg.get("bbox_value_fixes", [])
+    if isinstance(manual_bbox_fixes, list) and manual_bbox_fixes:
+        ann_cat_id_int = _safe_int(ann0.get("category_id"))
+        for rule in manual_bbox_fixes:
+            if not isinstance(rule, dict):
+                continue
+
+            rule_source = str(rule.get("source", "")).strip().lower()
+            if rule_source and rule_source != source:
+                continue
+
+            rule_file_name = str(rule.get("file_name", "")).strip().lower()
+            if rule_file_name and rule_file_name != file_key:
+                continue
+
+            if "category_id" in rule:
+                rule_cat = _safe_int(rule.get("category_id"))
+                if rule_cat is None or ann_cat_id_int != rule_cat:
+                    continue
+
+            idx = _manual_bbox_index(rule)
+            if idx is None:
+                continue
+
+            new_value = _cast_bbox_value(rule.get("new"), cast_type)
+            if new_value is None:
+                continue
+
+            old_value = _cast_bbox_value(rule.get("old"), cast_type)
+            if old_value is not None and float(casted[idx]) != float(old_value):
+                continue
+
+            old_bbox = [float(v) for v in casted]
+            casted[idx] = float(new_value)
+            _log_fix(
+                {
+                    "source": source,
+                    "file_name": file_name,
+                    "source_json": str(source_json),
+                    "old_bbox": json.dumps(old_bbox),
+                    "new_bbox": json.dumps(casted),
+                    "reason_code": str(rule.get("reason_code", "manual_bbox_fix")),
+                }
+            )
+            break
+
     x, y, w, h = casted
     if bbox_cfg.get("drop_non_positive_wh", True) and (w <= 0 or h <= 0):
         _log_excluded(
@@ -364,7 +492,9 @@ def normalize_record(
         audit["audit_bad_bbox.csv"].append({"file_name": file_name, "reason": "non_positive_wh"})
         return None, None
 
-    # OOB handling
+    # 8) OOB(out-of-bounds) 정책 적용
+    # - exclude: 경계를 벗어난 박스는 제거
+    # - clip: 경계로 자른 뒤 면적이 0이면 제거
     oob_cfg = (external_cfg.get("alignment", {}).get("oob", {}) if source == "external" and external_cfg else config.get("oob", {}))
     is_oob = x < 0 or y < 0 or (x + w) > width or (y + h) > height
     if is_oob:
@@ -427,7 +557,7 @@ def normalize_record(
         )
         return None, None
 
-    # Keep categories in sync when requested
+    # category 동기화 옵션이 켜져 있으면 categories.id도 annotation 기준으로 맞춘다.
     if source == "external" and external_cfg:
         if external_cfg.get("alignment", {}).get("categories_sync", {}).get("set_categories_id_from_annotation", True):
             cat0["id"] = cat_id
@@ -436,6 +566,7 @@ def normalize_record(
     bbox_area_ratio = bbox_area / (width * height) if width > 0 and height > 0 else 0.0
     bbox_aspect = (w / h) if h > 0 else 0.0
 
+    # 9) df_clean 스키마로 레코드 조립
     record = {
         "file_name": file_name,
         "source_json": str(source_json),

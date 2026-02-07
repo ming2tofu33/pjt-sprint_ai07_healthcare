@@ -7,7 +7,12 @@ from time import perf_counter
 from typing import Iterable, Optional, Tuple
 
 from src.dataprep.config import resolve_path
-from src.dataprep.dedup import add_train_dedup_key, dedup_exact_records, should_keep_external_record_after_dedup
+from src.dataprep.dedup import (
+    add_train_dedup_key,
+    dedup_exact_records,
+    dedup_iou_records,
+    should_keep_external_record_after_dedup,
+)
 from src.dataprep.export import write_outputs
 from src.dataprep.io_utils import parse_one_json, scan_image_files, scan_json_files
 from src.dataprep.manifest import write_manifest
@@ -19,8 +24,8 @@ def build_train_mapping(
     train_json_paths: Iterable[Path], mapping_key: str
 ) -> Tuple[dict[str, int], dict[str, str], list[dict[str, str]]]:
     """
-    Build dl_idx -> canonical category_id/name from train annotations.
-    Returns (id_map, name_map, suspect_rows).
+    train annotation을 기준으로 dl_idx -> canonical category_id/name 매핑을 만든다.
+    반환값: (id_map, name_map, suspect_rows)
     """
     id_map: dict[str, int] = {}
     name_map: dict[str, str] = {}
@@ -78,6 +83,10 @@ def build_train_mapping(
 def build_df_clean(
     config: dict, config_path: Path, *, repo_root: Path, quiet: bool = False, log_every: int = 500
 ) -> dict:
+    """
+    원천 JSON/이미지를 정규화해 df_clean 레코드 리스트를 구축한다.
+    이 함수는 '수집/정규화/중복제거/분할준비'까지 담당하고, 실제 파일 저장은 run()에서 처리한다.
+    """
     base_dir = repo_root
     paths_cfg = config.get("paths", {})
     outputs_cfg = config.get("outputs", {})
@@ -90,7 +99,7 @@ def build_df_clean(
     metadata_dir.mkdir(parents=True, exist_ok=True)
     processed_dir.mkdir(parents=True, exist_ok=True)
 
-    # Audit logs (always create keys, even if empty)
+    # Audit 로그는 빈 결과라도 파일 스키마를 안정적으로 만들 수 있게 키를 미리 준비한다.
     audit_files = config.get("audit", {}).get("files", [])
     audit_logs = {name: [] for name in audit_files}
     audit_logs.setdefault("audit_unmapped_external.csv", [])
@@ -102,14 +111,14 @@ def build_df_clean(
         "fixes_bbox_external": [],
     }
 
-    # Train mapping from dl_idx -> category_id/name
+    # 외부 데이터 정렬에 필요한 train 기준 매핑 테이블 구축
     train_json_paths = scan_json_files(train_ann_dir, recursive=True)
     mapping_key = config.get("external_data", {}).get("category_id_mapping", {}).get("mapping_key", "dl_idx")
     train_map_id, train_map_name, suspect_rows = build_train_mapping(train_json_paths, mapping_key)
     if "audit_suspect_files.csv" in audit_logs and suspect_rows:
         audit_logs["audit_suspect_files.csv"].extend(suspect_rows)
 
-    # Index train images
+    # 파일명(lower) -> 이미지 경로 인덱스, 중복 파일명 목록
     train_image_index, train_image_dups = scan_image_files(train_images_dir, recursive=True)
 
     if not quiet:
@@ -119,7 +128,7 @@ def build_df_clean(
     train_dedup_keys: set[tuple] = set()
     train_image_size_cache: dict[str, tuple[int, int]] = {}
 
-    # Process train
+    # 1) Train 레코드 수집/정규화
     t0 = perf_counter()
     for i, p in enumerate(train_json_paths, start=1):
         if not quiet and log_every > 0 and (i == 1 or i % log_every == 0):
@@ -151,11 +160,11 @@ def build_df_clean(
             continue
         records.append(record)
 
-        # build dedup key set for external comparison
+        # external dedup 비교용 키를 train 기준으로 누적
         dedup_key_fields = config.get("dedup", {}).get("exact", {}).get("key", [])
         add_train_dedup_key(record, dedup_key_fields, train_dedup_keys)
 
-    # External data
+    # 2) External 레코드 수집/정규화 (옵션)
     external_cfg = config.get("external_data", {})
     if external_cfg.get("enabled", False):
         banned_patterns = external_cfg.get("banned_patterns", [])
@@ -176,7 +185,7 @@ def build_df_clean(
             ann_dir = resolve_path(src["annotations_dir"], base_dir)
             recursive = bool(src.get("recursive", True))
 
-            # Safety: banned patterns in paths
+            # 금지 데이터셋(조합 데이터) 경로/파일명을 사전 차단한다.
             for root in (img_dir, ann_dir):
                 for dirpath, _, filenames in os.walk(root):
                     if any(pat.lower() in dirpath.lower() for pat in banned_patterns):
@@ -230,7 +239,7 @@ def build_df_clean(
                 if record is None:
                     continue
 
-                # External dedup against train
+                # train과 exact key가 동일한 external row는 정책에 따라 제외
                 dedup_key_fields = dedup_cfg.get("exact", {}).get("key", [])
                 keep_record = should_keep_external_record_after_dedup(
                     record,
@@ -245,7 +254,7 @@ def build_df_clean(
 
                 records.append(record)
 
-                # Optional: normalize & copy external artifacts
+                # 필요 시 정규화된 external 산출물을 별도 폴더에 저장(재현/감사 목적)
                 if normalize_and_copy and normalized_json is not None:
                     try:
                         rel = p.relative_to(ann_dir)
@@ -265,15 +274,18 @@ def build_df_clean(
                         if src_img is not None:
                             out_img_path.write_bytes(src_img.read_bytes())
 
-    # Dedup exact (global)
-    dedup_cfg = config.get("dedup", {}).get("exact", {})
-    records = dedup_exact_records(records, dedup_cfg, logs, audit_logs)
+    # 3) 전체(train+external) 기준 중복 제거
+    dedup_root_cfg = config.get("dedup", {})
+    exact_cfg = dedup_root_cfg.get("exact", {})
+    iou_cfg = dedup_root_cfg.get("iou", {})
+    records = dedup_exact_records(records, exact_cfg, logs, audit_logs)
+    records = dedup_iou_records(records, iou_cfg, logs, audit_logs)
 
-    # Add group_id
+    # 4) 누수 방지 split을 위한 group_id 부여
     split_cfg = config.get("split", {})
     add_group_id(records, split_cfg)
 
-    # mapping table rows
+    # 5) 매핑 테이블 출력용 행 조립
     mapping_rows = []
     for dl_idx, cat_id in train_map_id.items():
         mapping_rows.append(
@@ -300,6 +312,13 @@ def build_df_clean(
 def run(
     config: dict, *, config_path: Path, repo_root: Path, quiet: bool = False, log_every: int = 500
 ) -> dict:
+    """
+    전처리 파이프라인 실행 함수:
+    - build_df_clean(): 메모리 내 결과 생성
+    - write_outputs(): csv/audit 저장
+    - make_group_split()/write_splits(): train/val 분할 저장
+    - write_manifest(): 실행 요약 저장
+    """
     result = build_df_clean(config, config_path, repo_root=repo_root, quiet=quiet, log_every=log_every)
 
     records = result["records"]

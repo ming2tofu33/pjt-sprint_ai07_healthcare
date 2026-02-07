@@ -6,7 +6,7 @@ from typing import Callable
 
 
 def write_audit_files(metadata_dir: Path, audit_logs: dict[str, list[dict]]) -> None:
-    # audit files (create even if empty)
+    """audit 로그를 파일별로 저장한다. 빈 로그도 파일을 생성한다."""
     for audit_name, rows in audit_logs.items():
         with (metadata_dir / audit_name).open("w", newline="", encoding="utf-8") as f:
             if rows:
@@ -24,6 +24,7 @@ def write_unmapped_external_audit_log(
     audit_logs: dict[str, list[dict]],
     resolve_path_fn: Callable[[str, Path], Path],
 ) -> None:
+    """외부 데이터 unmapped audit 로그를 별도 경로에 저장한다."""
     unmapped_out = mapping_cfg.get("unmapped_log_out")
     if unmapped_out:
         out_path = resolve_path_fn(unmapped_out, base_dir)
@@ -51,11 +52,18 @@ def write_outputs(
     base_dir: Path,
     resolve_path_fn: Callable[[str, Path], Path],
 ) -> None:
+    """
+    전처리 산출물을 디스크에 저장한다.
+    - df_clean / excluded / fixes
+    - audit 파일
+    - external 전용 로그(설정 시)
+    - category 매핑 테이블(설정 시)
+    """
     df_name = outputs_cfg.get("df_clean_name", "df_clean.csv")
     excluded_name = outputs_cfg.get("excluded_rows_name", "excluded_rows.csv")
     fixes_name = outputs_cfg.get("fixes_bbox_name", "fixes_bbox.csv")
 
-    # df_clean
+    # 1) 학습/분석 기준 테이블(df_clean)
     df_path = processed_dir / df_name
     df_path.parent.mkdir(parents=True, exist_ok=True)
     df_fields = [
@@ -84,13 +92,13 @@ def write_outputs(
         for r in records:
             writer.writerow(r)
 
-    # excluded rows
+    # 2) 제외 로그(왜 버렸는지 추적용)
     with (metadata_dir / excluded_name).open("w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=["source", "file_name", "source_json", "reason_code", "detail"])
         writer.writeheader()
         writer.writerows(logs["excluded_rows"])
 
-    # fixes bbox
+    # 3) bbox 수정 로그(원본/수정값 추적용)
     with (metadata_dir / fixes_name).open("w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(
             f, fieldnames=["source", "file_name", "source_json", "old_bbox", "new_bbox", "reason_code"]
@@ -100,7 +108,7 @@ def write_outputs(
 
     write_audit_files(metadata_dir, audit_logs)
 
-    # external-specific logs (if configured)
+    # 4) 외부 데이터 전용 로그(옵션)
     ext_cfg = config.get("external_data", {}).get("alignment", {}).get("oob", {})
     fixes_ext_out = ext_cfg.get("fixes_log_out")
     excluded_ext_out = ext_cfg.get("excluded_log_out")
@@ -121,7 +129,7 @@ def write_outputs(
             writer.writeheader()
             writer.writerows(logs["excluded_rows_external"])
 
-    # category mapping table + unmapped log
+    # 5) category 매핑 산출물(옵션)
     mapping_cfg = config.get("external_data", {}).get("category_id_mapping", {})
     if mapping_cfg.get("save_mapping_table", False):
         out_path = resolve_path_fn(mapping_cfg.get("mapping_table_out", "data/metadata/category_mapping.csv"), base_dir)

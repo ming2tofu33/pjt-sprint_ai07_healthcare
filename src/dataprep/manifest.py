@@ -17,8 +17,13 @@ def write_manifest(
     outputs_cfg: dict,
     repo_root: Path,
 ) -> None:
+    """
+    전처리 실행 요약(manifest)을 저장한다.
+    재현성 확인을 위해 git hash, config hash, 주요 집계치를 함께 기록한다.
+    """
     manifest_name = outputs_cfg.get("manifest_name", "preprocess_manifest.json")
 
+    # 설정 파일 자체의 해시를 남겨 같은 설정으로 재실행했는지 검증 가능하게 한다.
     cfg_bytes = config_path.read_bytes()
     cfg_hash = hashlib.sha256(cfg_bytes).hexdigest()
     try:
@@ -26,6 +31,7 @@ def write_manifest(
     except Exception:
         git_hash = None
 
+    # 데이터 요약 통계
     total_rows = len(records)
     train_rows = sum(1 for r in records if r["source"] == "train")
     external_rows = sum(1 for r in records if r["source"] == "external")
