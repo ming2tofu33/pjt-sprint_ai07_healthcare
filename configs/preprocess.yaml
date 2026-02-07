@@ -35,6 +35,10 @@ missing_label:
   heuristic:
     enabled: true
     min_objects_per_image: 3
+    max_objects_per_image: 4
+    valid_object_counts:
+    - 3
+    - 4
 dedup:
   exact:
     enabled: true
@@ -47,7 +51,7 @@ dedup:
     - bbox_h
   iou:
     enabled: true
-    threshold: 0.9
+    threshold: 0.3
     action: exclude
     same_category_only: false
     same_source_only: true
@@ -92,6 +96,12 @@ audit:
   - audit_dup_near.csv
   - audit_iou_pairs.csv
   - audit_suspect_files.csv
+  - audit_invalid_object_count.csv
+  - audit_external_copy_json.csv
+  - audit_external_bbox_conflict.csv
+  - audit_external_expected4_actual3.csv
+  - audit_pixel_overlap.csv
+  - audit_aux_detector_iou.csv
 external_data:
   enabled: true
   ingest:
@@ -155,6 +165,61 @@ external_data:
       enabled: false
       threshold: 0.9
       action: audit_only
+  quality_filters:
+    exclude_copy_json:
+      enabled: true
+      patterns:
+      - " copy"
+      - "(copy"
+      - "_copy"
+    exclude_bbox_conflict:
+      enabled: true
+      bbox_round_digits: 4
+    exclude_expected_4_codes_with_3_objects:
+      enabled: true
+      sources:
+      - train
+      - external
+    exclude_entire_image_if_any_bbox_bad:
+      enabled: true
+      reason_codes:
+      - missing_bbox
+      - invalid_bbox_len
+      - non_numeric_bbox
+      - non_positive_wh
+      - oob_excluded
+      - oob_clipped_to_zero
+quality_audit:
+  pixel_overlap:
+    enabled: true
+    action: audit_only
+    log_every_images: 500
+    sources:
+    - train
+    - external
+    min_coverage: 0.75
+    min_bbox_iou: 0.65
+    min_component_area_px: 60
+    roi_expand_ratio: 0.25
+    audit_file: audit_pixel_overlap.csv
+  auxiliary_detector:
+    enabled: true
+    action: audit_only
+    log_every_images: 500
+    sources:
+    - train
+    - external
+    detector: yolo
+    yolo_weights: notebooks/yolov8s.pt
+    yolo_conf: 0.05
+    yolo_iou: 0.5
+    yolo_imgsz: 960
+    min_match_iou: 0.6
+    min_pred_area_ratio: 0.001
+    max_pred_area_ratio: 0.5
+    min_aspect: 0.2
+    max_aspect: 5.0
+    audit_file: audit_aux_detector_iou.csv
 format:
   df_clean_format: csv
   csv_encoding: utf-8

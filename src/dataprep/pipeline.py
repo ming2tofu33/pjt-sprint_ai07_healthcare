@@ -1,22 +1,28 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import json
 import os
 from pathlib import Path
 from time import perf_counter
-from typing import Iterable, Optional, Tuple
+from typing import Iterable, Tuple
 
 from src.dataprep.config import resolve_path
 from src.dataprep.dedup import (
     add_train_dedup_key,
     dedup_exact_records,
     dedup_iou_records,
+    filter_expected4_actual3,
+    filter_external_bbox_category_conflicts,
+    filter_external_copy_json_records,
+    filter_external_images_with_any_bad_bbox,
+    filter_object_count,
     should_keep_external_record_after_dedup,
 )
 from src.dataprep.export import write_outputs
 from src.dataprep.io_utils import parse_one_json, scan_image_files, scan_json_files
 from src.dataprep.manifest import write_manifest
 from src.dataprep.normalize import normalize_record
+from src.dataprep.quality_audit import run_aux_detector_audit, run_pixel_overlap_audit
 from src.dataprep.split import add_group_id, make_group_split, write_splits
 
 
@@ -24,8 +30,8 @@ def build_train_mapping(
     train_json_paths: Iterable[Path], mapping_key: str
 ) -> Tuple[dict[str, int], dict[str, str], list[dict[str, str]]]:
     """
-    train annotation을 기준으로 dl_idx -> canonical category_id/name 매핑을 만든다.
-    반환값: (id_map, name_map, suspect_rows)
+    train annotation??湲곗??쇰줈 dl_idx -> canonical category_id/name 留ㅽ븨??留뚮뱺??
+    諛섑솚媛? (id_map, name_map, suspect_rows)
     """
     id_map: dict[str, int] = {}
     name_map: dict[str, str] = {}
@@ -84,8 +90,8 @@ def build_df_clean(
     config: dict, config_path: Path, *, repo_root: Path, quiet: bool = False, log_every: int = 500
 ) -> dict:
     """
-    원천 JSON/이미지를 정규화해 df_clean 레코드 리스트를 구축한다.
-    이 함수는 '수집/정규화/중복제거/분할준비'까지 담당하고, 실제 파일 저장은 run()에서 처리한다.
+    ?먯쿇 JSON/?대?吏瑜??뺢퇋?뷀빐 df_clean ?덉퐫??由ъ뒪?몃? 援ъ텞?쒕떎.
+    ???⑥닔??'?섏쭛/?뺢퇋??以묐났?쒓굅/遺꾪븷以鍮?源뚯? ?대떦?섍퀬, ?ㅼ젣 ?뚯씪 ??μ? run()?먯꽌 泥섎━?쒕떎.
     """
     base_dir = repo_root
     paths_cfg = config.get("paths", {})
@@ -99,7 +105,7 @@ def build_df_clean(
     metadata_dir.mkdir(parents=True, exist_ok=True)
     processed_dir.mkdir(parents=True, exist_ok=True)
 
-    # Audit 로그는 빈 결과라도 파일 스키마를 안정적으로 만들 수 있게 키를 미리 준비한다.
+    # Audit 濡쒓렇??鍮?寃곌낵?쇰룄 ?뚯씪 ?ㅽ궎留덈? ?덉젙?곸쑝濡?留뚮뱾 ???덇쾶 ?ㅻ? 誘몃━ 以鍮꾪븳??
     audit_files = config.get("audit", {}).get("files", [])
     audit_logs = {name: [] for name in audit_files}
     audit_logs.setdefault("audit_unmapped_external.csv", [])
@@ -111,14 +117,14 @@ def build_df_clean(
         "fixes_bbox_external": [],
     }
 
-    # 외부 데이터 정렬에 필요한 train 기준 매핑 테이블 구축
+    # ?몃? ?곗씠???뺣젹???꾩슂??train 湲곗? 留ㅽ븨 ?뚯씠釉?援ъ텞
     train_json_paths = scan_json_files(train_ann_dir, recursive=True)
     mapping_key = config.get("external_data", {}).get("category_id_mapping", {}).get("mapping_key", "dl_idx")
     train_map_id, train_map_name, suspect_rows = build_train_mapping(train_json_paths, mapping_key)
     if "audit_suspect_files.csv" in audit_logs and suspect_rows:
         audit_logs["audit_suspect_files.csv"].extend(suspect_rows)
 
-    # 파일명(lower) -> 이미지 경로 인덱스, 중복 파일명 목록
+    # ?뚯씪紐?lower) -> ?대?吏 寃쎈줈 ?몃뜳?? 以묐났 ?뚯씪紐?紐⑸줉
     train_image_index, train_image_dups = scan_image_files(train_images_dir, recursive=True)
 
     if not quiet:
@@ -160,11 +166,11 @@ def build_df_clean(
             continue
         records.append(record)
 
-        # external dedup 비교용 키를 train 기준으로 누적
+        # external dedup 鍮꾧탳???ㅻ? train 湲곗??쇰줈 ?꾩쟻
         dedup_key_fields = config.get("dedup", {}).get("exact", {}).get("key", [])
         add_train_dedup_key(record, dedup_key_fields, train_dedup_keys)
 
-    # 2) External 레코드 수집/정규화 (옵션)
+    # 2) External ?덉퐫???섏쭛/?뺢퇋??(?듭뀡)
     external_cfg = config.get("external_data", {})
     if external_cfg.get("enabled", False):
         banned_patterns = external_cfg.get("banned_patterns", [])
@@ -185,7 +191,7 @@ def build_df_clean(
             ann_dir = resolve_path(src["annotations_dir"], base_dir)
             recursive = bool(src.get("recursive", True))
 
-            # 금지 데이터셋(조합 데이터) 경로/파일명을 사전 차단한다.
+            # 湲덉? ?곗씠?곗뀑(議고빀 ?곗씠?? 寃쎈줈/?뚯씪紐낆쓣 ?ъ쟾 李⑤떒?쒕떎.
             for root in (img_dir, ann_dir):
                 for dirpath, _, filenames in os.walk(root):
                     if any(pat.lower() in dirpath.lower() for pat in banned_patterns):
@@ -239,7 +245,7 @@ def build_df_clean(
                 if record is None:
                     continue
 
-                # train과 exact key가 동일한 external row는 정책에 따라 제외
+                # train怨?exact key媛 ?숈씪??external row???뺤콉???곕씪 ?쒖쇅
                 dedup_key_fields = dedup_cfg.get("exact", {}).get("key", [])
                 keep_record = should_keep_external_record_after_dedup(
                     record,
@@ -254,7 +260,7 @@ def build_df_clean(
 
                 records.append(record)
 
-                # 필요 시 정규화된 external 산출물을 별도 폴더에 저장(재현/감사 목적)
+                # ?꾩슂 ???뺢퇋?붾맂 external ?곗텧臾쇱쓣 蹂꾨룄 ?대뜑??????ы쁽/媛먯궗 紐⑹쟻)
                 if normalize_and_copy and normalized_json is not None:
                     try:
                         rel = p.relative_to(ann_dir)
@@ -274,18 +280,55 @@ def build_df_clean(
                         if src_img is not None:
                             out_img_path.write_bytes(src_img.read_bytes())
 
-    # 3) 전체(train+external) 기준 중복 제거
+    # 3) ?꾩껜(train+external) 湲곗? 以묐났 ?쒓굅
+    # 2-1) ?몃? copy.json ?⑦꽩 ?덉퐫???쒖쇅
+    records = filter_external_copy_json_records(records, config, logs, audit_logs)
+
+    # 2-2) ?몃? ?숈씪 bbox-?ㅼ쨷移댄뀒怨좊━ 異⑸룎 ?쒖쇅
+    records = filter_external_bbox_category_conflicts(records, config, logs, audit_logs)
+
+    # 2-3) ?몃? bbox 遺덈웾 ?대젰???덈뒗 ?대?吏???덉퐫???꾩껜 ?쒖쇅
+    records = filter_external_images_with_any_bad_bbox(records, config, logs, audit_logs)
+
     dedup_root_cfg = config.get("dedup", {})
     exact_cfg = dedup_root_cfg.get("exact", {})
     iou_cfg = dedup_root_cfg.get("iou", {})
     records = dedup_exact_records(records, exact_cfg, logs, audit_logs)
     records = dedup_iou_records(records, iou_cfg, logs, audit_logs)
 
+    # 3-1) 媛앹껜 ??洹쒖튃 ?곸슜: ?대?吏??媛앹껜媛 ?덉슜 踰붿쐞(?? 3~4)媛 ?꾨땲硫??쒓굅
+    records = filter_object_count(records, config, logs, audit_logs)
+
+    # 3-2) external: ?뚯씪紐??쎌퐫??4媛쒖씤??媛앹껜 3媛쒖씤 ?대?吏 ?쒓굅
+    records = filter_expected4_actual3(records, config, logs, audit_logs)
+
+    # 3-3) ?쎌? 湲곕컲 bbox ?덉쭏 媛먯궗(coverage / bbox IoU)
+    pixel_audit = run_pixel_overlap_audit(
+        records=records,
+        config=config,
+        logs=logs,
+        audit_logs=audit_logs,
+        base_dir=base_dir,
+        resolve_path_fn=resolve_path,
+    )
+    records = pixel_audit.filtered_records
+
+    # 3-4) 蹂댁“ detector 湲곕컲 援먯감寃利?max IoU)
+    aux_audit = run_aux_detector_audit(
+        records=records,
+        config=config,
+        logs=logs,
+        audit_logs=audit_logs,
+        base_dir=base_dir,
+        resolve_path_fn=resolve_path,
+    )
+    records = aux_audit.filtered_records
+
     # 4) 누수 방지 split을 위한 group_id 부여
     split_cfg = config.get("split", {})
     add_group_id(records, split_cfg)
 
-    # 5) 매핑 테이블 출력용 행 조립
+    # 5) 留ㅽ븨 ?뚯씠釉?異쒕젰????議곕┰
     mapping_rows = []
     for dl_idx, cat_id in train_map_id.items():
         mapping_rows.append(
@@ -313,12 +356,9 @@ def run(
     config: dict, *, config_path: Path, repo_root: Path, quiet: bool = False, log_every: int = 500
 ) -> dict:
     """
-    전처리 파이프라인 실행 함수:
-    - build_df_clean(): 메모리 내 결과 생성
-    - write_outputs(): csv/audit 저장
-    - make_group_split()/write_splits(): train/val 분할 저장
-    - write_manifest(): 실행 요약 저장
-    """
+    ?꾩쿂由??뚯씠?꾨씪???ㅽ뻾 ?⑥닔:
+    - build_df_clean(): 硫붾え由???寃곌낵 ?앹꽦
+    - write_outputs(): csv/audit ???    - make_group_split()/write_splits(): train/val 遺꾪븷 ???    - write_manifest(): ?ㅽ뻾 ?붿빟 ???    """
     result = build_df_clean(config, config_path, repo_root=repo_root, quiet=quiet, log_every=log_every)
 
     records = result["records"]
@@ -357,3 +397,5 @@ def run(
     )
 
     return result
+
+
