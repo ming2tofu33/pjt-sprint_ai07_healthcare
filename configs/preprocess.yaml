@@ -46,11 +46,33 @@ dedup:
     - bbox_w
     - bbox_h
   iou:
-    enabled: false
+    enabled: true
     threshold: 0.9
-    action: audit_only
+    action: exclude
+    same_category_only: false
+    same_source_only: true
 integrity:
   drop_if_image_missing: true
+manual_overrides:
+  exclude_reason_code: known_incomplete_labels
+  exclude_reason_detail: manual_exclude_missing_label_image
+  exclude_file_names:
+  - K-003351-013900-021325_0_2_0_2_70_000_200.png
+  - K-003351-013900-036637_0_2_0_2_70_000_200.png
+  - K-003351-020014-022074_0_2_0_2_90_000_200.png
+  - K-003351-021325-032310_0_2_0_2_90_000_200.png
+  - K-003351-032310-038162_0_2_0_2_70_000_200.png
+  - K-003351-033880-038162_0_2_0_2_75_000_200.png
+  - K-003351-035206-041768_0_2_0_2_70_000_200.png
+  - K-003544-004543-012247-016548_0_2_0_2_90_000_200.png
+  bbox_value_fixes:
+  - source: train
+    file_name: K-003351-016262-018357_0_2_0_2_75_000_200.png
+    category_id: 18357
+    field: x
+    old: 6567
+    new: 567
+    reason_code: manual_bbox_fix_6567_to_567
 split:
   enabled: true
   group_id:
