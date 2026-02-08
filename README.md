@@ -119,6 +119,65 @@ pip install -r requirements.txt
 
 ---
 
+## 🏋️ 학습 실행 (파이썬 방식)
+
+> ⚠️ 모든 명령은 반드시 **레포 루트**(`pjt-sprint_ai07_healthcare/`)에서 실행하세요.
+
+### 1) 스모크런 (빠른 확인, epochs=3)
+
+```bash
+python scripts/train_yolo.py --epochs 3
+```
+
+### 2) 본 학습 (예: epochs=50)
+
+```bash
+python scripts/train_yolo.py --epochs 50 --batch 8 --imgsz 640 --device 0
+```
+
+### 3) Sweep 실험 (여러 조합 자동 실행)
+
+```bash
+python scripts/sweep_train.py --epochs-list "3,10,30" --batch-list "8,16" --imgsz 640 --device 0
+```
+
+기본값:
+- `--data`: `data/processed/yolo/data.yaml`
+- `--model`: `yolov8s.pt`
+- `--project`: `runs/detect`
+- `--name auto`: `e{epochs}_b{batch}_img{imgsz}`
+
+---
+
+## ▶️ YOLO Export 실행 방법
+
+### Option A: 원클릭 (Windows)
+
+레포 루트의 `run_export_yolo.bat`를 더블클릭하면 아래 기본 설정으로 실행됩니다.
+
+- `df`: `data/processed/df_clean.csv`
+- `splits`: `data/metadata/splits.csv`
+- `out`: `data/processed/yolo`
+- `train-images`: `data/raw/train_images`
+- `external-images`: `data/raw/external/combined/images`
+- `link-mode`: `hardlink`
+
+### Option B: 기본값으로 실행
+
+```bash
+python scripts/export_yolo.py
+```
+
+`scripts/export_yolo.py`는 레포 루트를 기준으로 동작하도록 고정되어 있어, IDE/터미널 위치 차이와 무관하게 같은 경로를 사용합니다.
+
+### Option C: 전체 CLI 지정 (고급)
+
+```bash
+python scripts/export_yolo.py --df data/processed/df_clean.csv --splits data/metadata/splits.csv --out data/processed/yolo --train-images data/raw/train_images --external-images data/raw/external/combined/images --link-mode hardlink
+```
+
+---
+
 ## 🔄 6단계 실행 워크플로우 (Stage 0 ~ 5)
 
 > 모든 명령은 프로젝트 루트에서 실행합니다.
