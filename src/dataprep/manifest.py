@@ -18,12 +18,17 @@ def write_manifest(
     repo_root: Path,
 ) -> None:
     """
-    전처리 실행 요약(manifest)을 저장한다.
-    재현성 확인을 위해 git hash, config hash, 주요 집계치를 함께 기록한다.
+    재현성과 추적성을 위한 실행 manifest를 저장한다.
+
+    manifest 포함 항목:
+    - 생성 시각
+    - git 커밋 해시(가능한 경우)
+    - config 경로 및 config sha256
+    - 실행 비교를 위한 행 단위 요약 통계
     """
     manifest_name = outputs_cfg.get("manifest_name", "preprocess_manifest.json")
 
-    # 설정 파일 자체의 해시를 남겨 같은 설정으로 재실행했는지 검증 가능하게 한다.
+    # config 바이트 해시를 남겨 두 실행의 설정 내용이 정확히 같은지 비교한다.
     cfg_bytes = config_path.read_bytes()
     cfg_hash = hashlib.sha256(cfg_bytes).hexdigest()
     try:
@@ -31,7 +36,7 @@ def write_manifest(
     except Exception:
         git_hash = None
 
-    # 데이터 요약 통계
+    # 실행 진단을 위한 경량 요약 통계를 집계한다.
     total_rows = len(records)
     train_rows = sum(1 for r in records if r["source"] == "train")
     external_rows = sum(1 for r in records if r["source"] == "external")
