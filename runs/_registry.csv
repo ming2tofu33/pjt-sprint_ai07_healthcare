@@ -1,0 +1,1 @@
+run_name,created_at,model,epochs,imgsz,best_map50,best_map50_95,weights_path,config_path,notes

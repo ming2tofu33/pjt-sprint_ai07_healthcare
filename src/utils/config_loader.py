@@ -134,3 +134,28 @@ def load_preprocess_config(config_path: Path, script_path: Path) -> tuple[dict[s
     repo_root = resolve_repo_root(script_path, config_path)
     resolved_config = resolve_paths_in_config(config, repo_root)
     return resolved_config, repo_root, local_override_path
+
+
+def load_experiment_config(
+    config_path: Path, script_path: Path
+) -> tuple[dict[str, Any], Path]:
+    """실험 config를 로드한다.
+
+    1) config YAML 로드
+    2) ``_base_`` 키가 있으면 부모 config을 먼저 로드하고 deep-merge
+    3) ``_base_`` 키를 최종 결과에서 제거
+    4) repo root 결정
+    """
+    config_path = config_path.resolve()
+    config = _load_yaml_mapping(config_path)
+
+    base_ref = config.pop("_base_", None)
+    if base_ref is not None:
+        base_path = (config_path.parent / base_ref).resolve()
+        if not base_path.exists():
+            raise FileNotFoundError(f"Base config not found: {base_path}")
+        base_config = _load_yaml_mapping(base_path)
+        config = _deep_merge(base_config, config)
+
+    repo_root = resolve_repo_root(script_path, config_path)
+    return config, repo_root
