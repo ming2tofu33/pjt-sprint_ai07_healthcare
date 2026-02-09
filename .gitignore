@@ -66,3 +66,13 @@ nohup.out
 *.csv
 !runs/_registry.csv
 !data/coco_data/meta/*.json
+
+
+# ============================================
+# Claude / AI coding assistants (local-only)
+# ============================================
+.claude/
+**/.claude/
+claude*.log
+**/claude*.log
+**/*claude*cache*
