@@ -1,0 +1,11 @@
+# baseline 실험: YOLO11s, 640px, 100 epochs
+_base_: "../base.yaml"
+
+model:
+  architecture: "yolo11s"
+  pretrained: "yolo11s.pt"
+
+train:
+  epochs: 100
+  imgsz: 640
+  batch: 16

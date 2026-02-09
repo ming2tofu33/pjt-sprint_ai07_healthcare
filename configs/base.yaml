@@ -1,0 +1,222 @@
+# ============================================================
+# Healthcare Pill Detection — 공통 기본 설정
+# 실험별 오버라이드: configs/experiments/<name>.yaml
+# ============================================================
+
+# --- 재현성 ---
+random_seed: 42
+
+# --- 경로 ---
+paths:
+  train_images_dir: "data/raw/train_images"
+  train_annotations_dir: "data/raw/train_annotations"
+  test_images_dir: "data/raw/test_images"
+  processed_dir: "data/processed/cache"         # STAGE 0 산출물
+  metadata_dir: "data/metadata"                 # 감사/추적 로그
+  datasets_dir: "data/processed/datasets"       # STAGE 1 YOLO 데이터셋
+  runs_dir: "runs"                              # STAGE 2~3 실험 결과
+  best_models_dir: "artifacts/best_models"      # 베스트 모델 보관
+  submissions_dir: "artifacts/submissions"      # 제출 CSV 보관
+
+# --- 산출물 파일명 ---
+outputs:
+  df_clean_name: "df_clean.csv"
+  excluded_rows_name: "excluded_rows.csv"
+  fixes_bbox_name: "fixes_bbox.csv"
+  manifest_name: "preprocess_manifest.json"
+
+# --- CSV 포맷 ---
+format:
+  csv_encoding: "utf-8"
+
+# --- JSON 구조 계약 ---
+label_contract:
+  split_coco_json_one_object: true              # images/annotations/categories 각 1개
+
+# --- 수동 오버라이드 ---
+manual_overrides:
+  exclude_file_names: []                        # 강제 제외 파일명 목록
+  exclude_reason_code: "manual_excluded_file_name"
+  exclude_reason_detail: "known_incomplete_labels"
+  bbox_value_fixes: []                          # 수동 bbox 보정 규칙 목록
+
+# --- bbox 검증 ---
+validation:
+  bbox_cast: "float"
+  drop_missing_bbox: true
+  drop_invalid_bbox_len: true
+  drop_non_numeric_bbox: true
+  drop_non_positive_wh: true
+
+# --- OOB 정책 ---
+oob:
+  policy: "clip"                                # clip | exclude
+  drop_if_clipped_to_zero: true
+
+# --- 이미지 무결성 (train) ---
+integrity:
+  drop_if_image_missing: false                  # train 이미지 누락 시 제외 여부
+
+# --- 중복 제거 ---
+dedup:
+  exact:
+    key: ["file_name", "category_id", "bbox_x", "bbox_y", "bbox_w", "bbox_h"]
+  iou:
+    enabled: false
+    threshold: 0.95
+    action: "exclude"                           # exclude | audit_only
+
+# --- 결측 라벨 휴리스틱 ---
+missing_label:
+  heuristic:
+    enabled: false
+    min_objects: null
+    max_objects: null
+    allowed_counts: null
+
+# --- 품질 감사 ---
+audit:
+  files:
+    - "audit_missing_labels.csv"
+    - "audit_missing_images.csv"
+    - "audit_bad_bbox.csv"
+    - "audit_dup_exact.csv"
+    - "audit_suspect_files.csv"
+
+quality_audit:
+  pixel_overlap:
+    enabled: false
+    action: "audit_only"                        # audit_only | exclude
+    roi_expand_ratio: 0.1
+    min_component_area_px: 100
+    min_coverage: 0.3
+    min_bbox_iou: 0.3
+  auxiliary_detector:
+    enabled: false
+    action: "audit_only"
+    detector: "cv_contour"                      # cv_contour | yolo
+    yolo_weights: null
+    min_match_iou: 0.3
+
+# --- 분할 ---
+split:
+  enabled: true
+  train_ratio: 0.8
+  splits_name: "splits.csv"
+  group_id:
+    regex: "K-\\d+-\\d+-\\d+"
+    fallback: "prefix_before_underscore"
+
+# --- 외부 데이터 (기본: 비활성) ---
+external_data:
+  enabled: false
+  banned_patterns: []
+  sources: []
+  category_id_mapping:
+    enabled: false
+    mapping_key: "dl_idx"
+    fallback_fields: ["dl_mapping_code", "drug_N"]
+    on_unmapped: "exclude"
+    save_mapping_table: false
+    mapping_table_out: "data/metadata/category_mapping.csv"
+    unmapped_log_out: "data/metadata/audit_unmapped_external.csv"
+  ingest:
+    normalize_and_copy: false
+    output_images_dir: "data/processed/external_normalized/images"
+    output_annotations_dir: "data/processed/external_normalized/annotations"
+    overwrite_outputs: false
+  dedup:
+    dedup_against_train: false
+    exact:
+      key: ["file_name", "category_id", "bbox_x", "bbox_y", "bbox_w", "bbox_h"]
+  alignment:
+    enforce_singletons:
+      images_len: 1
+      annotations_len: 1
+      categories_len: 1
+    image_meta:
+      verify_image_exists: true
+      overwrite_width_height_from_image: true
+    bbox:
+      cast: "float"
+      drop_missing_bbox: true
+      drop_invalid_bbox_len: true
+      drop_non_numeric_bbox: true
+      drop_non_positive_wh: true
+    oob:
+      policy: "clip"
+      drop_if_clipped_to_zero: true
+      fixes_log_out: null
+      excluded_log_out: null
+    categories_sync:
+      set_categories_id_from_annotation: true
+      set_categories_name_from_train: true
+  quality_filters:
+    exclude_copy_json:
+      enabled: false
+      patterns: ["_copy", "(copy)", "copy.json"]
+    exclude_bbox_conflict:
+      enabled: false
+      round_digits: 0
+    exclude_entire_image_if_any_bbox_bad:
+      enabled: false
+
+# --- YOLO 변환 (STAGE 1) ---
+yolo_convert:
+  copy_mode: "symlink"                          # symlink | copy
+  verify_labels: true
+
+# --- 모델 (STAGE 2) ---
+model:
+  architecture: "yolo11s"                       # yolo11s | yolov8s | yolo26n 등
+  pretrained: "yolo11s.pt"
+
+# --- 학습 (STAGE 2) ---
+train:
+  epochs: 100
+  imgsz: 640                                    # 32의 배수
+  batch: 16
+  lr0: 0.01
+  lrf: 0.01
+  optimizer: "auto"
+  patience: 20
+  workers: 4
+  seed: 42
+  deterministic: true
+  pretrained: true
+  save: true
+  save_period: -1
+  verbose: true
+  plots: true
+  # 증강
+  hsv_h: 0.015
+  hsv_s: 0.7
+  hsv_v: 0.4
+  degrees: 0.0
+  translate: 0.1
+  scale: 0.5
+  shear: 0.0
+  perspective: 0.0
+  flipud: 0.0
+  fliplr: 0.5
+  mosaic: 1.0
+  mixup: 0.0
+  copy_paste: 0.0
+  # 손실 가중치
+  box: 7.5
+  cls: 0.5
+  dfl: 1.5
+
+# --- 평가 (STAGE 3) ---
+evaluate:
+  conf: 0.001                                   # mAP 계산용 (낮은 threshold)
+  iou: 0.75
+  device: 0
+  visualize: false
+
+# --- 제출 (STAGE 4) ---
+submission:
+  conf: 0.25                                    # 제출용 confidence threshold
+  nms_iou: 0.5
+  max_det_per_image: 4                          # Top-4 규칙
+  device: 0
