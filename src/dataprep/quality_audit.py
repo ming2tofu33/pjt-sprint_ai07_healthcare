@@ -12,6 +12,10 @@ from PIL import Image
 from .io_utils import scan_image_files
 
 
+# 이미지 기반 라벨 품질 감사 유틸리티.
+# - `run_pixel_overlap_audit`: 라벨 bbox와 주요 픽셀 컴포넌트 정합성 검사
+# - `run_aux_detector_audit`: 라벨 bbox와 보조 검출기 예측 박스 정합성 검사
+
 def _safe_float(v: object, default: float = 0.0) -> float:
     try:
         return float(v)
@@ -19,10 +23,12 @@ def _safe_float(v: object, default: float = 0.0) -> float:
         return default
 
 
+# 기하 계산 일관성을 위해 bbox 포맷을 변환한다.
 def _xywh_to_xyxy(x: float, y: float, w: float, h: float) -> tuple[float, float, float, float]:
     return x, y, x + w, y + h
 
 
+# 픽셀 감사/검출기 감사에서 공통으로 사용하는 IoU 계산 함수.
 def _bbox_iou_xyxy(a: tuple[float, float, float, float], b: tuple[float, float, float, float]) -> float:
     ax1, ay1, ax2, ay2 = a
     bx1, by1, bx2, by2 = b
@@ -44,6 +50,7 @@ def _bbox_iou_xyxy(a: tuple[float, float, float, float], b: tuple[float, float, 
 
 
 def _clip_xyxy(x1: float, y1: float, x2: float, y2: float, w: int, h: int) -> tuple[int, int, int, int]:
+    # 이미지 경계로 클리핑하고 좌표 순서가 뒤집힌 경우를 보정한다.
     x1i = int(max(0, min(w, round(x1))))
     y1i = int(max(0, min(h, round(y1))))
     x2i = int(max(0, min(w, round(x2))))
@@ -56,6 +63,7 @@ def _clip_xyxy(x1: float, y1: float, x2: float, y2: float, w: int, h: int) -> tu
 
 
 def _build_source_image_index(config: dict, base_dir: Path, resolve_path_fn: Callable[[str, Path], Path]) -> dict[str, dict[str, Path]]:
+    # 소문자 파일명을 키로 train/external 이미지 조회 맵을 구축한다.
     paths_cfg = config.get("paths", {})
     train_images_dir = resolve_path_fn(paths_cfg["train_images_dir"], base_dir)
     train_index, _ = scan_image_files(train_images_dir, recursive=True)
@@ -73,6 +81,7 @@ def _build_source_image_index(config: dict, base_dir: Path, resolve_path_fn: Cal
 
 
 def _iter_rows_by_image(records: list[dict], target_sources: set[str]) -> dict[tuple[str, str], list[dict]]:
+    # bbox 행마다 이미지를 다시 열지 않도록 이미지 단위로 행을 그룹화한다.
     grouped: dict[tuple[str, str], list[dict]] = {}
     for r in records:
         source = str(r.get("source", "")).strip().lower()
@@ -90,10 +99,9 @@ def _extract_component_from_roi(
     label_bbox_roi: tuple[int, int, int, int],
     min_component_area_px: int,
 ) -> tuple[Optional[np.ndarray], Optional[tuple[int, int, int, int]], float]:
-    """
-    ROI에서 컨투어 기반 후보를 찾고, label bbox와 IoU가 가장 큰 컴포넌트를 반환한다.
-    반환: (component_mask, component_bbox_xyxy_in_roi, iou_with_label_bbox)
-    """
+    """ROI 내에서 라벨 bbox와 기하적으로 가장 잘 맞는 컴포넌트를 선택한다.
+
+    반환값: `(component_mask, component_bbox_xyxy_in_roi, best_iou)`"""
     if roi_rgb.size == 0:
         return None, None, 0.0
 
@@ -139,6 +147,8 @@ def _extract_component_from_roi(
 
 @dataclass
 class PixelAuditResult:
+    # `filtered_records`: action=exclude/drop일 때 의심 행을 제거한 결과
+    # `audit_rows`: 행 단위 진단 정보를 담아 audit csv로 저장할 데이터
     filtered_records: list[dict]
     audit_rows: list[dict]
 
@@ -152,6 +162,9 @@ def run_pixel_overlap_audit(
     base_dir: Path,
     resolve_path_fn: Callable[[str, Path], Path],
 ) -> PixelAuditResult:
+    # 주요 설정값:
+    # - min_coverage/min_bbox_iou: 의심 판정 임계값
+    # - action: audit_only 또는 exclude/drop
     qa_cfg = config.get("quality_audit", {}).get("pixel_overlap", {})
     if not bool(qa_cfg.get("enabled", False)):
         return PixelAuditResult(filtered_records=records, audit_rows=[])
@@ -181,6 +194,7 @@ def run_pixel_overlap_audit(
     )
 
     rows: list[dict] = []
+    # keep 플래그로 원본 순서를 유지한 채 후처리 필터링을 수행한다.
     keep_flags = {id(r): True for r in records}
 
     for idx, ((source, file_name), image_rows) in enumerate(grouped.items(), start=1):
@@ -192,6 +206,7 @@ def run_pixel_overlap_audit(
             )
         image_path = source_image_index.get(source, {}).get(file_name.lower())
         if image_path is None:
+            # 이미지 누락 자체를 품질 이슈로 기록하며, 제거 여부는 action 설정을 따른다.
             for r in image_rows:
                 row = {
                     "source": source,
@@ -212,6 +227,7 @@ def run_pixel_overlap_audit(
             with Image.open(image_path) as im:
                 rgb = np.array(im.convert("RGB"))
         except Exception:
+            # 이미지 열기 실패는 별도 상태값으로 의심 케이스로 기록한다.
             for r in image_rows:
                 row = {
                     "source": source,
@@ -246,6 +262,7 @@ def run_pixel_overlap_audit(
                 is_suspect = 1
             else:
                 roi = rgb[ry1:ry2, rx1:rx2]
+                # 라벨 bbox를 이미지 좌표계에서 ROI 로컬 좌표계로 변환한다.
                 label_roi = _clip_xyxy(lx1 - rx1, ly1 - ry1, lx2 - rx1, ly2 - ry1, roi.shape[1], roi.shape[0])
                 comp_mask, comp_bbox_roi, _ = _extract_component_from_roi(roi, label_roi, min_component_area_px)
                 if comp_mask is None or comp_bbox_roi is None:
@@ -263,6 +280,7 @@ def run_pixel_overlap_audit(
                         coverage = 0.0
                     else:
                         bx1, by1, bx2, by2 = label_roi
+                        # Coverage = 검출 컴포넌트 픽셀 중 라벨 bbox 내부에 포함된 비율
                         in_bbox = np.zeros_like(comp_mask, dtype=np.uint8)
                         if bx2 > bx1 and by2 > by1:
                             in_bbox[by1:by2, bx1:bx2] = 1
@@ -322,6 +340,7 @@ def _detect_boxes_cv_contour(
     min_aspect: float,
     max_aspect: float,
 ) -> list[tuple[float, float, float, float]]:
+    # 무거운 모델 의존성 없이 동작하는 경량 contour 기반 fallback 검출기.
     h, w = rgb.shape[:2]
     gray = cv2.cvtColor(rgb, cv2.COLOR_RGB2GRAY)
     blur = cv2.GaussianBlur(gray, (5, 5), 0)
@@ -349,6 +368,7 @@ def _detect_boxes_cv_contour(
 
 @dataclass
 class AuxAuditResult:
+    # PixelAuditResult와 동일한 출력 계약을 유지해 처리 일관성을 맞춘다.
     filtered_records: list[dict]
     audit_rows: list[dict]
 
@@ -362,6 +382,8 @@ def run_aux_detector_audit(
     base_dir: Path,
     resolve_path_fn: Callable[[str, Path], Path],
 ) -> AuxAuditResult:
+    # 보조 검출기는 라벨 박스와 예측 제안 박스의 최대 IoU를 비교한다.
+    # YOLO 가중치가 있으면 사용하고, 없으면 contour 방식으로 대체한다.
     qa_cfg = config.get("quality_audit", {}).get("auxiliary_detector", {})
     if not bool(qa_cfg.get("enabled", False)):
         return AuxAuditResult(filtered_records=records, audit_rows=[])
@@ -393,8 +415,10 @@ def run_aux_detector_audit(
                 if wpath.exists():
                     yolo_model = YOLO(str(wpath))
                 else:
+                    # 가중치 파일이 없으면 오류 없이 contour 검출기로 자연스럽게 대체한다.
                     detector = "cv_contour"
             except Exception:
+                # import/로드/추론 환경 문제로 전처리 전체가 중단되지 않게 한다.
                 detector = "cv_contour"
         else:
             detector = "cv_contour"
@@ -409,6 +433,7 @@ def run_aux_detector_audit(
         flush=True,
     )
     rows: list[dict] = []
+    # row-id 기반 keep 플래그로 필터링 후에도 원본 리스트 순서를 보존한다.
     keep_flags = {id(r): True for r in records}
 
     for idx, ((source, file_name), image_rows) in enumerate(grouped.items(), start=1):
@@ -470,6 +495,7 @@ def run_aux_detector_audit(
                     for b in arr:
                         pred_boxes.append((float(b[0]), float(b[1]), float(b[2]), float(b[3])))
             except Exception:
+                # 이미지별 추론 실패는 예측 없음(no-prediction) 케이스로 처리한다.
                 pred_boxes = []
         if detector != "yolo" or yolo_model is None:
             pred_boxes = _detect_boxes_cv_contour(

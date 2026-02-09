@@ -4,8 +4,14 @@ from pathlib import Path
 from typing import Optional
 
 
+# 이 모듈은 정규화 이후 적용되는 필터 규칙을 한곳에서 관리한다.
+# 규칙 그룹:
+# - exact/IoU 중복 제거
+# - external 소스 품질 필터
+# - 이미지 단위 객체 수 휴리스틱
+
 def _safe_float(value) -> float | None:
-    """부동소수 변환 보조 함수. 실패 시 None."""
+    """부동소수 변환 보조 함수. 변환 실패 시 None을 반환한다."""
     try:
         return float(value)
     except Exception:
@@ -13,7 +19,7 @@ def _safe_float(value) -> float | None:
 
 
 def _bbox_iou_xywh(a: dict, b: dict) -> float:
-    """xywh 박스 2개의 IoU를 계산한다. 입력이 비정상이면 0.0."""
+    """두 `xywh` 박스의 IoU를 계산한다. 입력이 비정상이면 0.0을 반환한다."""
     ax = _safe_float(a.get("bbox_x"))
     ay = _safe_float(a.get("bbox_y"))
     aw = _safe_float(a.get("bbox_w"))
@@ -50,7 +56,7 @@ def _bbox_iou_xywh(a: dict, b: dict) -> float:
 
 
 def add_train_dedup_key(record: dict, dedup_key_fields: list, train_dedup_keys: set[tuple]) -> None:
-    """train 레코드의 exact dedup 키를 set에 추가한다."""
+    """external 대비 train 중복 검사용 exact dedup 키를 누적한다."""
     if dedup_key_fields:
         train_dedup_keys.add(tuple(record.get(k) for k in dedup_key_fields))
 
@@ -64,7 +70,7 @@ def should_keep_external_record_after_dedup(
     logs: dict[str, list[dict]],
     audit_logs: dict[str, list[dict]],
 ) -> bool:
-    """external 레코드가 train과 exact 중복이면 제외하고 False를 반환한다."""
+    """external 행이 train dedup 키와 exact 중복이면 False를 반환한다."""
     if dedup_against_train and dedup_key_fields:
         key = tuple(record.get(k) for k in dedup_key_fields)
         if key in train_dedup_keys:
@@ -84,12 +90,13 @@ def should_keep_external_record_after_dedup(
 
 
 def dedup_exact_records(records: list[dict], dedup_cfg: dict, logs: dict[str, list[dict]], audit_logs: dict[str, list[dict]]) -> list[dict]:
-    """exact key 중복 제거. 선행 레코드를 유지하고 후행 중복을 제외한다."""
+    """exact 키 중복을 제거한다. 키별 첫 행은 유지하고 이후 행은 로그와 함께 제외한다."""
     if dedup_cfg.get("enabled", False):
         key_fields = dedup_cfg.get("key", [])
         seen: set[tuple] = set()
         deduped: list[dict] = []
         for r in records:
+            # exact 키 정의는 설정으로 제어해 프로젝트별 "동일 객체" 기준을 반영한다.
             key = tuple(r.get(k) for k in key_fields)
             if key in seen:
                 logs["excluded_rows"].append(
@@ -112,10 +119,11 @@ def dedup_exact_records(records: list[dict], dedup_cfg: dict, logs: dict[str, li
 
 
 def dedup_iou_records(records: list[dict], iou_cfg: dict, logs: dict[str, list[dict]], audit_logs: dict[str, list[dict]]) -> list[dict]:
-    """
-    파일 단위(옵션: 카테고리/소스까지)로 IoU 중복을 검사한다.
-    action이 exclude 계열이면 후행 박스를 제거하고, 아니면 감사 로그만 남긴다.
-    """
+    """이미지 단위 그룹 내에서 IoU 기반 유사 중복 박스를 탐지한다.
+
+    그룹 기준은 설정에 따라 category/source 축을 포함할 수 있다.
+    action이 exclude/drop이면 후행 겹침 행을 제거하고,
+    그렇지 않으면 감사(audit) 증거만 기록한다."""
     if not iou_cfg.get("enabled", False):
         return records
 
@@ -128,6 +136,7 @@ def dedup_iou_records(records: list[dict], iou_cfg: dict, logs: dict[str, list[d
     grouped_kept: dict[tuple, list[dict]] = {}
 
     for r in records:
+        # 그룹화를 통해 의미적으로 비교 가능한 행끼리만 overlap 검사를 수행한다.
         group_key_parts = [r.get("file_name")]
         if same_category_only:
             group_key_parts.append(r.get("category_id"))
@@ -186,9 +195,7 @@ def filter_external_copy_json_records(
     logs: dict[str, list[dict]],
     audit_logs: dict[str, list[dict]],
 ) -> list[dict]:
-    """
-    external(source=external) 레코드 중 source_json 파일명이 copy 패턴이면 제외한다.
-    """
+    """source JSON 파일명이 copy 패턴과 일치하는 external 행을 제외한다."""
     ext_cfg = config.get("external_data", {})
     qf_cfg = ext_cfg.get("quality_filters", {})
     copy_cfg = qf_cfg.get("exclude_copy_json", {})
@@ -249,9 +256,7 @@ def filter_external_bbox_category_conflicts(
     logs: dict[str, list[dict]],
     audit_logs: dict[str, list[dict]],
 ) -> list[dict]:
-    """
-    external 데이터에서 동일 bbox(file_name+bbox)에 서로 다른 category_id가 붙은 충돌 그룹을 제외한다.
-    """
+    """동일 bbox 키에 여러 category ID가 붙은 external 행을 제외한다."""
     ext_cfg = config.get("external_data", {})
     qf_cfg = ext_cfg.get("quality_filters", {})
     conflict_cfg = qf_cfg.get("exclude_bbox_conflict", {})
@@ -268,6 +273,7 @@ def filter_external_bbox_category_conflicts(
         if r.get("source") != "external":
             continue
         try:
+            # bbox 좌표를 반올림해 미세한 부동소수 오차로 인한 오검출을 줄인다.
             key = (
                 str(r.get("file_name", "")),
                 round(float(r.get("bbox_x", 0.0)), round_digits),
@@ -351,10 +357,10 @@ def filter_external_images_with_any_bad_bbox(
     logs: dict[str, list[dict]],
     audit_logs: dict[str, list[dict]],
 ) -> list[dict]:
-    """
-    external 데이터에서 bbox 관련 불량(reason_code)이 1건이라도 발생한 파일은
-    해당 이미지의 남아있는 모든 external 레코드를 통째로 제외한다.
-    """
+    """external 데이터에 대한 엄격한 이미지 단위 필터.
+
+    한 이미지에서 설정된 bad-bbox 사유로 제외된 bbox가 1건이라도 있으면
+    해당 이미지의 남은 external 행을 모두 제거한다."""
     ext_cfg = config.get("external_data", {})
     qf_cfg = ext_cfg.get("quality_filters", {})
     strict_cfg = qf_cfg.get("exclude_entire_image_if_any_bbox_bad", {})
@@ -379,6 +385,7 @@ def filter_external_images_with_any_bad_bbox(
 
     bad_reasons_by_file: dict[str, set[str]] = {}
     for row in logs.get("excluded_rows_external", []):
+        # 이 단계는 normalize/이전 필터에서 누적한 exclusion 로그를 기준으로 동작한다.
         fn = str(row.get("file_name", "")).strip()
         code = str(row.get("reason_code", "")).strip()
         if not fn or code not in bad_reason_codes:
@@ -425,10 +432,8 @@ def filter_external_images_with_any_bad_bbox(
 
 
 def _expected_code_count_from_file_name(file_name: str) -> Optional[int]:
-    """
-    파일명 앞부분(`K-000001-000002-..._`)에서 약 코드 개수를 추출한다.
-    예: K-000250-000573-002483-012778_... -> 4
-    """
+    """파일명 앞 토큰에서 기대 객체(코드) 개수를 추출한다.
+    예: K-000250-000573-002483-012778_... -> 4"""
     if not isinstance(file_name, str) or not file_name.strip():
         return None
     head = file_name.split("_", 1)[0]
@@ -449,10 +454,7 @@ def filter_expected4_actual3(
     logs: dict[str, list[dict]],
     audit_logs: dict[str, list[dict]],
 ) -> list[dict]:
-    """
-    파일명 약코드 4개인데 실제 객체 수가 3개인 이미지를 통째로 제외한다.
-    기본적으로 train/external 모두에 적용한다.
-    """
+    """파일명상 코드 4개가 기대되지만 실제 객체가 3개인 이미지 행을 제거한다."""
     ext_cfg = config.get("external_data", {})
     qf_cfg = ext_cfg.get("quality_filters", {})
     rule_cfg = qf_cfg.get("exclude_expected_4_codes_with_3_objects", {})
@@ -478,6 +480,7 @@ def filter_expected4_actual3(
 
     target_keys: set[tuple[str, str]] = set()
     for (source, fn), count in per_file_count.items():
+        # 이 데이터셋 변형에서는 파일명 형식에 기대 객체 수 정보가 포함되어 있다.
         expected = _expected_code_count_from_file_name(fn)
         if expected == 4 and count == 3:
             target_keys.add((source, fn))
@@ -535,9 +538,7 @@ def filter_object_count(
     logs: dict[str, list[dict]],
     audit_logs: dict[str, list[dict]],
 ) -> list[dict]:
-    """
-    이미지당 객체 수 규칙을 적용해 불량 이미지를 제거한다.
-    """
+    """객체 수 규칙(허용 목록 또는 min/max 임계값)을 위반한 이미지를 필터링한다."""
     heuristic_cfg = config.get("missing_label", {}).get("heuristic", {})
     if not bool(heuristic_cfg.get("enabled", False)):
         return records
@@ -569,6 +570,7 @@ def filter_object_count(
         per_image_count[fn] = per_image_count.get(fn, 0) + 1
 
     def _is_invalid(count: int) -> bool:
+        # allow-list가 설정되면 min/max 규칙보다 우선 적용한다.
         if allowed_set is not None:
             return count not in allowed_set
         if min_int is not None and count < min_int:
