@@ -30,3 +30,13 @@ train:
   mosaic: 1.0
   mixup: 0.1
   copy_paste: 0.1
+
+external_data:
+  enabled: true
+  sources:
+    - name: "external_combined"
+      images_dir: "data/raw/external/combined/images"
+      annotations_dir: "data/raw/external/combined/annotations"
+      recursive: true
+  dedup:
+    dedup_against_train: true
