@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 """STAGE 0: 데이터 정제 + 분할 + COCO 재조립 + label_map 생성.
 
 사용법::

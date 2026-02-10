@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 """STAGE 4: 제출 파일 생성.
 
 STAGE 2 산출물(``best.pt``)과 테스트 이미지, label_map 을 사용하여

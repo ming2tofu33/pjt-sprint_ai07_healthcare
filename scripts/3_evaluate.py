@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 """STAGE 3: 모델 평가.
 
 STAGE 2 산출물(``best.pt``)과 YOLO 데이터셋(``data.yaml``)을 입력받아

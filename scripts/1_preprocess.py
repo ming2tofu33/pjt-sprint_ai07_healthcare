@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 """STAGE 1: df_clean.csv + splits.csv → YOLO 데이터셋 변환.
 
 STAGE 0 산출물(``df_clean.csv``, ``splits.csv``)과 원본 이미지를 입력받아

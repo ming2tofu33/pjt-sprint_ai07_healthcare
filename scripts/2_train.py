@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 """STAGE 2: YOLO 모델 학습.
 
 STAGE 1 산출물(``data.yaml``)과 실험 config 를 입력받아
