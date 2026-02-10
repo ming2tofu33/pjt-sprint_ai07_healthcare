@@ -1,4 +1,7 @@
-"""src.dataprep 패키지.
+"""Data preparation package.
 
-하위 모듈 접근은 개별 proxy 파일(config.py, dedup.py 등)을 통해 제공된다.
+Public modules are organized by responsibility:
+- ``setup``: IO and loading helpers
+- ``process``: normalization, dedup, audits, split
+- ``output``: exports, manifests, pipeline orchestration
 """

@@ -10,7 +10,7 @@ PROJECT_ROOT = SCRIPT_PATH.parents[3]  # src/dataprep/process/ → repo root
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from src.dataprep.config import load_preprocess_config
+from src.utils.config_loader import load_preprocess_config
 from src.dataprep.output.data_pipeline import run
 
 

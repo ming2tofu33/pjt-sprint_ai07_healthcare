@@ -9,7 +9,7 @@ import cv2
 import numpy as np
 from PIL import Image
 
-from .io_utils import scan_image_files
+from src.dataprep.setup.io_utils import scan_image_files
 
 
 # 이미지 기반 라벨 품질 감사 유틸리티.

@@ -6,8 +6,8 @@ from pathlib import Path
 from time import perf_counter
 from typing import Iterable, Tuple
 
-from src.dataprep.config import resolve_path
-from src.dataprep.dedup import (
+from src.utils.config_loader import resolve_path
+from src.dataprep.process.dedup import (
     add_train_dedup_key,
     dedup_exact_records,
     dedup_iou_records,
@@ -18,12 +18,12 @@ from src.dataprep.dedup import (
     filter_object_count,
     should_keep_external_record_after_dedup,
 )
-from src.dataprep.export import write_outputs
-from src.dataprep.io_utils import parse_one_json, scan_image_files, scan_json_files
-from src.dataprep.manifest import write_manifest
-from src.dataprep.normalize import normalize_record
-from src.dataprep.quality_audit import run_aux_detector_audit, run_pixel_overlap_audit
-from src.dataprep.split import add_group_id, make_group_split, write_splits
+from src.dataprep.output.export import write_outputs
+from src.dataprep.setup.io_utils import parse_one_json, scan_image_files, scan_json_files
+from src.dataprep.output.manifest import write_manifest
+from src.dataprep.process.normalize import normalize_record
+from src.dataprep.process.quality_audit import run_aux_detector_audit, run_pixel_overlap_audit
+from src.dataprep.process.split import add_group_id, make_group_split, write_splits
 
 
 def build_train_mapping(
