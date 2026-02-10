@@ -66,7 +66,8 @@ def main(argv: list[str] | None = None) -> None:
     datasets_base = Path(paths_cfg.get("datasets_dir", "data/processed/datasets"))
     if not datasets_base.is_absolute():
         datasets_base = (repo_root / datasets_base).resolve()
-    dataset_dir = datasets_base / f"pill_od_yolo_{run_name}"
+    dataset_prefix = config.get("yolo_convert", {}).get("dataset_prefix", "pill_od_yolo")
+    dataset_dir = datasets_base / f"{dataset_prefix}_{run_name}"
     data_yaml = dataset_dir / "data.yaml"
 
     if not data_yaml.exists():

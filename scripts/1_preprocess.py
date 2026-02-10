@@ -53,6 +53,7 @@ def main(argv: list[str] | None = None) -> None:
 
     # ── 2) 경로 결정 ────────────────────────────────────────
     paths_cfg = config.get("paths", {})
+    yolo_cfg = config.get("yolo_convert", {})
 
     # metadata 디렉터리 (splits.csv 위치)
     metadata_dir = Path(paths_cfg.get("metadata_dir", "data/metadata"))
@@ -80,7 +81,8 @@ def main(argv: list[str] | None = None) -> None:
     datasets_base = Path(paths_cfg.get("datasets_dir", "data/processed/datasets"))
     if not datasets_base.is_absolute():
         datasets_base = (repo_root / datasets_base).resolve()
-    output_dir = datasets_base / f"pill_od_yolo_{run_name}"
+    dataset_prefix = yolo_cfg.get("dataset_prefix", "pill_od_yolo")
+    output_dir = datasets_base / f"{dataset_prefix}_{run_name}"
 
     # class_map.csv 출력 경로
     class_map_path = metadata_dir / "class_map.csv"
@@ -105,7 +107,6 @@ def main(argv: list[str] | None = None) -> None:
     logger.info("  splits    : %s", splits_path)
 
     # ── 4) link_mode 결정 ─────────────────────────────────────
-    yolo_cfg = config.get("yolo_convert", {})
     if args.copy:
         link_mode = "copy"
     else:

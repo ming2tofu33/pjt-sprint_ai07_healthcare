@@ -70,9 +70,9 @@ dedup:
 missing_label:
   heuristic:
     enabled: false
-    min_objects: null
-    max_objects: null
-    allowed_counts: null
+    min_objects_per_image: null                  # dedup.py가 읽는 키
+    max_objects_per_image: null                  # dedup.py가 읽는 키
+    valid_object_counts: null                    # dedup.py가 읽는 키
 
 # --- 품질 감사 ---
 audit:
@@ -157,14 +157,18 @@ external_data:
       patterns: ["_copy", "(copy)", "copy.json"]
     exclude_bbox_conflict:
       enabled: false
-      round_digits: 0
+      bbox_round_digits: 0                      # dedup.py가 읽는 키
     exclude_entire_image_if_any_bbox_bad:
       enabled: false
 
 # --- YOLO 변환 (STAGE 1) ---
 yolo_convert:
-  copy_mode: "symlink"                          # symlink | copy
+  link_mode: "hardlink"                         # hardlink | copy
+  allow_fallback: true                          # hardlink 실패 시 copy fallback
   verify_labels: true
+  dataset_prefix: "pill_od_yolo"                # YOLO 데이터셋 디렉터리 prefix
+  critical_missing_ratio: 0.02
+  critical_missing_count: 20
 
 # --- 모델 (STAGE 2) ---
 model:

@@ -6,7 +6,7 @@ from pathlib import Path
 
 # 스크립트를 어디서 실행하든 프로젝트 루트를 import 경로에 올린다.
 SCRIPT_PATH = Path(__file__).resolve()
-PROJECT_ROOT = SCRIPT_PATH.parents[1]
+PROJECT_ROOT = SCRIPT_PATH.parents[3]  # src/dataprep/process/ → repo root
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
@@ -17,7 +17,7 @@ from src.dataprep.output.data_pipeline import run
 def main(argv: list[str]) -> int:
     """YAML 설정 기반 전처리 파이프라인 진입점."""
     parser = argparse.ArgumentParser(description="Build df_clean + logs/splits from raw data using YAML config.")
-    default_cfg = PROJECT_ROOT / "configs" / "preprocess.yaml"
+    default_cfg = PROJECT_ROOT / "configs" / "base.yaml"
     parser.add_argument(
         "--config",
         type=Path,
