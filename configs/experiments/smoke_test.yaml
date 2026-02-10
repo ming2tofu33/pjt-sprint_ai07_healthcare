@@ -14,3 +14,5 @@ train:
   verbose: true
   plots: false
   device: 0
+  competition_select:
+    enabled: false

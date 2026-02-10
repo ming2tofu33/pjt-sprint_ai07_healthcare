@@ -1,7 +1,7 @@
 """STAGE 4: 제출 파일 생성.
 
-STAGE 2 산출물(``best.pt``)과 테스트 이미지, label_map 을 사용하여
-추론 → 후처리(Top-4) → 제출 CSV 생성 → 검증까지 수행한다.
+STAGE 2 산출물(``competition_best.pt`` 우선, 없으면 ``best.pt``)과 테스트 이미지,
+label_map 을 사용하여 추론 → 후처리(Top-4) → 제출 CSV 생성 → 검증까지 수행한다.
 
 사용법::
 
@@ -63,6 +63,7 @@ def main(argv: list[str] | None = None) -> None:
     conf = args.conf if args.conf is not None else float(sub_cfg.get("conf", 0.25))
     nms_iou = float(sub_cfg.get("nms_iou", 0.5))
     max_det_per_image = int(sub_cfg.get("max_det_per_image", 4))
+    augment = bool(sub_cfg.get("augment", False))
     debug_enabled = bool(debug_cfg.get("enabled", True))
     debug_sample_size = int(debug_cfg.get("sample_size", 12))
     debug_seed = int(debug_cfg.get("seed", 42))
@@ -74,15 +75,19 @@ def main(argv: list[str] | None = None) -> None:
     imgsz = int(train_cfg.get("imgsz", 640))
 
     # ── 2) 경로 결정 ────────────────────────────────────────
-    # best.pt
+    # runs/<run_name>/weights/{competition_best.pt|best.pt}
     runs_base = Path(paths_cfg.get("runs_dir", "runs"))
     if not runs_base.is_absolute():
         runs_base = (repo_root / runs_base).resolve()
     run_dir = runs_base / run_name
 
-    best_pt = run_dir / "weights" / "best.pt"
-    if not best_pt.exists():
-        logger.error("best.pt 가 존재하지 않습니다: %s", best_pt)
+    weights_dir = run_dir / "weights"
+    competition_pt = weights_dir / "competition_best.pt"
+    best_pt = weights_dir / "best.pt"
+    selected_weight = competition_pt if competition_pt.exists() else best_pt
+    if not selected_weight.exists():
+        logger.error("가중치 파일이 존재하지 않습니다: %s", selected_weight)
+        logger.error("확인 경로: competition=%s | best=%s", competition_pt, best_pt)
         logger.error("STAGE 2 를 먼저 실행하세요: python scripts/2_train.py --run-name %s ...", run_name)
         sys.exit(1)
 
@@ -144,11 +149,12 @@ def main(argv: list[str] | None = None) -> None:
     logger.info("테스트 이미지 %d 장 발견", n_test_images)
 
     # ── 5) 배치 추론 ─────────────────────────────────────────
-    logger.info("추론 시작 | conf=%.3f | nms_iou=%.3f | max_det_per_image=%d",
-                conf, nms_iou, max_det_per_image)
+    logger.info("추론 시작 | conf=%.3f | nms_iou=%.3f | max_det_per_image=%d | augment(TTA)=%s",
+                conf, nms_iou, max_det_per_image, augment)
 
+    logger.info("제출 가중치 선택 | selected=%s | fallback=%s", selected_weight, best_pt)
     detections = batch_predict(
-        weights_path=best_pt,
+        weights_path=selected_weight,
         source=test_images_dir,
         conf=conf,
         iou=nms_iou,
@@ -156,6 +162,7 @@ def main(argv: list[str] | None = None) -> None:
         device=device,
         imgsz=imgsz,
         verbose=args.verbose,
+        augment=augment,
     )
 
     # ── 6) 제출 전 시각 sanity check 저장 (실패해도 계속 진행) ───────
@@ -210,7 +217,7 @@ def main(argv: list[str] | None = None) -> None:
     logger.info("=" * 60)
     logger.info("STAGE 4 완료")
     logger.info("  run_name       : %s", run_name)
-    logger.info("  best.pt        : %s", best_pt)
+    logger.info("  weight_file    : %s", selected_weight)
     logger.info("  test_images    : %d", n_test_images)
     logger.info("  conf_threshold : %.3f", conf)
     logger.info("  max_det/image  : %d", max_det_per_image)

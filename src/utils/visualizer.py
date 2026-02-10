@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import csv
 import json
+import os
 from pathlib import Path
 from typing import Any
 
@@ -22,6 +23,12 @@ from src.utils.logger import get_logger
 logger = get_logger(__name__)
 
 _cv2 = None
+_pil_modules = None
+_pil_import_tried = False
+_unicode_font_path: str | None = None
+_unicode_font_path_resolved = False
+_unicode_font_cache: dict[int, Any] = {}
+_unicode_font_warned = False
 
 
 def _get_cv2():
@@ -85,6 +92,216 @@ _DEFAULT_PALETTE = _generate_palette(80)
 def _get_color(class_idx: int) -> tuple[int, int, int]:
     """클래스 인덱스 기반 BGR 색상을 반환한다."""
     return _DEFAULT_PALETTE[class_idx % len(_DEFAULT_PALETTE)]
+
+
+def _contains_non_ascii(text: str) -> bool:
+    """텍스트에 비 ASCII 문자가 포함되어 있는지 확인한다."""
+    return any(ord(ch) > 127 for ch in str(text))
+
+
+def _get_pil_modules():
+    """Pillow 모듈을 지연 import 한다."""
+    global _pil_modules, _pil_import_tried
+    if _pil_modules is not None:
+        return _pil_modules
+    if _pil_import_tried:
+        return None
+
+    _pil_import_tried = True
+    try:
+        from PIL import Image, ImageDraw, ImageFont
+
+        _pil_modules = (Image, ImageDraw, ImageFont)
+        return _pil_modules
+    except ImportError:
+        return None
+
+
+def _resolve_unicode_font_path() -> str | None:
+    """한글/유니코드 렌더링 가능한 폰트 경로를 탐색한다."""
+    global _unicode_font_path, _unicode_font_path_resolved
+    if _unicode_font_path_resolved:
+        return _unicode_font_path
+
+    _unicode_font_path_resolved = True
+    env_path = os.environ.get("VISUALIZER_FONT_PATH", "").strip()
+
+    candidates: list[str] = []
+    if env_path:
+        candidates.append(env_path)
+
+    candidates.extend(
+        [
+            r"C:\Windows\Fonts\malgun.ttf",  # 맑은 고딕
+            r"C:\Windows\Fonts\malgunbd.ttf",
+            r"C:\Windows\Fonts\gulim.ttc",
+            r"C:\Windows\Fonts\batang.ttc",
+            "/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc",
+            "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+            "/System/Library/Fonts/AppleSDGothicNeo.ttc",
+        ]
+    )
+
+    for path in candidates:
+        if path and Path(path).exists():
+            _unicode_font_path = path
+            return _unicode_font_path
+
+    return None
+
+
+def _font_px_from_scale(font_scale: float) -> int:
+    """OpenCV font_scale 값을 PIL 폰트 px 크기로 근사 변환한다."""
+    return max(12, int(round(18 * max(0.3, float(font_scale)))))
+
+
+def _get_unicode_font(font_scale: float):
+    """font_scale에 맞는 유니코드 폰트를 반환한다."""
+    global _unicode_font_warned
+
+    modules = _get_pil_modules()
+    if modules is None:
+        if not _unicode_font_warned:
+            logger.warning("Pillow 미설치로 유니코드 텍스트 렌더링을 비활성화합니다.")
+            _unicode_font_warned = True
+        return None
+
+    _, _, ImageFont = modules
+    font_path = _resolve_unicode_font_path()
+    if not font_path:
+        if not _unicode_font_warned:
+            logger.warning(
+                "유니코드 폰트를 찾지 못해 OpenCV 텍스트 렌더링으로 폴백합니다. "
+                "환경변수 VISUALIZER_FONT_PATH로 폰트 경로를 지정할 수 있습니다."
+            )
+            _unicode_font_warned = True
+        return None
+
+    size = _font_px_from_scale(font_scale)
+    cached = _unicode_font_cache.get(size)
+    if cached is not None:
+        return cached
+
+    try:
+        font = ImageFont.truetype(font_path, size=size)
+    except Exception as exc:  # noqa: BLE001
+        if not _unicode_font_warned:
+            logger.warning("유니코드 폰트 로딩 실패(%s): %s", type(exc).__name__, exc)
+            _unicode_font_warned = True
+        return None
+
+    _unicode_font_cache[size] = font
+    return font
+
+
+def _get_text_size(text: str, font_scale: float, thickness: int = 1) -> tuple[int, int]:
+    """텍스트 크기를 반환한다. 유니코드는 PIL 기반 측정을 우선한다."""
+    if _contains_non_ascii(text):
+        modules = _get_pil_modules()
+        font = _get_unicode_font(font_scale)
+        if modules is not None and font is not None:
+            Image, ImageDraw, _ = modules
+            canvas = Image.new("RGB", (1, 1), (0, 0, 0))
+            draw = ImageDraw.Draw(canvas)
+            left, top, right, bottom = draw.textbbox((0, 0), str(text), font=font)
+            return max(1, int(right - left)), max(1, int(bottom - top))
+
+    cv2 = _get_cv2()
+    (tw, th), _ = cv2.getTextSize(str(text), cv2.FONT_HERSHEY_SIMPLEX, font_scale, thickness)
+    return int(tw), int(th)
+
+
+def _ensure_pil_state(img: np.ndarray, pil_state: dict[str, Any]) -> bool:
+    """필요 시 PIL 그리기 컨텍스트를 초기화한다."""
+    modules = _get_pil_modules()
+    if modules is None:
+        return False
+
+    if pil_state.get("draw") is not None and pil_state.get("pil_img") is not None:
+        return True
+
+    cv2 = _get_cv2()
+    Image, ImageDraw, _ = modules
+    pil_img = Image.fromarray(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
+    pil_state["pil_img"] = pil_img
+    pil_state["draw"] = ImageDraw.Draw(pil_img)
+    return True
+
+
+def _flush_pil_state(img: np.ndarray, pil_state: dict[str, Any]) -> None:
+    """PIL에서 수정한 캔버스를 OpenCV ndarray에 반영한다."""
+    if not pil_state:
+        return
+    pil_img = pil_state.get("pil_img")
+    if pil_img is None:
+        return
+
+    cv2 = _get_cv2()
+    img[:] = cv2.cvtColor(np.array(pil_img), cv2.COLOR_RGB2BGR)
+
+
+def _draw_text(
+    img: np.ndarray,
+    text: str,
+    org: tuple[int, int],
+    color: tuple[int, int, int],
+    *,
+    font_scale: float = 0.5,
+    thickness: int = 1,
+    line_type: int | None = None,
+    pil_state: dict[str, Any] | None = None,
+) -> None:
+    """텍스트를 그린다. 유니코드는 PIL 렌더링을 우선 사용한다."""
+    cv2 = _get_cv2()
+
+    text = str(text)
+    x, baseline_y = int(org[0]), int(org[1])
+    if not _contains_non_ascii(text):
+        cv2.putText(
+            img,
+            text,
+            (x, baseline_y),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            font_scale,
+            color,
+            thickness,
+            cv2.LINE_AA if line_type is None else line_type,
+        )
+        return
+
+    font = _get_unicode_font(font_scale)
+    if font is None:
+        cv2.putText(
+            img,
+            text,
+            (x, baseline_y),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            font_scale,
+            color,
+            thickness,
+            cv2.LINE_AA if line_type is None else line_type,
+        )
+        return
+
+    if pil_state is None:
+        pil_state = {}
+    if not _ensure_pil_state(img, pil_state):
+        cv2.putText(
+            img,
+            text,
+            (x, baseline_y),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            font_scale,
+            color,
+            thickness,
+            cv2.LINE_AA if line_type is None else line_type,
+        )
+        return
+
+    _, text_h = _get_text_size(text, font_scale, thickness)
+    top_y = max(0, baseline_y - text_h)
+    draw = pil_state["draw"]
+    draw.text((x, top_y), text, fill=(int(color[2]), int(color[1]), int(color[0])), font=font)
 
 
 def _to_xyxy(box: dict) -> tuple[float, float, float, float]:
@@ -208,6 +425,7 @@ def draw_predictions(
     """
     cv2 = _get_cv2()
     img = _load_image(image)
+    pil_state: dict[str, Any] = {}
 
     if top_k is not None and top_k <= 0:
         raise ValueError("top_k는 양의 정수이거나 None이어야 합니다")
@@ -248,20 +466,21 @@ def draw_predictions(
             label_parts.append(f"{conf:.2f}")
         label = " ".join(label_parts)
 
-        (tw, th), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, font_scale, 1)
+        tw, th = _get_text_size(label, font_scale, 1)
         label_y1 = max(y1 - th - 6, 0)
         cv2.rectangle(img, (x1, label_y1), (x1 + tw + 4, y1), color, -1)
-        cv2.putText(
+        _draw_text(
             img,
             label,
             (x1 + 2, y1 - 4),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            font_scale,
             (255, 255, 255),
-            1,
-            cv2.LINE_AA,
+            font_scale=font_scale,
+            thickness=1,
+            line_type=cv2.LINE_AA,
+            pil_state=pil_state,
         )
 
+    _flush_pil_state(img, pil_state)
     return img
 
 
@@ -287,6 +506,8 @@ def draw_comparison(
 
     gt_img = img.copy()
     pred_img = img.copy()
+    gt_pil_state: dict[str, Any] = {}
+    pred_pil_state: dict[str, Any] = {}
 
     # 왼쪽: GT
     for box in gt_boxes:
@@ -295,15 +516,15 @@ def draw_comparison(
         cv2.rectangle(gt_img, (x1, y1), (x2, y2), (0, 255, 0), 2)
         cls = int(box.get("class_idx", 0))
         name = idx2name.get(cls, str(cls)) if idx2name else str(cls)
-        cv2.putText(
+        _draw_text(
             gt_img,
             f"GT:{name}",
             (x1, max(y1 - 4, 12)),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            font_scale,
             (0, 255, 0),
-            1,
-            cv2.LINE_AA,
+            font_scale=font_scale,
+            thickness=1,
+            line_type=cv2.LINE_AA,
+            pil_state=gt_pil_state,
         )
 
     # 선택적 IoU 매칭
@@ -330,29 +551,41 @@ def draw_comparison(
             label = f"{label} IoU:{iou:.2f}"
             if iou >= iou_threshold:
                 text_color = (0, 255, 0)
-            elif iou >= 0.50:
+            elif iou >= 0.75:
                 text_color = (0, 255, 255)
             else:
                 text_color = (0, 0, 255)
 
-        cv2.putText(
+        _draw_text(
             pred_img,
             label,
             (x1, max(y1 - 4, 12)),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            font_scale,
             text_color,
-            1,
-            cv2.LINE_AA,
+            font_scale=font_scale,
+            thickness=1,
+            line_type=cv2.LINE_AA,
+            pil_state=pred_pil_state,
         )
 
-    cv2.putText(
-        gt_img, "정답 GT", (10, 25),
-        cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2, cv2.LINE_AA
+    _draw_text(
+        gt_img,
+        "정답 GT",
+        (10, 25),
+        (0, 255, 0),
+        font_scale=0.7,
+        thickness=2,
+        line_type=cv2.LINE_AA,
+        pil_state=gt_pil_state,
     )
-    cv2.putText(
-        pred_img, "예측 Pred", (10, 25),
-        cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2, cv2.LINE_AA
+    _draw_text(
+        pred_img,
+        "예측 Pred",
+        (10, 25),
+        (0, 0, 255),
+        font_scale=0.7,
+        thickness=2,
+        line_type=cv2.LINE_AA,
+        pil_state=pred_pil_state,
     )
 
     if show_iou and show_iou_summary:
@@ -361,27 +594,29 @@ def draw_comparison(
         total_pred = len(pred_boxes)
         unmatched_gt = len(gt_boxes) - len({int(m["gt_idx"]) for m in matched})
 
-        cv2.putText(
+        _draw_text(
             pred_img,
             f"IoU>={iou_threshold:.2f}: {passed}/{total_pred} 예측",
             (10, 50),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            0.55,
             (255, 255, 255),
-            1,
-            cv2.LINE_AA,
+            font_scale=0.55,
+            thickness=1,
+            line_type=cv2.LINE_AA,
+            pil_state=pred_pil_state,
         )
-        cv2.putText(
+        _draw_text(
             pred_img,
             f"미매칭 GT: {max(0, unmatched_gt)}",
             (10, 70),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            0.55,
             (255, 255, 255),
-            1,
-            cv2.LINE_AA,
+            font_scale=0.55,
+            thickness=1,
+            line_type=cv2.LINE_AA,
+            pil_state=pred_pil_state,
         )
 
+    _flush_pil_state(gt_img, gt_pil_state)
+    _flush_pil_state(pred_img, pred_pil_state)
     return np.hstack([gt_img, pred_img])
 
 
@@ -488,7 +723,7 @@ def plot_class_ap(
 
     fig, ax = plt.subplots(figsize=(10, max(4, len(pairs) * 0.35)))
     y_pos = range(len(pairs))
-    colors = ["#2ecc71" if ap >= 0.5 else "#e74c3c" for ap in aps]
+    colors = ["#2ecc71" if ap >= 0.75 else "#e74c3c" for ap in aps]
 
     ax.barh(y_pos, aps, color=colors, edgecolor="gray", linewidth=0.5)
     ax.set_yticks(y_pos)
@@ -588,6 +823,8 @@ def plot_training_curves(
     ax = axes[1, 0]
     map50 = _get_col("mAP50(B)")
     map50_95 = _get_col("mAP50-95(B)")
+    map75_95 = _get_col("mAP75-95")  # 만약 Custom CSV에 추가했다면
+
     if map50:
         pure_map50 = _get_col("metrics/mAP50(B)")
         if not pure_map50:
@@ -595,7 +832,10 @@ def plot_training_curves(
         ax.plot(epochs_list[:len(pure_map50)], pure_map50, label="mAP50", color="blue", linewidth=1.5)
     if map50_95:
         ax.plot(epochs_list[:len(map50_95)], map50_95, label="mAP50-95", color="red", linewidth=1.5)
-    ax.set_title("mAP")
+    if map75_95:
+        ax.plot(epochs_list[:len(map75_95)], map75_95, label="mAP75-95", color="green", linewidth=2.0)
+
+    ax.set_title("mAP (Note: 50-95 is Standard)")
     ax.set_xlabel("Epoch")
     ax.set_ylim(0, 1.05)
     ax.legend(fontsize=8)

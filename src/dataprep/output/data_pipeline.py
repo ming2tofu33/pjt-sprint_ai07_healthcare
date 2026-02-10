@@ -21,13 +21,13 @@ from src.dataprep.process.dedup import (
 from src.dataprep.output.export import write_outputs
 from src.dataprep.setup.io_utils import parse_one_json, scan_image_files, scan_json_files
 from src.dataprep.output.manifest import write_manifest
-from src.dataprep.process.normalize import normalize_record
+from src.dataprep.process.normalize import extract_category_lookup_id, normalize_record
 from src.dataprep.process.quality_audit import run_aux_detector_audit, run_pixel_overlap_audit
 from src.dataprep.process.split import add_group_id, make_group_split, write_splits
 
 
 def build_train_mapping(
-    train_json_paths: Iterable[Path], mapping_key: str
+    train_json_paths: Iterable[Path],
 ) -> Tuple[dict[str, int], dict[str, str], list[dict[str, str]]]:
     """
     Train annotation에서 매핑 테이블을 구축한다.
@@ -59,11 +59,10 @@ def build_train_mapping(
         ann0 = annotations[0]
         cat0 = categories[0]
 
-        dl_idx = img0.get(mapping_key)
-        if dl_idx is None:
-            continue
-        dl_idx = str(dl_idx).strip()
-        if dl_idx == "":
+        lookup_key = extract_category_lookup_id(img0.get("drug_N"))
+        if lookup_key is None:
+            lookup_key = extract_category_lookup_id(img0.get("dl_mapping_code"))
+        if lookup_key is None:
             continue
 
         cat_id = ann0.get("category_id")
@@ -73,23 +72,23 @@ def build_train_mapping(
             except Exception:
                 continue
 
-        prev = id_map.get(dl_idx)
+        prev = id_map.get(lookup_key)
         if prev is not None and prev != cat_id:
             suspect_rows.append(
                 {
                     "source_json": str(p),
-                    "dl_idx": dl_idx,
+                    "dl_idx": lookup_key,
                     "prev_category_id": str(prev),
                     "new_category_id": str(cat_id),
                     "reason": "inconsistent_category_id",
                 }
             )
             continue
-        id_map[dl_idx] = cat_id
+        id_map[lookup_key] = cat_id
 
         name = cat0.get("name")
         if isinstance(name, str) and name.strip():
-            name_map.setdefault(dl_idx, name)
+            name_map.setdefault(lookup_key, name)
 
     return id_map, name_map, suspect_rows
 
@@ -136,8 +135,7 @@ def build_df_clean(
 
     # 1단계) Train 기반 category 매핑 테이블 구축 (external 정렬에 사용)
     train_json_paths = scan_json_files(train_ann_dir, recursive=True)
-    mapping_key = config.get("external_data", {}).get("category_id_mapping", {}).get("mapping_key", "dl_idx")
-    train_map_id, train_map_name, suspect_rows = build_train_mapping(train_json_paths, mapping_key)
+    train_map_id, train_map_name, suspect_rows = build_train_mapping(train_json_paths)
     if "audit_suspect_files.csv" in audit_logs and suspect_rows:
         audit_logs["audit_suspect_files.csv"].extend(suspect_rows)
 

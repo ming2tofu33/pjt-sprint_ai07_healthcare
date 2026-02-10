@@ -96,6 +96,7 @@ bash scripts/run_pipeline.sh --run-name $RUN_NAME --config $CONFIG
 - `src/dataprep/process/quality_audit.py`: image-based audit checks
 - `src/dataprep/process/split.py`: group-based split for leakage prevention
 - `src/dataprep/output/export.py`: output files for cleaned data and logs
+- `src/dataprep/output/export_yolo.py`: conversion to YOLO format (Stage 1)
 - `src/dataprep/output/manifest.py`: reproducibility metadata snapshot
 - `src/dataprep/output/data_pipeline.py`: orchestration for dataprep flow
 - `src/models/detector.py`: model wrapper for training/inference

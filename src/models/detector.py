@@ -15,6 +15,7 @@ Ultralytics API 의 차이를 흡수하는 얇은 래퍼 역할을 한다.
 from __future__ import annotations
 
 import json
+import csv
 import shutil
 from pathlib import Path
 from typing import Any, Optional
@@ -132,6 +133,7 @@ class PillDetector:
         data_yaml: Path,
         *,
         config: dict | None = None,
+        eval_overrides: dict[str, Any] | None = None,
         project: str | Path | None = None,
         name: str | None = None,
         exist_ok: bool | None = None,
@@ -149,6 +151,8 @@ class PillDetector:
             ``mAP75_95`` 는 대회 평가 지표 mAP@[0.75:0.95] 이다.
         """
         eval_cfg = dict(config.get("evaluate", {})) if config else {}
+        if eval_overrides:
+            eval_cfg.update(eval_overrides)
 
         kwargs: dict[str, Any] = {"data": str(data_yaml)}
         if "conf" in eval_cfg:
@@ -159,6 +163,8 @@ class PillDetector:
             kwargs["iou"] = float(eval_cfg["nms_iou"])
         if "device" in eval_cfg:
             kwargs["device"] = eval_cfg["device"]
+        if "augment" in eval_cfg:
+            kwargs["augment"] = bool(eval_cfg["augment"])
         if project is not None:
             kwargs["project"] = str(project)
         if name is not None:
@@ -169,7 +175,7 @@ class PillDetector:
         results = self.model.val(**kwargs)
 
         # Ultralytics results 객체에서 메트릭 추출
-        metrics = _extract_metrics(results)
+        metrics = extract_metrics(results)
         return metrics
 
     # ── 추론 ────────────────────────────────────────────────
@@ -185,8 +191,14 @@ class PillDetector:
         imgsz: int = 640,
         save: bool = False,
         verbose: bool = False,
+        augment: bool = False,
     ) -> list:
         """배치 추론을 실행하고 결과 리스트를 반환한다.
+
+        Parameters
+        ----------
+        augment : bool
+            True 이면 TTA(Test-Time Augmentation)를 적용한다.
 
         Returns
         -------
@@ -204,20 +216,19 @@ class PillDetector:
         }
         if device is not None:
             kwargs["device"] = device
+        if augment:
+            kwargs["augment"] = True
 
         return self.model.predict(**kwargs)
 
 
 # ── 유틸리티 ────────────────────────────────────────────────
 
-def _extract_metrics(results: Any) -> dict:
-    """Ultralytics validation 결과에서 메트릭 dict 를 추출한다.
+def extract_metrics(results: Any, *, results_csv_path: Path | None = None) -> dict:
+    """Ultralytics 결과 객체에서 메트릭을 추출한다.
 
-    대회 평가 지표인 ``mAP@[0.75:0.95]`` 를 ``mAP75_95`` 키로 추출한다.
-    Ultralytics ``box.all_ap`` 는 shape ``(nc, 10)`` 으로,
-    10개 IoU threshold (0.50, 0.55, ..., 0.95) 에 대한 클래스별 AP 를 담고 있다.
-    IoU=0.75 에 해당하는 인덱스는 5 이므로, ``all_ap[:, 5:]`` 의 전체 평균이
-    ``mAP@[0.75:0.95]`` 이다.
+    기본 경로는 ``results.box``이며, 실패 시 ``results.results_dict``와
+    (선택적으로) ``results.csv``를 순차 fallback으로 사용한다.
     """
     metrics: dict[str, Any] = {}
 
@@ -228,29 +239,22 @@ def _extract_metrics(results: Any) -> dict:
         metrics["precision"] = float(box.mp)
         metrics["recall"] = float(box.mr)
 
-        # ── 대회 지표: mAP@[0.75:0.95] ──────────────────────
-        # all_ap: shape (nc, 10) — IoU 0.50~0.95 (0.05 간격)
-        # index:  0=0.50, 1=0.55, 2=0.60, 3=0.65, 4=0.70,
-        #         5=0.75, 6=0.80, 7=0.85, 8=0.90, 9=0.95
+        # all_ap: shape (nc, 10), index 5~9 => IoU 0.75~0.95
         all_ap = None
         if hasattr(box, "all_ap") and box.all_ap is not None:
             all_ap = np.array(box.all_ap)
         elif hasattr(box, "ap_class_index") and hasattr(box, "ap"):
-            # 일부 Ultralytics 버전에서는 ap 가 (nc, 10) 일 수 있음
             ap_arr = np.array(box.ap) if box.ap is not None else None
             if ap_arr is not None and ap_arr.ndim == 2 and ap_arr.shape[1] == 10:
                 all_ap = ap_arr
 
         if all_ap is not None and all_ap.ndim == 2 and all_ap.shape[1] >= 10:
-            # IoU 0.75~0.95 → index 5~9 (5개 threshold)
             metrics["mAP75_95"] = float(all_ap[:, 5:].mean())
-            # 클래스별 mAP@[0.75:0.95] 도 저장
             metrics["per_class_mAP75_95"] = [float(v) for v in all_ap[:, 5:].mean(axis=1)]
         else:
-            # all_ap 를 가져올 수 없는 경우 fallback 계산 불가
             metrics["mAP75_95"] = None
+            metrics["metric_source"] = "results.box_without_all_ap"
 
-        # 클래스별 AP (기존 호환)
         if hasattr(box, "ap50") and box.ap50 is not None:
             metrics["per_class_ap50"] = [float(v) for v in box.ap50]
         if hasattr(box, "ap") and box.ap is not None:
@@ -258,18 +262,51 @@ def _extract_metrics(results: Any) -> dict:
             if ap_arr.ndim == 1:
                 metrics["per_class_ap50_95"] = [float(v) for v in ap_arr]
             elif ap_arr.ndim == 2:
-                # (nc, 10) → 클래스별 평균 = ap50_95
                 metrics["per_class_ap50_95"] = [float(v) for v in ap_arr.mean(axis=1)]
+
+        metrics["metric_source"] = metrics.get("metric_source", "results.box")
+        return metrics
     except Exception:
-        # Ultralytics 버전 차이 대응
+        pass
+
+    try:
+        rd = results.results_dict
+        metrics["mAP50"] = float(rd.get("metrics/mAP50(B)", 0))
+        metrics["mAP50_95"] = float(rd.get("metrics/mAP50-95(B)", 0))
+        metrics["precision"] = float(rd.get("metrics/precision(B)", 0))
+        metrics["recall"] = float(rd.get("metrics/recall(B)", 0))
+        metrics["mAP75_95"] = None
+        metrics["metric_source"] = "results.results_dict"
+    except Exception:
+        pass
+
+    if results_csv_path is not None and results_csv_path.exists():
         try:
-            metrics["mAP50"] = float(results.results_dict.get("metrics/mAP50(B)", 0))
-            metrics["mAP50_95"] = float(results.results_dict.get("metrics/mAP50-95(B)", 0))
-            metrics["mAP75_95"] = None  # results_dict 에서는 계산 불가
+            with results_csv_path.open("r", encoding="utf-8") as f:
+                rows = list(csv.DictReader(f))
+            if rows:
+                last = rows[-1]
+                for col in last:
+                    key = col.strip()
+                    if "mAP50(B)" in key and "95" not in key:
+                        metrics["mAP50"] = float(last[col])
+                    elif "mAP50-95(B)" in key:
+                        metrics["mAP50_95"] = float(last[col])
+                    elif "precision(B)" in key:
+                        metrics["precision"] = float(last[col])
+                    elif "recall(B)" in key:
+                        metrics["recall"] = float(last[col])
+                metrics.setdefault("mAP75_95", None)
+                metrics["metric_source"] = "results.csv"
         except Exception:
             pass
 
     return metrics
+
+
+def _extract_metrics(results: Any) -> dict:
+    """Backward-compatible alias for internal callers."""
+    return extract_metrics(results)
 
 
 def save_config_resolved(config: dict, run_dir: Path) -> Path:

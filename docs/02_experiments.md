@@ -5,6 +5,7 @@
 ## 1) 설정 관리 원칙
 
 - 공통 기본값: `configs/base.yaml`
+  - `train.competition_select` 설정을 통해 대회용 지표(mAP75_95) 기반 모델 재선정 기능을 제어할 수 있습니다.
 - 실험별 변경: `configs/experiments/*.yaml`
 - 코드보다 YAML override를 우선합니다.
 - 실행 시 병합 결과를 `runs/<run_name>/config_resolved.yaml`로 저장합니다.
@@ -28,7 +29,7 @@
 - 최소 기록 항목:
   - `run_name`
   - `config_path`
-  - `best_metric` (예: mAP50-95)
+  - `best_map75_95` (대회 지표: mAP75_95)
   - `submission_path`
   - `git_commit` (가능 시)
 
@@ -37,9 +38,13 @@
 ## 4) 결과물 저장 규칙
 
 - 학습 산출물: `runs/<run_name>/`
+- 대회용 선정 가중치: `runs/<run_name>/weights/competition_best.pt`
+- 대회용 선정 리포트: `runs/<run_name>/competition_best.json`
 - 제출 CSV: `artifacts/submissions/`
 - 우수 모델: `artifacts/best_models/`
 - 시각화/오답 샘플: `runs/<run_name>/vis/`
+
+`competition_best.pt`는 STAGE 2에서 `best.pt`/`last.pt`를 mAP75_95 기준으로 재평가해 선택한 파일입니다.
 
 ## 5) 제출 운영 (하루 제한)
 

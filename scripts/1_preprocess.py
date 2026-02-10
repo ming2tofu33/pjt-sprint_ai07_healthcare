@@ -181,6 +181,23 @@ def main(argv: list[str] | None = None) -> None:
             if len(vresult["errors"]) > 20:
                 logger.warning("  ... 외 %d 건", len(vresult["errors"]) - 20)
 
+            # 에러 비율이 임계값을 초과하면 파이프라인 중단
+            n_errors = len(vresult["errors"])
+            n_total = max(vresult["total_files"], 1)
+            error_ratio = n_errors / n_total
+            critical_ratio = float(yolo_cfg.get("critical_missing_ratio", 0.02))
+            if error_ratio > critical_ratio:
+                logger.error(
+                    "label 검증 에러 비율(%.1f%%)이 임계값(%.1f%%)을 초과합니다.",
+                    error_ratio * 100, critical_ratio * 100,
+                )
+                sys.exit(1)
+            else:
+                logger.warning(
+                    "label 검증 에러 %d건 (%.1f%%) — 임계값 이하이므로 계속 진행합니다.",
+                    n_errors, error_ratio * 100,
+                )
+
     # ── 7) 요약 출력 ────────────────────────────────────────
     logger.info("=" * 60)
     logger.info("STAGE 1 완료")

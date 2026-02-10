@@ -56,7 +56,7 @@ def main(argv: list[str] | None = None) -> None:
     paths_cfg = config.get("paths", {})
 
     # ── 2) 경로 결정 ────────────────────────────────────────
-    # runs/<run_name>/weights/best.pt
+    # runs/<run_name>/weights/{competition_best.pt|best.pt}
     runs_base = Path(paths_cfg.get("runs_dir", "runs"))
     if not runs_base.is_absolute():
         runs_base = (repo_root / runs_base).resolve()
@@ -65,9 +65,13 @@ def main(argv: list[str] | None = None) -> None:
     eval_name = "val"
     eval_artifacts_dir = eval_project_dir / eval_name
 
-    best_pt = run_dir / "weights" / "best.pt"
-    if not best_pt.exists():
-        logger.error("best.pt 가 존재하지 않습니다: %s", best_pt)
+    weights_dir = run_dir / "weights"
+    competition_pt = weights_dir / "competition_best.pt"
+    best_pt = weights_dir / "best.pt"
+    selected_weight = competition_pt if competition_pt.exists() else best_pt
+    if not selected_weight.exists():
+        logger.error("가중치 파일이 존재하지 않습니다: %s", selected_weight)
+        logger.error("확인 경로: competition=%s | best=%s", competition_pt, best_pt)
         logger.error("STAGE 2 를 먼저 실행하세요: python scripts/2_train.py --run-name %s ...", run_name)
         sys.exit(1)
 
@@ -88,8 +92,8 @@ def main(argv: list[str] | None = None) -> None:
     registry_path = runs_base / "_registry.csv"
 
     # ── 3) 모델 로드 ────────────────────────────────────────
-    logger.info("모델 로드 | %s", best_pt)
-    detector = PillDetector.from_weights(best_pt)
+    logger.info("평가 가중치 선택 | selected=%s | fallback=%s", selected_weight, best_pt)
+    detector = PillDetector.from_weights(selected_weight)
 
     # ── 4) 평가 실행 ────────────────────────────────────────
     eval_cfg = config.get("evaluate", {})
@@ -166,7 +170,7 @@ def main(argv: list[str] | None = None) -> None:
     logger.info("=" * 60)
     logger.info("STAGE 3 완료")
     logger.info("  run_name         : %s", run_name)
-    logger.info("  best.pt          : %s", best_pt)
+    logger.info("  weight_file      : %s", selected_weight)
     logger.info("  data.yaml        : %s", data_yaml)
     logger.info("  eval_artifacts   : %s", eval_artifacts_dir_abs)
     logger.info("  eval_mAP50       : %.4f", metrics.get("mAP50", 0))

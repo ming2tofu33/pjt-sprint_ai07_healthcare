@@ -115,8 +115,8 @@ external_data:
   sources: []                                   # 외부 데이터 소스 디렉토리 목록
   category_id_mapping:
     enabled: false                              # 외부 카테고리 ID를 본 프로젝트 ID로 매핑 여부
-    mapping_key: "dl_idx"                       # 매핑 기준 키
-    fallback_fields: ["dl_mapping_code", "drug_N"] # 대체 매핑 필드
+    mapping_key: "drug_N"                       # 매핑 기준 키 (drug_N 숫자 파싱 기준)
+    fallback_fields: ["drug_N", "dl_mapping_code"] # 대체 매핑 필드
     on_unmapped: "exclude"                      # 매핑 실패 시 처리 (exclude | keep)
     save_mapping_table: false                   # 매핑 테이블 저장 여부
     mapping_table_out: "data/metadata/category_mapping.csv"
@@ -196,6 +196,11 @@ train:
   save_period: -1                               # 체크포인트 저장 주기 (-1은 최종 및 최고 성능 모델만 저장)
   verbose: true                                 # 상세 로그 출력 여부
   plots: true                                   # 학습 곡선 및 검증 결과 이미지 생성 여부
+  competition_select:                           # 대회 지표(mAP75_95) 기준 가중치 재선정
+    enabled: true
+    candidates: ["best", "last"]               # 재평가 후보 (weights/<tag>.pt)
+    output_name: "competition_best.pt"          # 최종 대회용 가중치 파일명
+    use_tta: false                              # 선정 단계에서 TTA 사용 여부
   # 증강 (Augmentation)
   hsv_h: 0.0                                    # 색조(Hue) 변화 범위
   hsv_s: 0.0                                    # 채도(Saturation) 변화 범위
@@ -228,6 +233,7 @@ submission:
   nms_iou: 0.5                                  # 제출용 NMS IoU 임계값
   max_det_per_image: 4                          # 이미지당 최대 탐지 객체 수 제한 (대회 규칙 준수)
   device: 0                                     # 추론에 사용할 디바이스
+  augment: false                                # 제출 추론 시 TTA(Test-Time Augmentation) 사용 여부
   debug:
     enabled: true                               # 제출 파일 생성 전 샘플 시각화 결과 저장 여부
     sample_size: 12                             # 시각화할 샘플 이미지 개수
