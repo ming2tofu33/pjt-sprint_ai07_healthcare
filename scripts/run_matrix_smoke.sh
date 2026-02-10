@@ -1,43 +1,43 @@
 # ============================================================
 # run_matrix_smoke.sh
-# - Broad but time-bounded matrix smoke test for this project.
-# - Runs STAGE 0~1 once (seed), then reuses outputs for each case.
-# - Each case runs STAGE 2~4 with lightweight overrides.
+# - 프로젝트용 매트릭스 스모크 테스트를 시간 제한 안에서 폭넓게 실행한다.
+# - STAGE 0~1은 한 번만(기준 실행) 수행하고, 산출물을 각 케이스에서 재사용한다.
+# - 각 케이스는 가벼운 설정 덮어쓰기로 STAGE 2~4를 실행한다.
 # ============================================================
 set -euo pipefail
 
 PREFIX="matrix_$(date +%Y%m%d_%H%M%S)"
 BASE_CONFIG="configs/experiments/smoke_test.yaml"
-MODE="balanced"            # quick | balanced | broad
+MODE="balanced"            # 실행 모드: quick | balanced | broad
 BASE_EPOCHS=1
 DEVICE="cpu"
 START_STAGE=2
 STOP_STAGE=4
-MAX_CASES=0                # 0 means "all"
+MAX_CASES=0                # 0이면 전체 케이스 실행
 QUIET=false
 KEEP_TEMP=false
 DRY_RUN=false
 
 usage() {
     cat <<'EOF'
-Usage:
+사용법:
   bash scripts/run_matrix_smoke.sh [options]
 
-Options:
-  --prefix <name>         Run name prefix. Default: matrix_YYYYmmdd_HHMMSS
-  --base-config <path>    Base experiment config. Default: configs/experiments/smoke_test.yaml
-  --mode <name>           quick | balanced | broad (default: balanced)
-  --epochs <int>          Base epochs per case (default: 1)
-  --device <value>        Device for STAGE 2~4 (default: cpu)
-  --start-stage <int>     Case run start stage (2~4, default: 2)
-  --stop-stage <int>      Case run stop stage (2~4, default: 4)
-  --max-cases <int>       Run first N cases only (0=all, default: 0)
-  --quiet                 Pass --quiet to pipeline scripts
-  --keep-temp             Keep playground/matrix/<prefix> as-is
-  --dry-run               Generate configs and print plan only (no pipeline run)
-  -h, --help              Show help
+옵션:
+  --prefix <name>         실행 이름 prefix (기본: matrix_YYYYmmdd_HHMMSS)
+  --base-config <path>    기준 실험 config (기본: configs/experiments/smoke_test.yaml)
+  --mode <name>           quick | balanced | broad (기본: balanced)
+  --epochs <int>          케이스별 기본 epoch (기본: 1)
+  --device <value>        STAGE 2~4 실행 디바이스 (기본: cpu)
+  --start-stage <int>     케이스 실행 시작 stage (2~4, 기본: 2)
+  --stop-stage <int>      케이스 실행 종료 stage (2~4, 기본: 4)
+  --max-cases <int>       앞에서 N개 케이스만 실행 (0=전체, 기본: 0)
+  --quiet                 파이프라인 스크립트에 --quiet 전달
+  --keep-temp             playground/matrix/<prefix> 산출물 유지
+  --dry-run               config만 생성하고 실행 없이 계획만 출력
+  -h, --help              도움말 출력
 
-Examples:
+예시:
   bash scripts/run_matrix_smoke.sh
   bash scripts/run_matrix_smoke.sh --mode broad --epochs 1 --device 0
   bash scripts/run_matrix_smoke.sh --mode quick --max-cases 2 --dry-run
@@ -62,34 +62,34 @@ while [[ $# -gt 0 ]]; do
             exit 0
             ;;
         *)
-            echo "[ERR] Unknown option: $1" >&2
+            echo "[ERR] 알 수 없는 옵션: $1" >&2
             exit 1
             ;;
     esac
 done
 
 if [[ ! "$MODE" =~ ^(quick|balanced|broad)$ ]]; then
-    echo "[ERR] --mode must be one of: quick, balanced, broad" >&2
+    echo "[ERR] --mode 값은 quick, balanced, broad 중 하나여야 합니다." >&2
     exit 1
 fi
 if ! [[ "$BASE_EPOCHS" =~ ^[1-9][0-9]*$ ]]; then
-    echo "[ERR] --epochs must be a positive integer: $BASE_EPOCHS" >&2
+    echo "[ERR] --epochs 는 양의 정수여야 합니다: $BASE_EPOCHS" >&2
     exit 1
 fi
 if ! [[ "$START_STAGE" =~ ^[0-9]+$ ]] || ! [[ "$STOP_STAGE" =~ ^[0-9]+$ ]]; then
-    echo "[ERR] --start-stage/--stop-stage must be integers." >&2
+    echo "[ERR] --start-stage/--stop-stage 는 정수여야 합니다." >&2
     exit 1
 fi
 if (( START_STAGE < 2 || START_STAGE > 4 )); then
-    echo "[ERR] --start-stage must be in [2, 4]." >&2
+    echo "[ERR] --start-stage 는 [2, 4] 범위여야 합니다." >&2
     exit 1
 fi
 if (( STOP_STAGE < START_STAGE || STOP_STAGE > 4 )); then
-    echo "[ERR] --stop-stage must be in [start-stage, 4]." >&2
+    echo "[ERR] --stop-stage 는 [start-stage, 4] 범위여야 합니다." >&2
     exit 1
 fi
 if ! [[ "$MAX_CASES" =~ ^[0-9]+$ ]]; then
-    echo "[ERR] --max-cases must be a non-negative integer: $MAX_CASES" >&2
+    echo "[ERR] --max-cases 는 0 이상의 정수여야 합니다: $MAX_CASES" >&2
     exit 1
 fi
 
@@ -98,11 +98,11 @@ REPO_ROOT="$(dirname "$SCRIPT_DIR")"
 cd "$REPO_ROOT"
 
 if [[ ! -f "$BASE_CONFIG" ]]; then
-    echo "[ERR] Base config not found: $BASE_CONFIG" >&2
+    echo "[ERR] 기준 config 파일을 찾을 수 없습니다: $BASE_CONFIG" >&2
     exit 1
 fi
 if [[ ! -f "scripts/run_pipeline.sh" ]]; then
-    echo "[ERR] scripts/run_pipeline.sh not found." >&2
+    echo "[ERR] scripts/run_pipeline.sh 파일을 찾을 수 없습니다." >&2
     exit 1
 fi
 
@@ -273,7 +273,7 @@ target_cache = processed_dir / target_run
 
 for required in (seed_dataset, seed_cache):
     if not required.exists():
-        print(f"[ERR] Missing seed output: {required}", file=sys.stderr)
+        print(f"[ERR] 기준 실행 산출물이 없습니다: {required}", file=sys.stderr)
         sys.exit(2)
 
 def clone_tree(src: Path, dst: Path) -> None:
@@ -382,20 +382,20 @@ if (( MAX_CASES > 0 && MAX_CASES < ${#CASES[@]} )); then
 fi
 
 echo "============================================================"
-echo "Matrix smoke run"
+echo "매트릭스 스모크 실행"
 echo "  prefix      : $PREFIX"
-echo "  mode        : $MODE (${#CASES[@]} cases)"
+echo "  mode        : $MODE (${#CASES[@]}개 케이스)"
 echo "  base_config : $BASE_CONFIG"
 echo "  epochs      : $BASE_EPOCHS"
 echo "  device      : $DEVICE"
-echo "  stages      : $START_STAGE -> $STOP_STAGE (per case)"
+echo "  stages      : $START_STAGE -> $STOP_STAGE (케이스별)"
 echo "  dry_run     : $DRY_RUN"
 echo "============================================================"
 
 SEED_RUN="${PREFIX}_seed"
 if [[ "$DRY_RUN" == false ]]; then
     echo ""
-    echo "[1/3] Build seed outputs (STAGE 0~1): $SEED_RUN"
+    echo "[1/3] seed 산출물 생성 (STAGE 0~1): $SEED_RUN"
     bash scripts/run_pipeline.sh \
         --run-name "$SEED_RUN" \
         --config "$BASE_CONFIG" \
@@ -404,11 +404,11 @@ if [[ "$DRY_RUN" == false ]]; then
         "${QUIET_ARG[@]}"
 else
     echo ""
-    echo "[1/3] DRY-RUN: seed step skipped."
+    echo "[1/3] DRY-RUN: seed 단계 생략"
 fi
 
 echo ""
-echo "[2/3] Generate case configs"
+echo "[2/3] 케이스 config 생성"
 for row in "${CASES[@]}"; do
     IFS='|' read -r case_name arch pre imgsz batch epochs mosaic lr0 eval_nms sub_conf sub_nms <<< "$row"
     cfg_path="$CFG_GEN_DIR/${case_name}.yaml"
@@ -417,7 +417,7 @@ for row in "${CASES[@]}"; do
 done
 
 echo ""
-echo "[3/3] Run matrix"
+echo "[3/3] 매트릭스 실행"
 FAIL_COUNT=0
 if [[ "$DRY_RUN" == true ]]; then
     for row in "${CASES[@]}"; do
@@ -435,22 +435,22 @@ else
 fi
 
 echo ""
-echo "==================== Summary ===================="
+echo "==================== 요약 ===================="
 cat "$SUMMARY_TSV"
 echo "================================================="
-echo "Summary file : $SUMMARY_TSV"
-echo "Logs dir     : $LOG_DIR"
+echo "요약 파일 : $SUMMARY_TSV"
+echo "로그 폴더 : $LOG_DIR"
 
 if [[ "$KEEP_TEMP" != true ]]; then
     echo ""
-    echo "[NOTE] Temporary matrix configs are kept under $TMP_ROOT."
-    echo "       Reuse the same prefix to inspect generated configs/logs."
+    echo "[NOTE] 임시 매트릭스 설정은 $TMP_ROOT 경로에 유지됩니다."
+    echo "       같은 prefix를 사용하면 생성된 config/log를 다시 확인할 수 있습니다."
 fi
 
 if [[ "$DRY_RUN" == false && $FAIL_COUNT -gt 0 ]]; then
-    echo "[FAIL] Failed cases: $FAIL_COUNT" >&2
+    echo "[FAIL] 실패한 케이스 수: $FAIL_COUNT" >&2
     exit 1
 fi
 
-echo "[OK] Matrix smoke completed."
+echo "[OK] 매트릭스 스모크 실행이 완료되었습니다."
 exit 0

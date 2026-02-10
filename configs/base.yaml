@@ -3,140 +3,141 @@
 # 실험별 오버라이드: configs/experiments/<name>.yaml
 # ============================================================
 
-# --- 재현성 ---
-random_seed: 42
+# --- 재현성 (Reproducibility) ---
+random_seed: 42                                 # 모든 프로세스에서 사용할 공통 랜덤 시드
 
-# --- 경로 ---
+# --- 경로 (Directory Paths) ---
 paths:
-  train_images_dir: "data/raw/train_images"
-  train_annotations_dir: "data/raw/train_annotations"
-  test_images_dir: "data/raw/test_images"
-  processed_dir: "data/processed/cache"         # STAGE 0 산출물
-  metadata_dir: "data/metadata"                 # 감사/추적 로그
-  datasets_dir: "data/processed/datasets"       # STAGE 1 YOLO 데이터셋
-  runs_dir: "runs"                              # STAGE 2~3 실험 결과
-  best_models_dir: "artifacts/best_models"      # 베스트 모델 보관
-  submissions_dir: "artifacts/submissions"      # 제출 CSV 보관
+  train_images_dir: "data/raw/train_images"      # 학습용 원본 이미지 경로
+  train_annotations_dir: "data/raw/train_annotations" # 학습용 원본 어노테이션(JSON) 경로
+  test_images_dir: "data/raw/test_images"        # 테스트용 원본 이미지 경로
+  processed_dir: "data/processed/cache"         # 정제 및 중간 처리 결과물 저장 경로 (STAGE 0)
+  metadata_dir: "data/metadata"                 # 감사 로그 및 메타데이터 저장 경로
+  datasets_dir: "data/processed/datasets"       # 최종 YOLO 포맷 데이터셋 저장 경로 (STAGE 1)
+  runs_dir: "runs"                              # 학습/평가 결과(모델, 로그, 그래프) 저장 경로 (STAGE 2~3)
+  best_models_dir: "artifacts/best_models"      # 배포/제출용 최적 모델 파일 보관함
+  submissions_dir: "artifacts/submissions"      # 최종 제출용 CSV 파일 저장 경로 (STAGE 4)
 
-# --- 산출물 파일명 ---
+# --- 산출물 파일명 (Output Filenames) ---
 outputs:
-  df_clean_name: "df_clean.csv"
-  excluded_rows_name: "excluded_rows.csv"
-  fixes_bbox_name: "fixes_bbox.csv"
-  manifest_name: "preprocess_manifest.json"
+  df_clean_name: "df_clean.csv"                 # 정제 완료된 어노테이션 통합 파일명
+  excluded_rows_name: "excluded_rows.csv"       # 정제 과정에서 제외된 데이터 및 사유 기록 파일명
+  fixes_bbox_name: "fixes_bbox.csv"             # OOB(Out of Bounds) 등 자동 보정된 bbox 기록 파일명
+  manifest_name: "preprocess_manifest.json"     # 전처리 단계의 요약 정보(버전, 통계 등) 파일명
 
-# --- CSV 포맷 ---
+# --- CSV 포맷 (CSV Format) ---
 format:
-  csv_encoding: "utf-8"
+  csv_encoding: "utf-8"                         # CSV 파일 읽기/쓰기 시 사용할 인코딩
 
-# --- JSON 구조 계약 ---
+# --- JSON 구조 계약 (JSON Structure Contract) ---
 label_contract:
-  split_coco_json_one_object: true              # images/annotations/categories 각 1개
+  split_coco_json_one_object: true              # 원본 JSON 파일이 이미지당 1개 객체 구조인지 여부
 
-# --- 수동 오버라이드 ---
+# --- 수동 오버라이드 (Manual Overrides) ---
 manual_overrides:
-  exclude_file_names: []                        # 강제 제외 파일명 목록
-  exclude_reason_code: "manual_excluded_file_name"
-  exclude_reason_detail: "known_incomplete_labels"
-  bbox_value_fixes: []                          # 수동 bbox 보정 규칙 목록
+  exclude_file_names: []                        # 육안 검사 등으로 제외하기로 한 이미지 파일명 목록
+  exclude_reason_code: "manual_excluded_file_name" # 수동 제외 시 기록될 사유 코드
+  exclude_reason_detail: "known_incomplete_labels" # 수동 제외 시 기록될 상세 사유
+  bbox_value_fixes: []                          # 특정 파일의 잘못된 bbox를 수동으로 수정하기 위한 규칙
 
-# --- bbox 검증 ---
+# --- bbox 검증 (BBox Validation - Stage 0) ---
 validation:
-  bbox_cast: "float"
-  drop_missing_bbox: true
-  drop_invalid_bbox_len: true
-  drop_non_numeric_bbox: true
-  drop_non_positive_wh: true
+  bbox_cast: "float"                            # bbox 좌표의 데이터 타입 (float | int)
+  drop_missing_bbox: true                       # bbox 데이터가 없는 경우 해당 데이터 제외
+  drop_invalid_bbox_len: true                   # bbox 배열 길이가 4([x,y,w,h])가 아닌 경우 제외
+  drop_non_numeric_bbox: true                   # bbox 값 중 숫자가 아닌 데이터가 포함된 경우 제외
+  drop_non_positive_wh: true                    # width 또는 height가 0보다 작거나 같은 경우 제외
 
-# --- OOB 정책 ---
+# --- OOB 정책 (Out of Bounds Policy) ---
 oob:
-  policy: "clip"                                # clip | exclude
-  drop_if_clipped_to_zero: true
+  policy: "clip"                                # 이미지 경계를 벗어난 bbox 처리 방식 (clip: 자르기 | exclude: 제외)
+  drop_if_clipped_to_zero: true                 # clip 후 크기가 0이 된 경우 해당 객체 제외
 
-# --- 이미지 무결성 (train) ---
+# --- 이미지 무결성 (Image Integrity) ---
 integrity:
-  drop_if_image_missing: false                  # train 이미지 누락 시 제외 여부
+  drop_if_image_missing: false                  # 어노테이션은 있으나 실제 이미지 파일이 없는 경우 제외 여부
 
-# --- 중복 제거 ---
+# --- 중복 제거 (Deduplication) ---
 dedup:
   exact:
-    key: ["file_name", "category_id", "bbox_x", "bbox_y", "bbox_w", "bbox_h"]
+    key: ["file_name", "category_id", "bbox_x", "bbox_y", "bbox_w", "bbox_h"] # 동일 객체 여부를 판단할 컬럼 기준
   iou:
-    enabled: false
-    threshold: 0.95
-    action: "exclude"                           # exclude | audit_only
+    enabled: false                              # IoU 기반 중복 검사 활성화 여부
+    threshold: 0.95                             # 중복으로 간주할 IoU 임계값
+    action: "exclude"                           # 중복 발견 시 동작 (exclude: 제거 | audit_only: 기록만)
 
-# --- 결측 라벨 휴리스틱 ---
+# --- 결측 라벨 휴리스틱 (Missing Label Heuristic) ---
 missing_label:
   heuristic:
-    enabled: false
-    min_objects_per_image: null                  # dedup.py가 읽는 키
-    max_objects_per_image: null                  # dedup.py가 읽는 키
-    valid_object_counts: null                    # dedup.py가 읽는 키
+    enabled: false                              # 라벨 누락 의심 이미지 탐지 로직 활성화 여부
+    min_objects_per_image: null                 # 이미지당 최소 객체 수 (미달 시 의심)
+    max_objects_per_image: null                 # 이미지당 최대 객체 수 (초과 시 의심)
+    valid_object_counts: null                   # 정상으로 간주할 객체 수 리스트 (예: [1, 2, 4])
 
-# --- 품질 감사 ---
+# --- 품질 감사 파일 (Audit Output Files) ---
 audit:
   files:
-    - "audit_missing_labels.csv"
-    - "audit_missing_images.csv"
-    - "audit_bad_bbox.csv"
-    - "audit_dup_exact.csv"
-    - "audit_suspect_files.csv"
+    - "audit_missing_labels.csv"               # 라벨 누락 의심 목록
+    - "audit_missing_images.csv"               # 이미지 파일 누락 목록
+    - "audit_bad_bbox.csv"                     # 잘못된 bbox 형식 목록
+    - "audit_dup_exact.csv"                    # 완전 중복 데이터 목록
+    - "audit_suspect_files.csv"                # 기타 품질 저하 의심 목록
 
+# --- 상세 품질 감사 (Quality Audit) ---
 quality_audit:
   pixel_overlap:
-    enabled: false
-    action: "audit_only"                        # audit_only | exclude
-    roi_expand_ratio: 0.1
-    min_component_area_px: 100
-    min_coverage: 0.3
-    min_bbox_iou: 0.3
+    enabled: false                              # 픽셀 기반 겹침 분석 활성화 (데이터 오염 확인용)
+    action: "audit_only"                        # 위반 시 동작 (audit_only | exclude)
+    roi_expand_ratio: 0.1                       # 분석 시 ROI 확장 비율
+    min_component_area_px: 100                  # 최소 객체 크기(픽셀)
+    min_coverage: 0.3                           # 최소 커버리지 비율
+    min_bbox_iou: 0.3                           # 최소 bbox IoU
   auxiliary_detector:
-    enabled: false
-    action: "audit_only"
-    detector: "cv_contour"                      # cv_contour | yolo
-    yolo_weights: null
-    min_match_iou: 0.3
+    enabled: false                              # 보조 디텍터(OpenCV 등)를 이용한 검증 활성화
+    action: "audit_only"                        # 위반 시 동작 (audit_only | exclude)
+    detector: "cv_contour"                      # 사용할 보조 디텍터 알고리즘 (cv_contour | yolo)
+    yolo_weights: null                          # YOLO 사용 시 가중치 파일 경로
+    min_match_iou: 0.3                          # 매칭 성공으로 간주할 최소 IoU
 
-# --- 분할 ---
+# --- 데이터 분할 (Data Split) ---
 split:
-  enabled: true
-  train_ratio: 0.8
-  splits_name: "splits.csv"
+  enabled: true                                 # 데이터 분할(Train/Val) 수행 여부
+  train_ratio: 0.8                              # 학습 데이터 비율 (나머지는 검증용)
+  splits_name: "splits.csv"                     # 분할 결과 저장 파일명
   group_id:
-    regex: "K-\\d+-\\d+-\\d+"
-    fallback: "prefix_before_underscore"
+    regex: "K-\\d+-\\d+-\\d+"                   # 동일 객체의 다른 뷰를 묶기 위한 그룹 ID 정규식 (Leakage 방지)
+    fallback: "prefix_before_underscore"        # 정규식 매칭 실패 시 사용할 대체 전략
 
-# --- 외부 데이터 (기본: 비활성) ---
+# --- 외부 데이터 관리 (External Data - Optional) ---
 external_data:
-  enabled: false
-  banned_patterns: []
-  sources: []
+  enabled: false                                # 외부 데이터셋 통합 사용 여부
+  banned_patterns: []                           # 제외할 파일명 패턴 목록
+  sources: []                                   # 외부 데이터 소스 디렉토리 목록
   category_id_mapping:
-    enabled: false
-    mapping_key: "dl_idx"
-    fallback_fields: ["dl_mapping_code", "drug_N"]
-    on_unmapped: "exclude"
-    save_mapping_table: false
+    enabled: false                              # 외부 카테고리 ID를 본 프로젝트 ID로 매핑 여부
+    mapping_key: "dl_idx"                       # 매핑 기준 키
+    fallback_fields: ["dl_mapping_code", "drug_N"] # 대체 매핑 필드
+    on_unmapped: "exclude"                      # 매핑 실패 시 처리 (exclude | keep)
+    save_mapping_table: false                   # 매핑 테이블 저장 여부
     mapping_table_out: "data/metadata/category_mapping.csv"
     unmapped_log_out: "data/metadata/audit_unmapped_external.csv"
   ingest:
-    normalize_and_copy: false
+    normalize_and_copy: false                   # 데이터를 정규화하여 복사할지 여부
     output_images_dir: "data/processed/external_normalized/images"
     output_annotations_dir: "data/processed/external_normalized/annotations"
-    overwrite_outputs: false
+    overwrite_outputs: false                    # 기존 파일 덮어쓰기 여부
   dedup:
-    dedup_against_train: false
+    dedup_against_train: false                  # 원본 학습 데이터와 중복 여부 확인
     exact:
       key: ["file_name", "category_id", "bbox_x", "bbox_y", "bbox_w", "bbox_h"]
   alignment:
-    enforce_singletons:
+    enforce_singletons:                         # 싱글톤 구조 강제 (데이터 구조 정렬)
       images_len: 1
       annotations_len: 1
       categories_len: 1
     image_meta:
-      verify_image_exists: true
-      overwrite_width_height_from_image: true
+      verify_image_exists: true                 # 이미지 존재 확인
+      overwrite_width_height_from_image: true   # 이미지 파일에서 실제 가로/세로 크기 추출하여 덮어쓰기
     bbox:
       cast: "float"
       drop_missing_bbox: true
@@ -149,87 +150,85 @@ external_data:
       fixes_log_out: null
       excluded_log_out: null
     categories_sync:
-      set_categories_id_from_annotation: true
-      set_categories_name_from_train: true
+      set_categories_id_from_annotation: true   # 어노테이션 기준으로 카테고리 ID 동기화
+      set_categories_name_from_train: true      # 학습 데이터 기준으로 카테고리 이름 동기화
   quality_filters:
     exclude_copy_json:
-      enabled: false
+      enabled: false                            # 복사본 JSON 파일 제외 여부
       patterns: ["_copy", "(copy)", "copy.json"]
     exclude_bbox_conflict:
-      enabled: false
-      bbox_round_digits: 0                      # dedup.py가 읽는 키
+      enabled: false                            # bbox 충돌 이미지 제외 여부
+      bbox_round_digits: 0
     exclude_entire_image_if_any_bbox_bad:
-      enabled: false
+      enabled: false                            # 하나라도 잘못된 bbox가 있으면 이미지 전체 제외
 
-# --- YOLO 변환 (STAGE 1) ---
+# --- YOLO 데이터셋 변환 (YOLO Conversion - Stage 1) ---
 yolo_convert:
-  link_mode: "hardlink"                         # hardlink | copy
-  allow_fallback: true                          # hardlink 실패 시 copy fallback
-  verify_labels: true
-  dataset_prefix: "pill_od_yolo"                # YOLO 데이터셋 디렉터리 prefix
-  critical_missing_ratio: 0.02
-  critical_missing_count: 20
+  link_mode: "hardlink"                         # 이미지 참조 방식 (hardlink: 용량 절약 | copy: 물리적 복사)
+  allow_fallback: true                          # hardlink 실패 시 자동으로 copy 사용 여부
+  verify_labels: true                           # 변환된 라벨 파일 검증 수행 여부
+  dataset_prefix: "pill_od_yolo"                # 생성될 YOLO 데이터셋 폴더명의 접두사
+  critical_missing_ratio: 0.02                  # 변환 누락 허용 임계 비율 (초과 시 에러)
+  critical_missing_count: 20                    # 변환 누락 허용 임계 개수 (초과 시 에러)
 
-# --- 모델 (STAGE 2) ---
+# --- 모델 설정 (Model Config - Stage 2) ---
 model:
-  architecture: "yolo11s"                       # yolo11s | yolov8s | yolo26n 등
-  pretrained: "yolo11s.pt"
+  architecture: "yolo11s"                       # 사용할 모델 구조 (yolo11n/s/m/l/x)
+  pretrained: "yolo11s.pt"                      # 로드할 사전 학습된 가중치 파일
 
-# --- 학습 (STAGE 2) ---
+# --- 학습 파라미터 (Training Params - Stage 2) ---
 train:
-  epochs: 100
-  imgsz: 640                                    # 32의 배수
-  batch: 16
-  device: 0                                     # GPU 디바이스 (CLI --device 로 오버라이드 가능)
-  lr0: 0.01
-  lrf: 0.01
-  optimizer: "auto"
-  patience: 20
-  workers: 4
-  seed: 42
-  deterministic: true
-  pretrained: true
-  save: true
-  save_period: -1
-  verbose: true
-  plots: true
-  # 증강
-  hsv_h: 0.015
-  hsv_s: 0.7
-  hsv_v: 0.4
-  degrees: 0.0
-  translate: 0.1
-  scale: 0.5
-  shear: 0.0
-  perspective: 0.0
-  flipud: 0.0
-  fliplr: 0.5
-  mosaic: 1.0
-  mixup: 0.0
-  copy_paste: 0.0
-  # 손실 가중치
-  box: 7.5
-  cls: 0.5
-  dfl: 1.5
+  epochs: 100                                   # 총 학습 반복 횟수
+  imgsz: 640                                    # 학습 시 입력 이미지 해상도 (32의 배수)
+  batch: 16                                     # 배치 크기 (메모리 용량에 따라 조절)
+  device: 0                                     # 사용할 GPU 디바이스 번호
+  lr0: 0.01                                     # 초기 학습률
+  lrf: 0.01                                     # 최종 학습률 비율 (lr0 * lrf)
+  optimizer: "auto"                             # 최적화 알고리즘 (auto, SGD, Adam, AdamW)
+  patience: 20                                  # 성능 개선 없을 시 조기 종료할 epoch 수
+  workers: 0                                    # 데이터 로딩 워커 수 (요청: num_workers=0)
+  cos_lr: false                                 # 코사인 LR 스케줄러 사용 여부 (baseline은 false)
+  label_smoothing: 0.0                          # 라벨 스무딩 강도 (baseline은 0.0)
+  seed: 42                                      # 학습 재현성을 위한 고정 시드
+  deterministic: true                           # 결정론적 학습 모드 사용 여부
+  pretrained: true                              # 사전 학습 모델 가중치 사용 여부
+  save: true                                    # 학습 과정 중 체크포인트 저장 여부
+  save_period: -1                               # 체크포인트 저장 주기 (-1은 최종 및 최고 성능 모델만 저장)
+  verbose: true                                 # 상세 로그 출력 여부
+  plots: true                                   # 학습 곡선 및 검증 결과 이미지 생성 여부
+  # 증강 (Augmentation)
+  hsv_h: 0.0                                    # 색조(Hue) 변화 범위
+  hsv_s: 0.0                                    # 채도(Saturation) 변화 범위
+  hsv_v: 0.0                                    # 명도(Value) 변화 범위
+  degrees: 0.0                                  # 이미지 회전 각도 범위
+  translate: 0.0                                # 이미지 이동 비율
+  scale: 0.0                                    # 이미지 스케일 조정 비율
+  shear: 0.0                                    # 이미지 전단(Shear) 변형 각도
+  perspective: 0.0                              # 이미지 투영(Perspective) 변형 정도
+  flipud: 0.0                                   # 상하 반전 확률
+  fliplr: 0.0                                   # 좌우 반전 확률
+  mosaic: 0.0                                   # 모자이크 증강 적용 확률
+  mixup: 0.0                                    # 믹스업 증강 적용 확률
+  copy_paste: 0.0                               # 카피-페이스트 증강 적용 확률
+  # 손실 가중치 (Loss Gain)
+  box: 7.5                                      # 바운딩 박스 손실 가중치
+  cls: 0.5                                      # 클래스 분류 손실 가중치
+  dfl: 1.5                                      # DFL(Distribution Focal Loss) 가중치
 
-# --- 평가 (STAGE 3) ---
-# 대회 평가 지표: mAP@[0.75:0.95]
-# Ultralytics 는 내부적으로 IoU 0.50~0.95 범위에서 AP 를 계산하며,
-# mAP@[0.75:0.95] 는 all_ap[:, 5:] 로 커스텀 추출한다.
-# nms_iou 는 Ultralytics val() 의 NMS IoU threshold (mAP 범위와 무관).
+# --- 검증 및 평가 (Evaluation - Stage 3) ---
 evaluate:
-  conf: 0.001                                   # mAP 계산용 (낮은 threshold)
-  nms_iou: 0.6                                  # NMS IoU threshold (mAP 계산 범위와 무관)
-  device: 0
-  visualize: false
+  conf: 0.001                                   # mAP 계산을 위한 최소 confidence threshold (낮을수록 정밀)
+  nms_iou: 0.6                                  # 검증 단계 NMS에서 사용할 IoU 임계값
+  device: 0                                     # 평가에 사용할 디바이스
+  visualize: false                              # 평가 결과 시각화 이미지 저장 여부
 
-# --- 제출 (STAGE 4) ---
+# --- 결과 제출 (Submission - Stage 4) ---
 submission:
-  conf: 0.25                                    # 제출용 confidence threshold
-  nms_iou: 0.5
-  max_det_per_image: 4                          # Top-4 규칙
-  device: 0
+  conf: 0.25                                    # 최종 제출용 객체 탐지 confidence threshold
+  nms_iou: 0.5                                  # 제출용 NMS IoU 임계값
+  max_det_per_image: 4                          # 이미지당 최대 탐지 객체 수 제한 (대회 규칙 준수)
+  device: 0                                     # 추론에 사용할 디바이스
   debug:
-    enabled: true                               # 제출 전 시각 sanity check 저장
-    sample_size: 12                             # submission_debug 샘플 이미지 수
-    seed: 42                                    # 샘플링 재현성 고정
+    enabled: true                               # 제출 파일 생성 전 샘플 시각화 결과 저장 여부
+    sample_size: 12                             # 시각화할 샘플 이미지 개수
+    seed: 42                                    # 샘플링 시드
