@@ -38,7 +38,7 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--config", required=True, help="실험 config YAML 경로")
     parser.add_argument("--copy", action="store_true", default=False,
                         help="이미지를 복사 (기본: hardlink)")
-    parser.add_argument("--quiet", action="store_true", help="진행 로그 억제")
+    parser.add_argument("--verbose", action="store_true", help="상세 로그 출력")
     args = parser.parse_args(argv)
 
     run_name: str = args.run_name
@@ -131,6 +131,7 @@ def main(argv: list[str] | None = None) -> None:
             critical_missing_ratio=critical_missing_ratio,
             critical_missing_count=critical_missing_count,
             repo_root=repo_root,
+            progress=args.verbose,
         )
     except (FileNotFoundError, ValueError) as e:
         logger.error("YOLO 변환 실패: %s", e)
@@ -171,7 +172,7 @@ def main(argv: list[str] | None = None) -> None:
     do_verify = yolo_cfg.get("verify_labels", True)
     if do_verify:
         logger.info("label 검증 중 ...")
-        vresult = verify_labels(output_dir, nc=nc)
+        vresult = verify_labels(output_dir, nc=nc, progress=args.verbose)
         logger.info("  검증: files=%d, lines=%d, errors=%d",
                     vresult["total_files"], vresult["total_lines"], len(vresult["errors"]))
         if vresult["errors"]:

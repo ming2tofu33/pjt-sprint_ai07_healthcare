@@ -25,9 +25,15 @@ import shutil
 import sys
 from datetime import datetime
 from pathlib import Path
+from time import perf_counter
 from typing import Any, Iterable
 
 import pandas as pd
+
+try:
+    from tqdm import tqdm
+except ImportError:  # pragma: no cover - tqdm 설치 여부는 환경 의존
+    tqdm = None
 
 
 SCRIPT_PATH = Path(__file__).resolve()
@@ -143,6 +149,51 @@ def _write_data_yaml(
     data_yaml.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
+def _iter_with_progress(
+    iterable: Iterable[Any],
+    *,
+    total: int,
+    desc: str,
+    enabled: bool,
+) -> Iterable[Any]:
+    """환경에 따라 진행률을 표시하며 iterable을 순회한다.
+
+    규칙:
+    - enabled=False: 원본 iterable 그대로 순회
+    - tqdm 설치 + TTY: tqdm progress bar 사용
+    - 그 외: 주기적 heartbeat 로그 출력
+    """
+    if not enabled:
+        yield from iterable
+        return
+
+    stderr = sys.stderr
+    use_tqdm = bool(tqdm is not None and stderr is not None and hasattr(stderr, "isatty") and stderr.isatty())
+    if use_tqdm:
+        yield from tqdm(iterable, total=total, desc=desc, mininterval=0.5, dynamic_ncols=True)
+        return
+
+    count_step = max(500, total // 20) if total > 0 else 500
+    time_step = 10.0
+
+    last_logged_count = 0
+    last_logged_time = perf_counter()
+    for idx, item in enumerate(iterable, start=1):
+        now = perf_counter()
+        should_log = (
+            idx == 1
+            or idx == total
+            or (idx - last_logged_count) >= count_step
+            or (now - last_logged_time) >= time_step
+        )
+        if should_log:
+            percent = (idx / total * 100.0) if total > 0 else 100.0
+            print(f"[INFO] {desc}: {idx}/{total} ({percent:.1f}%)", flush=True)
+            last_logged_count = idx
+            last_logged_time = now
+        yield item
+
+
 # ─────────────────────────────────────────────
 #  프로그래밍 방식 호출: run_export()
 # ─────────────────────────────────────────────
@@ -159,6 +210,7 @@ def run_export(
     critical_missing_ratio: float = 0.02,
     critical_missing_count: int = 20,
     repo_root: Path | None = None,
+    progress: bool = False,
 ) -> dict[str, Any]:
     """df_clean.csv + splits.csv → YOLO 데이터셋 생성.
 
@@ -186,6 +238,8 @@ def run_export(
         누락 이미지 최소 건수 임계값.
     repo_root : Path | None
         repo root (data.yaml 상대경로 기준). None이면 자동 결정.
+    progress : bool
+        진행률 표시 활성화 여부. tqdm 미설치 환경에서는 heartbeat 로그로 대체된다.
 
     Returns
     -------
@@ -197,9 +251,9 @@ def run_export(
 
     # ── 입력 검증 ──
     if not df_path.exists():
-        raise FileNotFoundError(f"df not found: {df_path}")
+        raise FileNotFoundError(f"df 파일을 찾을 수 없습니다: {df_path}")
     if not splits_path.exists():
-        raise FileNotFoundError(f"splits not found: {splits_path}")
+        raise FileNotFoundError(f"splits 파일을 찾을 수 없습니다: {splits_path}")
 
     required_df_cols = {
         "file_name", "width", "height", "group_id",
@@ -210,12 +264,12 @@ def run_export(
     df = pd.read_csv(df_path)
     missing_df_cols = sorted(required_df_cols - set(df.columns))
     if missing_df_cols:
-        raise ValueError(f"missing df columns: {missing_df_cols}")
+        raise ValueError(f"df에 필수 컬럼이 없습니다: {missing_df_cols}")
 
     splits_df = pd.read_csv(splits_path)
     missing_split_cols = sorted(required_split_cols - set(splits_df.columns))
     if missing_split_cols:
-        raise ValueError(f"missing splits columns: {missing_split_cols}")
+        raise ValueError(f"splits에 필수 컬럼이 없습니다: {missing_split_cols}")
 
     # ── class map 구축 ──
     class_ids_sorted = sorted(int(x) for x in df["category_id"].dropna().astype(int).unique())
@@ -250,6 +304,7 @@ def run_export(
 
     # ── 메인 루프 ──
     grouped = df.groupby("file_name", sort=False)
+    total_images = int(df["file_name"].nunique())
 
     image_counts = {"train": 0, "val": 0}
     label_counts = {"train": 0, "val": 0}
@@ -263,7 +318,12 @@ def run_export(
     classes_seen: set[int] = set()
     empty_label_files = 0
 
-    for file_name, g in grouped:
+    for file_name, g in _iter_with_progress(
+        grouped,
+        total=total_images,
+        desc="Converting images",
+        enabled=progress,
+    ):
         g_sources = set(g["source"].astype(str).str.lower().tolist())
         preferred = "train" if "train" in g_sources else "external"
         train_candidate = train_index.get(str(file_name))
@@ -381,7 +441,6 @@ def run_export(
     all_min_cls = min(classes_seen) if classes_seen else None
     all_max_cls = max(classes_seen) if classes_seen else None
     nc = len(class_ids_sorted)
-    total_images = int(df["file_name"].nunique())
     missing_image_count = total_images - (image_counts["train"] + image_counts["val"])
     missing_critical_threshold = max(
         int(total_images * critical_missing_ratio),
@@ -447,7 +506,7 @@ def run_export(
 #  Label 검증
 # ─────────────────────────────────────────────
 
-def verify_labels(output_dir: Path, nc: int) -> dict:
+def verify_labels(output_dir: Path, nc: int, progress: bool = False) -> dict:
     """생성된 YOLO label 파일을 재파싱하여 sanity check 한다.
 
     Parameters
@@ -456,6 +515,8 @@ def verify_labels(output_dir: Path, nc: int) -> dict:
         YOLO 데이터셋 루트 (labels/train, labels/val 포함).
     nc : int
         클래스 수 (class_index 범위 검증용).
+    progress : bool
+        진행률 표시 활성화 여부.
 
     Returns
     -------
@@ -466,34 +527,44 @@ def verify_labels(output_dir: Path, nc: int) -> dict:
     total_lines = 0
     errors: list[str] = []
 
+    label_files: list[Path] = []
     for split in ("train", "val"):
         label_dir = output_dir / "labels" / split
         if not label_dir.exists():
             continue
-        for txt_file in sorted(label_dir.glob("*.txt")):
-            total_files += 1
-            with txt_file.open("r", encoding="utf-8") as f:
-                for line_no, line in enumerate(f, start=1):
-                    line = line.strip()
-                    if not line:
-                        continue
-                    total_lines += 1
-                    parts = line.split()
-                    if len(parts) != 5:
-                        errors.append(f"{txt_file.name}:{line_no} bad column count ({len(parts)})")
-                        continue
-                    try:
-                        cls_idx = int(parts[0])
-                        vals = [float(p) for p in parts[1:]]
-                    except ValueError:
-                        errors.append(f"{txt_file.name}:{line_no} non-numeric value")
-                        continue
-                    if cls_idx < 0 or cls_idx >= nc:
-                        errors.append(f"{txt_file.name}:{line_no} class {cls_idx} out of range [0, {nc})")
-                    for v in vals:
-                        if v < 0.0 or v > 1.0:
-                            errors.append(f"{txt_file.name}:{line_no} value {v} out of [0,1]")
-                            break
+        label_files.extend(sorted(label_dir.glob("*.txt")))
+
+    for txt_file in _iter_with_progress(
+        label_files,
+        total=len(label_files),
+        desc="Verifying labels",
+        enabled=progress,
+    ):
+        total_files += 1
+        with txt_file.open("r", encoding="utf-8") as f:
+            for line_no, line in enumerate(f, start=1):
+                line = line.strip()
+                if not line:
+                    continue
+                total_lines += 1
+                parts = line.split()
+                if len(parts) != 5:
+                    errors.append(f"{txt_file.name}:{line_no} 컬럼 개수 오류 ({len(parts)})")
+                    continue
+                try:
+                    cls_idx = int(parts[0])
+                    vals = [float(p) for p in parts[1:]]
+                except ValueError:
+                    errors.append(f"{txt_file.name}:{line_no} 숫자가 아닌 값 포함")
+                    continue
+                if cls_idx < 0 or cls_idx >= nc:
+                    errors.append(
+                        f"{txt_file.name}:{line_no} class {cls_idx} 범위 초과 [0, {nc})"
+                    )
+                for v in vals:
+                    if v < 0.0 or v > 1.0:
+                        errors.append(f"{txt_file.name}:{line_no} 값 {v} 범위 초과 [0,1]")
+                        break
 
     return {"total_files": total_files, "total_lines": total_lines, "errors": errors}
 
@@ -504,11 +575,11 @@ def verify_labels(output_dir: Path, nc: int) -> dict:
 
 def main(argv: list[str]) -> int:
     """CLI 진입점: argparse → run_export() 호출."""
-    # Force repo root as cwd so relative paths behave consistently across IDE/terminal.
+    # 상대경로 해석 일관성을 위해 작업 디렉터리를 repo root로 고정한다.
     os.chdir(REPO_ROOT)
 
     parser = argparse.ArgumentParser(
-        description="Export YOLO dataset from df_clean.csv + splits.csv (hardlink-first, repo-relative)."
+        description="df_clean.csv + splits.csv에서 YOLO 데이터셋을 생성합니다 (hardlink 우선, repo 상대경로)."
     )
     parser.add_argument("--df", default="data/processed/df_clean.csv")
     parser.add_argument("--splits", default="data/metadata/splits.csv")
@@ -517,7 +588,7 @@ def main(argv: list[str]) -> int:
     parser.add_argument("--external-images", default="data/raw/external/combined/images")
     parser.add_argument("--class-map-out", default="data/metadata/class_map.csv")
     parser.add_argument("--link-mode", choices=["hardlink", "copy"], default="hardlink")
-    parser.add_argument("--no-fallback", action="store_true", help="Disable hardlink->copy fallback.")
+    parser.add_argument("--no-fallback", action="store_true", help="hardlink 실패 시 copy fallback을 비활성화합니다.")
     parser.add_argument("--critical-missing-ratio", type=float, default=0.02)
     parser.add_argument("--critical-missing-count", type=int, default=20)
     args = parser.parse_args(argv)
@@ -552,37 +623,43 @@ def main(argv: list[str]) -> int:
     label_counts = result["label_counts"]
     nc = result["nc"]
 
-    print("[SUMMARY] YOLO export done")
-    print(f"  images train/val: {image_counts['train']} / {image_counts['val']}")
-    print(f"  labels train/val: {label_counts['train']} / {label_counts['val']}")
+    print("[요약] YOLO export 완료")
+    print(f"  이미지 train/val: {image_counts['train']} / {image_counts['val']}")
+    print(f"  라벨 train/val: {label_counts['train']} / {label_counts['val']}")
     print(f"  nc: {nc}")
-    print(f"  class_index min/max in labels: {result['all_min_cls']} / {result['all_max_cls']}")
-    print(f"  missing images: {result['missing_image_count']} (threshold>{result['missing_critical_threshold']} => critical)")
+    print(f"  라벨 내 class_index 최소/최대: {result['all_min_cls']} / {result['all_max_cls']}")
+    print(
+        f"  누락 이미지: {result['missing_image_count']} "
+        f"(임계값>{result['missing_critical_threshold']} 이면 치명)"
+    )
     if result["missing_images"]:
-        print("  missing image examples:")
+        print("  누락 이미지 예시:")
         for ex in result["missing_images"][:5]:
             print(f"    - {ex['file_name']}")
     if result["split_conflicts"]:
-        print(f"  split conflicts detected: {result['split_conflicts']} (kept first assignment)")
+        print(f"  split 충돌 감지: {result['split_conflicts']} (첫 번째 할당 유지)")
     if result["missing_groups"]:
-        print(f"  missing group_id/split mapped to train: {len(result['missing_groups'])}")
-    print(f"  invalid bbox rows skipped: {result['invalid_bbox_rows']}")
-    print(f"  clamped bbox rows: {result['clamped_rows']}")
-    print(f"  empty label files: {result['empty_label_files']}")
-    print(f"  link stats hardlink/copy: {result['hardlink_count']} / {result['copy_count']}")
+        print(f"  group_id/split 누락으로 train에 할당된 건수: {len(result['missing_groups'])}")
+    print(f"  invalid bbox로 스킵된 행: {result['invalid_bbox_rows']}")
+    print(f"  clamped bbox 행: {result['clamped_rows']}")
+    print(f"  빈 라벨 파일 수: {result['empty_label_files']}")
+    print(f"  링크 통계 hardlink/copy: {result['hardlink_count']} / {result['copy_count']}")
     if class_map_path:
-        print(f"  class map: {_repo_relative_str(class_map_path)}")
-    print(f"  data yaml: {_repo_relative_str(result['data_yaml'])}")
-    print(f"  image index (train/external): {result['train_index_size']} / {result['external_index_size']}")
+        print(f"  클래스 맵: {_repo_relative_str(class_map_path)}")
+    print(f"  data.yaml: {_repo_relative_str(result['data_yaml'])}")
+    print(f"  이미지 인덱스(train/external): {result['train_index_size']} / {result['external_index_size']}")
     if result["train_dup_names"] or result["external_dup_names"]:
-        print(f"  duplicate image names ignored (train/external): {result['train_dup_names']} / {result['external_dup_names']}")
+        print(
+            "  중복 이미지 파일명으로 무시된 건수(train/external): "
+            f"{result['train_dup_names']} / {result['external_dup_names']}"
+        )
 
     if result["class_range_error"]:
-        print("[ERR] class_index out of range in labels", file=sys.stderr)
+        print("[ERR] 라벨 내 class_index 범위 오류", file=sys.stderr)
         return 2
 
     if result["critical"]:
-        print("[ERR] too many missing images; export marked as critical failure", file=sys.stderr)
+        print("[ERR] 누락 이미지가 너무 많아 export를 치명적 실패로 처리합니다", file=sys.stderr)
         return 2
 
     return 0

@@ -1,4 +1,4 @@
-at <<EOF > .gitignore
+.gitignore
 # ============================================
 # 1. Project Specific (Data & Stage-wise)
 # ============================================
@@ -43,6 +43,7 @@ build/
 # ============================================
 # 3. Jupyter Notebook & IDEs
 # ============================================
+playground/
 .ipynb_checkpoints/
 .vscode/
 .idea/

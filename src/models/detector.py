@@ -19,6 +19,7 @@ import shutil
 from pathlib import Path
 from typing import Any, Optional
 
+import numpy as np
 import yaml
 
 try:
@@ -131,23 +132,39 @@ class PillDetector:
         data_yaml: Path,
         *,
         config: dict | None = None,
+        project: str | Path | None = None,
+        name: str | None = None,
+        exist_ok: bool | None = None,
     ) -> dict:
         """Ultralytics validation 을 실행하고 메트릭 dict 를 반환한다.
+
+        필요 시 ``project/name/exist_ok`` 를 전달해 평가 산출물 저장 경로를
+        명시적으로 제어할 수 있다.
 
         Returns
         -------
         dict
-            ``{mAP50, mAP50_95, precision, recall, per_class}``
+            ``{mAP50, mAP50_95, mAP75_95, precision, recall, per_class}``
+
+            ``mAP75_95`` 는 대회 평가 지표 mAP@[0.75:0.95] 이다.
         """
         eval_cfg = dict(config.get("evaluate", {})) if config else {}
 
         kwargs: dict[str, Any] = {"data": str(data_yaml)}
         if "conf" in eval_cfg:
             kwargs["conf"] = float(eval_cfg["conf"])
-        if "iou" in eval_cfg:
-            kwargs["iou"] = float(eval_cfg["iou"])
+        # NOTE: Ultralytics val() 의 iou 파라미터는 NMS IoU threshold 이다.
+        # mAP 계산 IoU 범위(0.50~0.95)와는 무관하다.
+        if "nms_iou" in eval_cfg:
+            kwargs["iou"] = float(eval_cfg["nms_iou"])
         if "device" in eval_cfg:
             kwargs["device"] = eval_cfg["device"]
+        if project is not None:
+            kwargs["project"] = str(project)
+        if name is not None:
+            kwargs["name"] = name
+        if exist_ok is not None:
+            kwargs["exist_ok"] = bool(exist_ok)
 
         results = self.model.val(**kwargs)
 
@@ -194,7 +211,14 @@ class PillDetector:
 # ── 유틸리티 ────────────────────────────────────────────────
 
 def _extract_metrics(results: Any) -> dict:
-    """Ultralytics validation 결과에서 메트릭 dict 를 추출한다."""
+    """Ultralytics validation 결과에서 메트릭 dict 를 추출한다.
+
+    대회 평가 지표인 ``mAP@[0.75:0.95]`` 를 ``mAP75_95`` 키로 추출한다.
+    Ultralytics ``box.all_ap`` 는 shape ``(nc, 10)`` 으로,
+    10개 IoU threshold (0.50, 0.55, ..., 0.95) 에 대한 클래스별 AP 를 담고 있다.
+    IoU=0.75 에 해당하는 인덱스는 5 이므로, ``all_ap[:, 5:]`` 의 전체 평균이
+    ``mAP@[0.75:0.95]`` 이다.
+    """
     metrics: dict[str, Any] = {}
 
     try:
@@ -204,16 +228,44 @@ def _extract_metrics(results: Any) -> dict:
         metrics["precision"] = float(box.mp)
         metrics["recall"] = float(box.mr)
 
-        # 클래스별 AP (가용 시)
+        # ── 대회 지표: mAP@[0.75:0.95] ──────────────────────
+        # all_ap: shape (nc, 10) — IoU 0.50~0.95 (0.05 간격)
+        # index:  0=0.50, 1=0.55, 2=0.60, 3=0.65, 4=0.70,
+        #         5=0.75, 6=0.80, 7=0.85, 8=0.90, 9=0.95
+        all_ap = None
+        if hasattr(box, "all_ap") and box.all_ap is not None:
+            all_ap = np.array(box.all_ap)
+        elif hasattr(box, "ap_class_index") and hasattr(box, "ap"):
+            # 일부 Ultralytics 버전에서는 ap 가 (nc, 10) 일 수 있음
+            ap_arr = np.array(box.ap) if box.ap is not None else None
+            if ap_arr is not None and ap_arr.ndim == 2 and ap_arr.shape[1] == 10:
+                all_ap = ap_arr
+
+        if all_ap is not None and all_ap.ndim == 2 and all_ap.shape[1] >= 10:
+            # IoU 0.75~0.95 → index 5~9 (5개 threshold)
+            metrics["mAP75_95"] = float(all_ap[:, 5:].mean())
+            # 클래스별 mAP@[0.75:0.95] 도 저장
+            metrics["per_class_mAP75_95"] = [float(v) for v in all_ap[:, 5:].mean(axis=1)]
+        else:
+            # all_ap 를 가져올 수 없는 경우 fallback 계산 불가
+            metrics["mAP75_95"] = None
+
+        # 클래스별 AP (기존 호환)
         if hasattr(box, "ap50") and box.ap50 is not None:
             metrics["per_class_ap50"] = [float(v) for v in box.ap50]
         if hasattr(box, "ap") and box.ap is not None:
-            metrics["per_class_ap50_95"] = [float(v) for v in box.ap]
+            ap_arr = np.array(box.ap)
+            if ap_arr.ndim == 1:
+                metrics["per_class_ap50_95"] = [float(v) for v in ap_arr]
+            elif ap_arr.ndim == 2:
+                # (nc, 10) → 클래스별 평균 = ap50_95
+                metrics["per_class_ap50_95"] = [float(v) for v in ap_arr.mean(axis=1)]
     except Exception:
         # Ultralytics 버전 차이 대응
         try:
             metrics["mAP50"] = float(results.results_dict.get("metrics/mAP50(B)", 0))
             metrics["mAP50_95"] = float(results.results_dict.get("metrics/mAP50-95(B)", 0))
+            metrics["mAP75_95"] = None  # results_dict 에서는 계산 불가
         except Exception:
             pass
 

@@ -239,7 +239,7 @@ def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description="STAGE 0: 데이터 정제 + 분할")
     parser.add_argument("--run-name", required=True, help="실험 이름 (예: exp_20260209_120000)")
     parser.add_argument("--config", required=True, help="실험 config YAML 경로")
-    parser.add_argument("--quiet", action="store_true", help="진행 로그 억제")
+    parser.add_argument("--verbose", action="store_true", help="상세 로그 출력")
     args = parser.parse_args(argv)
 
     run_name: str = args.run_name
@@ -284,7 +284,7 @@ def main(argv: list[str] | None = None) -> None:
         patched_config,
         config_path=config_path,
         repo_root=repo_root,
-        quiet=args.quiet,
+        quiet=not args.verbose,
     )
 
     records: list[dict] = pipeline_result["records"]

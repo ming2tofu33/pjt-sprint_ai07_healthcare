@@ -25,6 +25,7 @@ from src.utils.config_loader import load_experiment_config
 from src.utils.logger import get_logger
 from src.inference.predictor import batch_predict
 from src.inference.postprocess import postprocess_detections
+from src.inference.submission_debug import save_submission_debug_images
 from src.inference.submission import (
     write_submission,
     validate_submission,
@@ -41,7 +42,7 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--conf", type=float, default=None,
                         help="confidence threshold (기본: config 의 submission.conf)")
     parser.add_argument("--device", default=None, help="GPU 디바이스 (예: 0, cpu)")
-    parser.add_argument("--quiet", action="store_true", help="진행 로그 억제")
+    parser.add_argument("--verbose", action="store_true", help="상세 로그 출력")
     args = parser.parse_args(argv)
 
     run_name: str = args.run_name
@@ -55,12 +56,16 @@ def main(argv: list[str] | None = None) -> None:
 
     paths_cfg = config.get("paths", {})
     sub_cfg = config.get("submission", {})
+    debug_cfg = sub_cfg.get("debug", {}) if isinstance(sub_cfg.get("debug", {}), dict) else {}
     train_cfg = config.get("train", {})
 
     # confidence threshold: CLI > config
     conf = args.conf if args.conf is not None else float(sub_cfg.get("conf", 0.25))
     nms_iou = float(sub_cfg.get("nms_iou", 0.5))
     max_det_per_image = int(sub_cfg.get("max_det_per_image", 4))
+    debug_enabled = bool(debug_cfg.get("enabled", True))
+    debug_sample_size = int(debug_cfg.get("sample_size", 12))
+    debug_seed = int(debug_cfg.get("seed", 42))
     device = args.device
     if device is None:
         device = sub_cfg.get("device")
@@ -116,6 +121,11 @@ def main(argv: list[str] | None = None) -> None:
         label_map = json.load(f)
 
     idx2id = label_map.get("idx2id", {})
+    names = label_map.get("names", [])
+    idx2name = {
+        i: str(name) for i, name in enumerate(names)
+        if isinstance(name, (str, int, float))
+    }
     valid_category_ids = set(int(v) for v in idx2id.values())
     nc = label_map.get("num_classes", 0)
 
@@ -145,8 +155,28 @@ def main(argv: list[str] | None = None) -> None:
         max_det=max_det_per_image * 5,  # Ultralytics 에는 여유있게 전달
         device=device,
         imgsz=imgsz,
-        verbose=not args.quiet,
+        verbose=args.verbose,
     )
+
+    # ── 6) 제출 전 시각 sanity check 저장 (실패해도 계속 진행) ───────
+    debug_report = save_submission_debug_images(
+        run_dir=run_dir,
+        detections=detections,
+        idx2name=idx2name,
+        max_det_per_image=max_det_per_image,
+        sample_size=debug_sample_size,
+        seed=debug_seed,
+        enabled=debug_enabled,
+    )
+    logger.info(
+        "submission debug | enabled=%s | requested=%d | saved=%d | dir=%s",
+        debug_report.get("debug_enabled", False),
+        debug_report.get("debug_sample_requested", 0),
+        debug_report.get("debug_sample_saved", 0),
+        debug_report.get("debug_output_dir", ""),
+    )
+    if debug_report.get("debug_skipped_reason"):
+        logger.warning("submission debug skip/fallback: %s", debug_report["debug_skipped_reason"])
 
     # ── 6) 후처리: Top-K + class→category_id ─────────────────
     rows = postprocess_detections(
@@ -157,6 +187,7 @@ def main(argv: list[str] | None = None) -> None:
 
     # ── 7) 제출 CSV 저장 ────────────────────────────────────
     write_submission(rows, csv_path)
+    logger.info("대회 제출 포맷(8컬럼) CSV 생성 완료")
 
     # ── 8) 제출 검증 ────────────────────────────────────────
     report = validate_submission(
@@ -172,6 +203,7 @@ def main(argv: list[str] | None = None) -> None:
         conf=conf,
         n_test_images=n_test_images,
         csv_path=csv_path,
+        debug_report=debug_report,
     )
 
     # ── 10) 요약 출력 ───────────────────────────────────────

@@ -145,7 +145,7 @@ def build_df_clean(
     train_image_index, train_image_dups = scan_image_files(train_images_dir, recursive=True)
 
     if not quiet:
-        print(f"[INFO] train: {len(train_json_paths)} jsons, {len(train_image_index)} images", flush=True)
+        print(f"[INFO] train: {len(train_json_paths)}개 json, {len(train_image_index)}개 이미지", flush=True)
 
     records: list[dict] = []
     train_dedup_keys: set[tuple] = set()
@@ -156,7 +156,7 @@ def build_df_clean(
     for i, p in enumerate(train_json_paths, start=1):
         if not quiet and log_every > 0 and (i == 1 or i % log_every == 0):
             dt = perf_counter() - t0
-            print(f"[INFO] train progress: {i}/{len(train_json_paths)} ({dt:.1f}s)", flush=True)
+            print(f"[INFO] train 진행률: {i}/{len(train_json_paths)} ({dt:.1f}s)", flush=True)
         data, err = parse_one_json(p)
         if err or data is None:
             logs["excluded_rows"].append(
@@ -213,24 +213,27 @@ def build_df_clean(
             for root in (img_dir, ann_dir):
                 for dirpath, _, filenames in os.walk(root):
                     if any(pat.lower() in dirpath.lower() for pat in banned_patterns):
-                        raise RuntimeError(f"Banned pattern found in path: {dirpath}")
+                        raise RuntimeError(f"경로에서 금지 패턴이 발견되었습니다: {dirpath}")
                     for fn in filenames:
                         full = os.path.join(dirpath, fn)
                         if any(pat.lower() in full.lower() for pat in banned_patterns):
-                            raise RuntimeError(f"Banned pattern found in file: {full}")
+                            raise RuntimeError(f"파일에서 금지 패턴이 발견되었습니다: {full}")
 
             ext_image_index, ext_image_dups = scan_image_files(img_dir, recursive=recursive)
             ext_json_paths = scan_json_files(ann_dir, recursive=recursive)
 
             if not quiet:
-                print(f"[INFO] external[{name}]: {len(ext_json_paths)} jsons, {len(ext_image_index)} images", flush=True)
+                print(
+                    f"[INFO] external[{name}]: {len(ext_json_paths)}개 json, {len(ext_image_index)}개 이미지",
+                    flush=True,
+                )
 
             ext_image_size_cache: dict[str, tuple[int, int]] = {}
             t1 = perf_counter()
             for j, p in enumerate(ext_json_paths, start=1):
                 if not quiet and log_every > 0 and (j == 1 or j % log_every == 0):
                     dt = perf_counter() - t1
-                    print(f"[INFO] external[{name}] progress: {j}/{len(ext_json_paths)} ({dt:.1f}s)", flush=True)
+                    print(f"[INFO] external[{name}] 진행률: {j}/{len(ext_json_paths)} ({dt:.1f}s)", flush=True)
                 data, err = parse_one_json(p)
                 if err or data is None:
                     logs["excluded_rows"].append(

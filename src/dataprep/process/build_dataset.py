@@ -16,26 +16,26 @@ from src.dataprep.output.data_pipeline import run
 
 def main(argv: list[str]) -> int:
     """YAML 설정 기반 전처리 파이프라인 진입점."""
-    parser = argparse.ArgumentParser(description="Build df_clean + logs/splits from raw data using YAML config.")
+    parser = argparse.ArgumentParser(description="YAML 설정으로 원천 데이터에서 df_clean + 로그/split을 생성합니다.")
     default_cfg = PROJECT_ROOT / "configs" / "base.yaml"
     parser.add_argument(
         "--config",
         type=Path,
         default=default_cfg,
-        help=f"Path to preprocess YAML (default: {default_cfg})",
+        help=f"전처리 YAML 경로 (기본값: {default_cfg})",
     )
-    parser.add_argument("--quiet", action="store_true", help="Disable progress prints")
+    parser.add_argument("--quiet", action="store_true", help="진행 로그 출력 비활성화")
     parser.add_argument(
         "--log-every",
         type=int,
         default=500,
-        help="Print progress every N files (0 to disable)",
+        help="N개 파일마다 진행상황 출력 (0이면 비활성화)",
     )
     args = parser.parse_args(argv)
 
     config_path = args.config.resolve()
     if not config_path.exists():
-        print(f"[ERR] config not found: {config_path}", file=sys.stderr)
+        print(f"[ERR] 설정 파일이 존재하지 않습니다: {config_path}", file=sys.stderr)
         return 2
 
     try:
@@ -48,11 +48,11 @@ def main(argv: list[str]) -> int:
             quiet=bool(args.quiet),
             log_every=int(args.log_every),
         )
-        print("[OK] preprocess completed")
+        print("[OK] 전처리 작업이 완료되었습니다.")
         return 0
     except KeyboardInterrupt:
         # 배치 실행 중 Ctrl+C 중단 시 관례적인 종료코드(130) 사용
-        print("[INT] interrupted by user (Ctrl+C).", file=sys.stderr)
+        print("[INT] 사용자에 의해 중단되었습니다 (Ctrl+C).", file=sys.stderr)
         return 130
 
 

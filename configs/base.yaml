@@ -180,6 +180,7 @@ train:
   epochs: 100
   imgsz: 640                                    # 32의 배수
   batch: 16
+  device: 0                                     # GPU 디바이스 (CLI --device 로 오버라이드 가능)
   lr0: 0.01
   lrf: 0.01
   optimizer: "auto"
@@ -212,9 +213,13 @@ train:
   dfl: 1.5
 
 # --- 평가 (STAGE 3) ---
+# 대회 평가 지표: mAP@[0.75:0.95]
+# Ultralytics 는 내부적으로 IoU 0.50~0.95 범위에서 AP 를 계산하며,
+# mAP@[0.75:0.95] 는 all_ap[:, 5:] 로 커스텀 추출한다.
+# nms_iou 는 Ultralytics val() 의 NMS IoU threshold (mAP 범위와 무관).
 evaluate:
   conf: 0.001                                   # mAP 계산용 (낮은 threshold)
-  iou: 0.75
+  nms_iou: 0.6                                  # NMS IoU threshold (mAP 계산 범위와 무관)
   device: 0
   visualize: false
 
@@ -224,3 +229,7 @@ submission:
   nms_iou: 0.5
   max_det_per_image: 4                          # Top-4 규칙
   device: 0
+  debug:
+    enabled: true                               # 제출 전 시각 sanity check 저장
+    sample_size: 12                             # submission_debug 샘플 이미지 수
+    seed: 42                                    # 샘플링 재현성 고정

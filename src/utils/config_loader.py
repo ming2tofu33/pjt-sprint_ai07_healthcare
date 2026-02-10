@@ -10,6 +10,19 @@ except ImportError:  # pragma: no cover - user environment decides
     yaml = None
 
 
+_REQUIRED_EXPERIMENT_PATH_KEYS = (
+    "train_images_dir",
+    "train_annotations_dir",
+    "test_images_dir",
+    "processed_dir",
+    "metadata_dir",
+    "datasets_dir",
+    "runs_dir",
+    "best_models_dir",
+    "submissions_dir",
+)
+
+
 def resolve_path(path_str: str, repo_root: Path) -> Path:
     """상대 경로를 `repo_root` 기준 절대 경로로 변환한다."""
     path = Path(path_str)
@@ -21,11 +34,11 @@ def resolve_path(path_str: str, repo_root: Path) -> Path:
 def _load_yaml_mapping(path: Path) -> dict[str, Any]:
     """YAML을 로드하고 루트가 mapping(dict)인지 검증한다."""
     if yaml is None:
-        raise RuntimeError("PyYAML is required. Install with: pip install pyyaml")
+        raise RuntimeError("PyYAML이 필요합니다. 다음 명령으로 설치하세요: pip install pyyaml")
 
     data = yaml.safe_load(path.read_text(encoding="utf-8"))
     if not isinstance(data, dict):
-        raise ValueError(f"Config root must be a mapping: {path}")
+        raise ValueError(f"설정 파일 최상위는 매핑(dict)이어야 합니다: {path}")
     return data
 
 
@@ -136,26 +149,92 @@ def load_preprocess_config(config_path: Path, script_path: Path) -> tuple[dict[s
     return resolved_config, repo_root, local_override_path
 
 
+def _normalize_base_refs(base_ref: Any, *, config_path: Path) -> list[str]:
+    """`_base_` 값을 정규화해 base 경로 리스트로 반환한다."""
+    if base_ref is None:
+        return []
+
+    if isinstance(base_ref, str):
+        ref = base_ref.strip()
+        if not ref:
+            raise ValueError(f"_base_ 값이 비어 있습니다: {config_path}")
+        return [ref]
+
+    if isinstance(base_ref, list):
+        refs: list[str] = []
+        for i, item in enumerate(base_ref):
+            if not isinstance(item, str):
+                raise ValueError(f"_base_ 목록 원소는 문자열이어야 합니다: {config_path} (index={i})")
+            ref = item.strip()
+            if not ref:
+                raise ValueError(f"_base_ 목록에 빈 경로가 있습니다: {config_path} (index={i})")
+            refs.append(ref)
+        return refs
+
+    raise ValueError(f"_base_ 는 문자열 또는 문자열 목록이어야 합니다: {config_path}")
+
+
+def _load_experiment_config_recursive(
+    config_path: Path,
+    *,
+    stack: tuple[Path, ...],
+) -> dict[str, Any]:
+    """실험 config를 `_base_` 체인 끝까지 재귀 병합해 로드한다."""
+    config_path = config_path.resolve()
+    if config_path in stack:
+        chain = " -> ".join(str(p) for p in (*stack, config_path))
+        raise ValueError(f"_base_ 순환 상속이 감지되었습니다: {chain}")
+
+    config = _load_yaml_mapping(config_path)
+    base_refs = _normalize_base_refs(config.get("_base_"), config_path=config_path)
+
+    local_cfg = deepcopy(config)
+    local_cfg.pop("_base_", None)
+
+    merged_base: dict[str, Any] = {}
+    for base_ref in base_refs:
+        base_path = (config_path.parent / base_ref).resolve()
+        if not base_path.exists():
+            raise FileNotFoundError(
+                f"기본(base) 설정 파일을 찾을 수 없습니다: {base_path} (from: {config_path})"
+            )
+        base_cfg = _load_experiment_config_recursive(base_path, stack=(*stack, config_path))
+        merged_base = _deep_merge(merged_base, base_cfg)
+
+    return _deep_merge(merged_base, local_cfg)
+
+
+def _validate_experiment_config(config: dict[str, Any], *, config_path: Path) -> None:
+    """실험 config 최소 계약(paths + 필수 키)을 검증한다."""
+    paths_cfg = config.get("paths")
+    if not isinstance(paths_cfg, dict):
+        raise ValueError(f"실험 설정에 paths 섹션이 없습니다: {config_path}")
+
+    missing = [
+        key
+        for key in _REQUIRED_EXPERIMENT_PATH_KEYS
+        if not isinstance(paths_cfg.get(key), str) or not str(paths_cfg.get(key)).strip()
+    ]
+    if missing:
+        raise ValueError(
+            f"실험 설정 paths 키가 누락되었거나 비어 있습니다 ({config_path}): {', '.join(missing)}"
+        )
+
+
 def load_experiment_config(
     config_path: Path, script_path: Path
 ) -> tuple[dict[str, Any], Path]:
     """실험 config를 로드한다.
 
     1) config YAML 로드
-    2) ``_base_`` 키가 있으면 부모 config을 먼저 로드하고 deep-merge
-    3) ``_base_`` 키를 최종 결과에서 제거
-    4) repo root 결정
+    2) ``_base_`` 체인을 재귀적으로 끝까지 병합
+    3) 최종 결과에서 ``_base_`` 키 제거 보장
+    4) 필수 ``paths`` 계약 검증
+    5) repo root 결정
     """
     config_path = config_path.resolve()
-    config = _load_yaml_mapping(config_path)
-
-    base_ref = config.pop("_base_", None)
-    if base_ref is not None:
-        base_path = (config_path.parent / base_ref).resolve()
-        if not base_path.exists():
-            raise FileNotFoundError(f"Base config not found: {base_path}")
-        base_config = _load_yaml_mapping(base_path)
-        config = _deep_merge(base_config, config)
+    config = _load_experiment_config_recursive(config_path, stack=())
+    _validate_experiment_config(config, config_path=config_path)
 
     repo_root = resolve_repo_root(script_path, config_path)
     return config, repo_root
