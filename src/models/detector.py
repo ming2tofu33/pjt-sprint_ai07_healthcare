@@ -14,12 +14,9 @@ Ultralytics API 의 차이를 흡수하는 얇은 래퍼 역할을 한다.
 """
 from __future__ import annotations
 
-import os
 import json
 import csv
 import shutil
-import re
-import logging
 from pathlib import Path
 from typing import Any, Optional
 
@@ -32,117 +29,54 @@ except ImportError:
     YOLO = None  # type: ignore[assignment,misc]
 
 
-logger = logging.getLogger(__name__)
-
-
-def build_hybrid_snapshot_epochs(
-    total_epochs: int,
-    percent_points: list[int] | tuple[int, ...],
-    max_epoch_gap: int,
-) -> list[int]:
-    """Build a sorted unique epoch list from percent points + fixed max gap.
-
-    Rules:
-    1) convert percent points into epoch numbers
-    2) if interval between selected epochs is larger than max_epoch_gap,
-       fill intermediate epochs by max_epoch_gap
-    3) always include epoch 1 and last epoch
-    """
-    if total_epochs <= 0:
+def _parse_int_list(value: Any) -> list[int]:
+    """Normalize an int-list-like value into a sorted unique int list."""
+    if value is None:
         return []
-
-    normalized_points: list[int] = []
-    for p in percent_points:
-        try:
-            val = int(p)
-        except Exception:
-            continue
-        if 1 <= val <= 100:
-            normalized_points.append(val)
-    if not normalized_points:
-        normalized_points = [10, 30, 50, 70, 90, 100]
-
-    selected: set[int] = {1, total_epochs}
-    for p in normalized_points:
-        epoch = int(round(total_epochs * (p / 100.0)))
-        epoch = min(max(epoch, 1), total_epochs)
-        selected.add(epoch)
-
-    out = sorted(selected)
-    gap = int(max_epoch_gap) if int(max_epoch_gap) > 0 else 20
-    dense: list[int] = []
-    for i, current in enumerate(out):
-        dense.append(current)
-        if i == len(out) - 1:
-            break
-        nxt = out[i + 1]
-        probe = current + gap
-        while probe < nxt:
-            dense.append(probe)
-            probe += gap
-
-    return sorted(set(dense))
+    if isinstance(value, str):
+        items = [v.strip() for v in value.split(",") if v.strip()]
+        return sorted({int(v) for v in items})
+    if isinstance(value, (list, tuple, set)):
+        return sorted({int(v) for v in value})
+    return [int(value)]
 
 
-def _parse_val_snapshot_name(filename: str) -> tuple[int, str] | None:
-    """Parse val batch file name and return (batch_idx, kind)."""
-    m = re.match(r"^val_batch(\d+)_(labels|pred)\.jpg$", filename)
-    if m is None:
-        return None
-    return int(m.group(1)), str(m.group(2))
+def _load_idx_to_category_from_data_yaml(data_yaml: Path) -> dict[int, int]:
+    """Read YOLO data.yaml names and build class-index -> category_id mapping."""
+    if not data_yaml.exists():
+        return {}
 
-
-def _ensure_snapshot_index_header(index_path: Path) -> None:
-    if index_path.exists():
-        return
-    index_path.parent.mkdir(parents=True, exist_ok=True)
-    with index_path.open("w", encoding="utf-8", newline="") as f:
-        writer = csv.DictWriter(
-            f,
-            fieldnames=[
-                "epoch",
-                "progress_pct",
-                "batch_idx",
-                "kind",
-                "source_file",
-                "snapshot_file",
-            ],
-        )
-        writer.writeheader()
-
-
-def _load_existing_snapshot_files(index_path: Path) -> set[str]:
-    if not index_path.exists():
-        return set()
     try:
-        with index_path.open("r", encoding="utf-8") as f:
-            rows = list(csv.DictReader(f))
-        return {str(r.get("snapshot_file", "")).strip() for r in rows if r.get("snapshot_file")}
+        data = yaml.safe_load(data_yaml.read_text(encoding="utf-8"))
     except Exception:
-        return set()
+        return {}
 
+    if not isinstance(data, dict):
+        return {}
 
-def _append_snapshot_index_row(index_path: Path, row: dict[str, Any]) -> None:
-    _ensure_snapshot_index_header(index_path)
-    with index_path.open("a", encoding="utf-8", newline="") as f:
-        writer = csv.DictWriter(
-            f,
-            fieldnames=[
-                "epoch",
-                "progress_pct",
-                "batch_idx",
-                "kind",
-                "source_file",
-                "snapshot_file",
-            ],
-        )
-        writer.writerow(row)
+    names = data.get("names")
+    mapping: dict[int, int] = {}
 
+    if isinstance(names, dict):
+        for key, value in names.items():
+            try:
+                idx = int(key)
+                cat = int(value)
+            except Exception:
+                continue
+            mapping[idx] = cat
+        return mapping
 
-def _write_snapshot_manifest(manifest_path: Path, payload: dict[str, Any]) -> None:
-    manifest_path.parent.mkdir(parents=True, exist_ok=True)
-    with manifest_path.open("w", encoding="utf-8") as f:
-        json.dump(payload, f, ensure_ascii=False, indent=2)
+    if isinstance(names, list):
+        for idx, value in enumerate(names):
+            try:
+                cat = int(value)
+            except Exception:
+                continue
+            mapping[idx] = cat
+        return mapping
+
+    return {}
 
 
 class PillDetector:
@@ -208,8 +142,6 @@ class PillDetector:
             학습 결과 객체.
         """
         train_cfg = dict(config.get("train", {})) if config else {}
-        log_mode = str(train_cfg.get("log_mode", "epoch")).strip().lower()
-        use_epoch_log = log_mode == "epoch"
 
         # config 에서 직접 전달할 학습 하이퍼파라미터 추출
         kwargs: dict[str, Any] = {}
@@ -223,7 +155,7 @@ class PillDetector:
         # train 섹션의 키를 Ultralytics 인자로 매핑
         _DIRECT_KEYS = [
             "epochs", "imgsz", "batch", "lr0", "lrf", "optimizer",
-            "patience", "workers", "seed", "deterministic",
+            "patience", "workers", "seed", "deterministic", "close_mosaic",
             "pretrained", "save", "save_period", "verbose", "plots",
             # 증강
             "hsv_h", "hsv_s", "hsv_v", "degrees", "translate", "scale",
@@ -231,224 +163,45 @@ class PillDetector:
             "mosaic", "mixup", "copy_paste",
             # 손실 가중치
             "box", "cls", "dfl",
+            # 기타
+            "cos_lr", "label_smoothing",
         ]
         for key in _DIRECT_KEYS:
             if key in train_cfg:
                 kwargs[key] = train_cfg[key]
-        if use_epoch_log:
-            # 배치 단위 tqdm 출력을 끄고 에폭 단위 요약 로그를 사용한다.
-            kwargs["verbose"] = False
+
+        # Optional class filtering:
+        # - classes: class indices
+        # - target_category_ids: original category IDs (mapped via data.yaml names)
+        classes = _parse_int_list(train_cfg.get("classes"))
+        target_category_ids = _parse_int_list(train_cfg.get("target_category_ids"))
+
+        if classes and target_category_ids:
+            raise ValueError("Use only one of train.classes or train.target_category_ids.")
+
+        if target_category_ids:
+            idx2cat = _load_idx_to_category_from_data_yaml(data_yaml)
+            if not idx2cat:
+                raise ValueError(
+                    f"Could not resolve names mapping from data.yaml for target_category_ids: {data_yaml}"
+                )
+            cat2idx = {cat: idx for idx, cat in idx2cat.items()}
+            mapped = sorted({cat2idx[cid] for cid in target_category_ids if cid in cat2idx})
+            if not mapped:
+                raise ValueError(
+                    "No valid classes mapped from train.target_category_ids against data.yaml names."
+                )
+            kwargs["classes"] = mapped
+        elif classes:
+            kwargs["classes"] = classes
 
         # device 처리 (config 또는 CLI)
         device = train_cfg.get("device")
         if device is not None:
             kwargs["device"] = device
 
-        debug_snap_cfg = train_cfg.get("debug_snapshots", {})
-        if not isinstance(debug_snap_cfg, dict):
-            debug_snap_cfg = {}
-
-        snapshot_enabled = bool(debug_snap_cfg.get("enabled", True))
-        snapshot_scope = str(debug_snap_cfg.get("scope", "val_only")).strip().lower() or "val_only"
-        snapshot_percent_points_raw = debug_snap_cfg.get("percent_points", [10, 30, 50, 70, 90, 100])
-        if not isinstance(snapshot_percent_points_raw, (list, tuple)):
-            snapshot_percent_points_raw = [10, 30, 50, 70, 90, 100]
-        snapshot_percent_points: list[int] = []
-        for item in snapshot_percent_points_raw:
-            try:
-                snapshot_percent_points.append(int(item))
-            except Exception:
-                continue
-        try:
-            snapshot_max_epoch_gap = int(debug_snap_cfg.get("max_epoch_gap", 20))
-        except Exception:
-            snapshot_max_epoch_gap = 20
-        snapshot_output_dirname = str(debug_snap_cfg.get("output_dirname", "snapshots")).strip() or "snapshots"
-        snapshot_index_filename = str(debug_snap_cfg.get("index_filename", "snapshot_index.csv")).strip() or "snapshot_index.csv"
-
-        snapshot_runtime: dict[str, Any] = {
-            "initialized": False,
-            "saved_epochs": set(),
-            "saved_files": 0,
-            "known_snapshot_files": set(),
-            "target_epochs": [],
-            "target_epochs_set": set(),
-            "snapshot_dir": None,
-            "index_path": None,
-            "manifest_path": None,
-            "scope": snapshot_scope,
-            "percent_points": snapshot_percent_points,
-            "max_epoch_gap": snapshot_max_epoch_gap,
-            "output_dirname": snapshot_output_dirname,
-            "index_filename": snapshot_index_filename,
-            "enabled": snapshot_enabled,
-        }
-
-        def _fmt_metric(value: Any) -> str:
-            if value is None:
-                return "N/A"
-            try:
-                return f"{float(value):.4f}"
-            except Exception:
-                return "N/A"
-
-        def _epoch_progress(trainer: Any) -> None:
-            total = int(getattr(trainer, "epochs", train_cfg.get("epochs", 0)) or 0)
-            epoch = int(getattr(trainer, "epoch", -1)) + 1
-            if total <= 0:
-                return
-            ratio = min(max(epoch / total, 0.0), 1.0)
-            width = 20
-            filled = int(ratio * width)
-            bar = ("#" * filled) + ("-" * (width - filled))
-            metrics = getattr(trainer, "metrics", {}) or {}
-            msg = (
-                f"[TRAIN] {epoch:>3}/{total:<3} {ratio*100:5.1f}% |{bar}| "
-                f"mAP50={_fmt_metric(metrics.get('metrics/mAP50(B)'))} "
-                f"mAP50-95={_fmt_metric(metrics.get('metrics/mAP50-95(B)'))} "
-                f"P={_fmt_metric(metrics.get('metrics/precision(B)'))} "
-                f"R={_fmt_metric(metrics.get('metrics/recall(B)'))}"
-            )
-            print(msg, flush=True)
-
-        def _capture_debug_snapshots(trainer: Any) -> None:
-            if not snapshot_runtime.get("enabled", False):
-                return
-            if str(snapshot_runtime.get("scope", "val_only")) != "val_only":
-                return
-
-            rank_raw = getattr(trainer, "rank", os.getenv("RANK", "-1"))
-            try:
-                rank = int(rank_raw)
-            except Exception:
-                rank = -1
-            if rank not in (-1, 0):
-                return
-
-            total = int(getattr(trainer, "epochs", train_cfg.get("epochs", 0)) or 0)
-            epoch = int(getattr(trainer, "epoch", -1)) + 1
-            if total <= 0 or epoch <= 0:
-                return
-
-            save_dir = Path(getattr(trainer, "save_dir", Path(project) / name))
-
-            if not snapshot_runtime["initialized"]:
-                target_epochs = build_hybrid_snapshot_epochs(
-                    total,
-                    snapshot_runtime.get("percent_points", [10, 30, 50, 70, 90, 100]),
-                    int(snapshot_runtime.get("max_epoch_gap", 20)),
-                )
-                snapshot_dir = save_dir / str(snapshot_runtime.get("output_dirname", "snapshots"))
-                index_path = snapshot_dir / str(snapshot_runtime.get("index_filename", "snapshot_index.csv"))
-                manifest_path = snapshot_dir / "snapshot_manifest.json"
-
-                snapshot_dir.mkdir(parents=True, exist_ok=True)
-                snapshot_runtime["target_epochs"] = target_epochs
-                snapshot_runtime["target_epochs_set"] = set(target_epochs)
-                snapshot_runtime["snapshot_dir"] = snapshot_dir
-                snapshot_runtime["index_path"] = index_path
-                snapshot_runtime["manifest_path"] = manifest_path
-                snapshot_runtime["known_snapshot_files"] = _load_existing_snapshot_files(index_path)
-                snapshot_runtime["saved_epochs"] = set()
-                snapshot_runtime["saved_files"] = 0
-                snapshot_runtime["initialized"] = True
-
-            target_epochs_set = snapshot_runtime.get("target_epochs_set", set())
-            if epoch not in target_epochs_set:
-                return
-
-            snapshot_dir = snapshot_runtime["snapshot_dir"]
-            index_path = snapshot_runtime["index_path"]
-            manifest_path = snapshot_runtime["manifest_path"]
-            known_snapshot_files = snapshot_runtime["known_snapshot_files"]
-
-            progress_pct = int(round((epoch / total) * 100))
-            source_files = sorted(save_dir.glob("val_batch*_labels.jpg")) + sorted(save_dir.glob("val_batch*_pred.jpg"))
-            saved_now = 0
-            for src in source_files:
-                parsed = _parse_val_snapshot_name(src.name)
-                if parsed is None:
-                    continue
-                batch_idx, kind = parsed
-                snapshot_name = f"e{epoch:04d}_p{progress_pct:03d}_val_b{batch_idx}_{kind}.jpg"
-                if snapshot_name in known_snapshot_files:
-                    continue
-
-                dst = snapshot_dir / snapshot_name
-                shutil.copy2(str(src), str(dst))
-                known_snapshot_files.add(snapshot_name)
-                _append_snapshot_index_row(
-                    index_path,
-                    {
-                        "epoch": epoch,
-                        "progress_pct": progress_pct,
-                        "batch_idx": batch_idx,
-                        "kind": kind,
-                        "source_file": src.name,
-                        "snapshot_file": snapshot_name,
-                    },
-                )
-                saved_now += 1
-
-            if saved_now > 0:
-                saved_epochs = snapshot_runtime["saved_epochs"]
-                saved_epochs.add(epoch)
-                snapshot_runtime["saved_files"] = int(snapshot_runtime["saved_files"]) + saved_now
-                logger.info(
-                    "debug snapshots 저장 | epoch=%d/%d | files=%d | dir=%s",
-                    epoch,
-                    total,
-                    saved_now,
-                    snapshot_dir,
-                )
-
-            _write_snapshot_manifest(
-                manifest_path,
-                {
-                    "enabled": bool(snapshot_runtime.get("enabled", False)),
-                    "scope": str(snapshot_runtime.get("scope", "val_only")),
-                    "percent_points": list(snapshot_runtime.get("percent_points", [])),
-                    "max_epoch_gap": int(snapshot_runtime.get("max_epoch_gap", 20)),
-                    "target_epochs": list(snapshot_runtime.get("target_epochs", [])),
-                    "saved_epochs": sorted(list(snapshot_runtime.get("saved_epochs", set()))),
-                    "saved_files": int(snapshot_runtime.get("saved_files", 0)),
-                    "snapshot_dir": str(snapshot_dir),
-                    "index_file": str(index_path),
-                },
-            )
-
-        prev_yolo_verbose = os.getenv("YOLO_VERBOSE")
-        prev_ultra_verbose: Optional[bool] = None
-        try:
-            if use_epoch_log:
-                # Ultralytics 내부 tqdm 비활성화(VERBOSE=False)로 배치 로그 폭주를 막는다.
-                os.environ["YOLO_VERBOSE"] = "False"
-                try:
-                    import ultralytics.utils as ultra_utils
-
-                    prev_ultra_verbose = bool(getattr(ultra_utils, "VERBOSE", True))
-                    ultra_utils.VERBOSE = False
-                except Exception:
-                    prev_ultra_verbose = None
-                self.model.add_callback("on_fit_epoch_end", _epoch_progress)
-            if snapshot_enabled:
-                self.model.add_callback("on_fit_epoch_end", _capture_debug_snapshots)
-
-            results = self.model.train(**kwargs)
-            return results
-        finally:
-            if use_epoch_log:
-                if prev_ultra_verbose is not None:
-                    try:
-                        import ultralytics.utils as ultra_utils
-
-                        ultra_utils.VERBOSE = prev_ultra_verbose
-                    except Exception:
-                        pass
-                if prev_yolo_verbose is None:
-                    os.environ.pop("YOLO_VERBOSE", None)
-                else:
-                    os.environ["YOLO_VERBOSE"] = prev_yolo_verbose
+        results = self.model.train(**kwargs)
+        return results
 
     # ── 평가 ────────────────────────────────────────────────
 
