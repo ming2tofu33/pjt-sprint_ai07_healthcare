@@ -29,6 +29,56 @@ except ImportError:
     YOLO = None  # type: ignore[assignment,misc]
 
 
+def _parse_int_list(value: Any) -> list[int]:
+    """Normalize an int-list-like value into a sorted unique int list."""
+    if value is None:
+        return []
+    if isinstance(value, str):
+        items = [v.strip() for v in value.split(",") if v.strip()]
+        return sorted({int(v) for v in items})
+    if isinstance(value, (list, tuple, set)):
+        return sorted({int(v) for v in value})
+    return [int(value)]
+
+
+def _load_idx_to_category_from_data_yaml(data_yaml: Path) -> dict[int, int]:
+    """Read YOLO data.yaml names and build class-index -> category_id mapping."""
+    if not data_yaml.exists():
+        return {}
+
+    try:
+        data = yaml.safe_load(data_yaml.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+
+    if not isinstance(data, dict):
+        return {}
+
+    names = data.get("names")
+    mapping: dict[int, int] = {}
+
+    if isinstance(names, dict):
+        for key, value in names.items():
+            try:
+                idx = int(key)
+                cat = int(value)
+            except Exception:
+                continue
+            mapping[idx] = cat
+        return mapping
+
+    if isinstance(names, list):
+        for idx, value in enumerate(names):
+            try:
+                cat = int(value)
+            except Exception:
+                continue
+            mapping[idx] = cat
+        return mapping
+
+    return {}
+
+
 class PillDetector:
     """Ultralytics YOLO 모델을 감싼 래퍼.
 
@@ -105,7 +155,7 @@ class PillDetector:
         # train 섹션의 키를 Ultralytics 인자로 매핑
         _DIRECT_KEYS = [
             "epochs", "imgsz", "batch", "lr0", "lrf", "optimizer",
-            "patience", "workers", "seed", "deterministic",
+            "patience", "workers", "seed", "deterministic", "close_mosaic",
             "pretrained", "save", "save_period", "verbose", "plots",
             # 증강
             "hsv_h", "hsv_s", "hsv_v", "degrees", "translate", "scale",
@@ -113,10 +163,37 @@ class PillDetector:
             "mosaic", "mixup", "copy_paste",
             # 손실 가중치
             "box", "cls", "dfl",
+            # 기타
+            "cos_lr", "label_smoothing",
         ]
         for key in _DIRECT_KEYS:
             if key in train_cfg:
                 kwargs[key] = train_cfg[key]
+
+        # Optional class filtering:
+        # - classes: class indices
+        # - target_category_ids: original category IDs (mapped via data.yaml names)
+        classes = _parse_int_list(train_cfg.get("classes"))
+        target_category_ids = _parse_int_list(train_cfg.get("target_category_ids"))
+
+        if classes and target_category_ids:
+            raise ValueError("Use only one of train.classes or train.target_category_ids.")
+
+        if target_category_ids:
+            idx2cat = _load_idx_to_category_from_data_yaml(data_yaml)
+            if not idx2cat:
+                raise ValueError(
+                    f"Could not resolve names mapping from data.yaml for target_category_ids: {data_yaml}"
+                )
+            cat2idx = {cat: idx for idx, cat in idx2cat.items()}
+            mapped = sorted({cat2idx[cid] for cid in target_category_ids if cid in cat2idx})
+            if not mapped:
+                raise ValueError(
+                    "No valid classes mapped from train.target_category_ids against data.yaml names."
+                )
+            kwargs["classes"] = mapped
+        elif classes:
+            kwargs["classes"] = classes
 
         # device 처리 (config 또는 CLI)
         device = train_cfg.get("device")
