@@ -198,7 +198,15 @@ train:
   save: true                                    # 학습 과정 중 체크포인트 저장 여부
   save_period: -1                               # 체크포인트 저장 주기 (-1은 최종 및 최고 성능 모델만 저장)
   verbose: true                                 # 상세 로그 출력 여부
+  log_mode: "epoch"                             # 학습 로그 모드 (epoch: 에폭 요약 1줄, batch: 배치 진행바)
   plots: true                                   # 학습 곡선 및 검증 결과 이미지 생성 여부
+  debug_snapshots:                              # 학습 중 val 배치 스냅샷 저장 정책
+    enabled: true
+    scope: "val_only"                           # 현재 지원 범위: val_only
+    percent_points: [10, 30, 50, 70, 90, 100]  # 진행률 기준 저장 시점(%)
+    max_epoch_gap: 20                           # 저장 시점 간 최대 epoch 간격
+    output_dirname: "snapshots"                 # train 하위 스냅샷 폴더명
+    index_filename: "snapshot_index.csv"        # 스냅샷 인덱스 파일명
   competition_select:                           # 대회 지표(mAP75_95) 기준 가중치 재선정
     enabled: true
     candidates: ["best", "last"]               # 재평가 후보 (weights/<tag>.pt)

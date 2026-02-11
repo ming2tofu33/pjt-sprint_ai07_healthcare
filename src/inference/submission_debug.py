@@ -1,4 +1,4 @@
-"""STAGE 4 제출 전 sanity check 시각화 유틸리티."""
+"""STAGE 4 제출용 sanity check 시각화 유틸리티."""
 from __future__ import annotations
 
 import random
@@ -17,7 +17,7 @@ def sample_detections_for_debug(
     sample_size: int,
     seed: int,
 ) -> list[dict]:
-    """디버그 시각화용 샘플 detection을 안정적으로 선택한다."""
+    """디버그 시각화용 샘플 detection을 결정적으로 선택한다."""
     ordered = sorted(detections, key=lambda d: str(d.get("image_stem", "")))
     if sample_size <= 0 or not ordered:
         return []
@@ -35,12 +35,15 @@ def save_submission_debug_images(
     detections: list[dict],
     idx2name: dict[int, str] | None,
     max_det_per_image: int,
+    output_dir: Path | None = None,
     sample_size: int = 12,
     seed: int = 42,
     enabled: bool = True,
 ) -> dict[str, Any]:
     """제출 전 sanity check 이미지를 저장하고 결과 리포트를 반환한다."""
-    output_dir = run_dir / "submission_debug"
+    if output_dir is None:
+        output_dir = run_dir / "submission_debug"
+
     requested = max(0, int(sample_size))
     report: dict[str, Any] = {
         "debug_enabled": bool(enabled),
@@ -53,7 +56,6 @@ def save_submission_debug_images(
         report["debug_skipped_reason"] = "disabled_by_config"
         return report
 
-    # 재실행 시 이전 결과가 섞이지 않도록 항상 초기화한다.
     if output_dir.exists():
         shutil.rmtree(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -74,7 +76,7 @@ def save_submission_debug_images(
             highlight_overflow=True,
             show_rank=True,
         )
-    except Exception as exc:  # noqa: BLE001 - 시각화 실패는 STAGE4를 중단시키지 않는다.
+    except Exception as exc:  # noqa: BLE001 - 시각화 실패는 STAGE 4를 중단시키지 않는다.
         reason = f"{type(exc).__name__}: {exc}"
         logger.warning("submission debug 시각화 실패: %s", reason)
         report["debug_skipped_reason"] = reason
@@ -85,4 +87,3 @@ def save_submission_debug_images(
         report["debug_skipped_reason"] = "partial_saved"
 
     return report
-

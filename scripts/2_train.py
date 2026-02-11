@@ -1,11 +1,4 @@
-"""STAGE 2: YOLO 모델 학습.
-
-STAGE 1 산출물(`data.yaml`)과 실험 config를 입력받아
-Ultralytics YOLO 학습을 실행하고 가중치/메트릭을 저장한 뒤 레지스트리를 갱신한다.
-
-추가로, 대회 지표(mAP75_95) 기준으로 `best.pt`/`last.pt`를 재평가해
-`competition_best.pt`를 별도 산출물로 저장할 수 있다.
-"""
+"""STAGE 2: YOLO 모델 학습."""
 from __future__ import annotations
 
 import argparse
@@ -15,7 +8,6 @@ from pathlib import Path
 from shutil import copy2
 from typing import Any
 
-# 프로젝트 루트를 sys.path에 추가한다.
 SCRIPT_DIR = Path(__file__).resolve().parent
 REPO_ROOT = SCRIPT_DIR.parent
 if str(REPO_ROOT) not in sys.path:
@@ -35,116 +27,18 @@ from src.utils.registry import append_run  # noqa: E402
 logger = get_logger(__name__)
 
 
-def _resolve_cli_path(path_str: str, repo_root: Path) -> Path:
-    path = Path(path_str)
-    if path.is_absolute():
-        return path
-    return (repo_root / path).resolve()
-
-
-def _parse_int_csv(raw: str) -> list[int]:
-    values = [x.strip() for x in raw.split(",") if x.strip()]
-    if not values:
-        return []
-    return sorted({int(v) for v in values})
-
-
-def _apply_train_cli_overrides(config: dict[str, Any], args: argparse.Namespace, repo_root: Path) -> None:
-    train_cfg = config.setdefault("train", {})
-    model_cfg = config.setdefault("model", {})
-
-    if args.model is not None:
-        model_arg = args.model.strip()
-        if not model_arg:
-            raise ValueError("--model 값이 비어 있습니다.")
-        looks_like_path = ("/" in model_arg) or ("\\" in model_arg)
-        model_cfg["pretrained"] = str(_resolve_cli_path(model_arg, repo_root)) if looks_like_path else model_arg
-
-    key_map: dict[str, str] = {
-        "epochs": "epochs",
-        "imgsz": "imgsz",
-        "batch": "batch",
-        "lr0": "lr0",
-        "lrf": "lrf",
-        "optimizer": "optimizer",
-        "patience": "patience",
-        "workers": "workers",
-        "seed": "seed",
-        "mosaic": "mosaic",
-        "close_mosaic": "close_mosaic",
-        "mixup": "mixup",
-        "copy_paste": "copy_paste",
-        "box": "box",
-        "cls": "cls",
-        "dfl": "dfl",
-    }
-    for arg_name, cfg_name in key_map.items():
-        value = getattr(args, arg_name)
-        if value is not None:
-            train_cfg[cfg_name] = value
-
-    if args.cos_lr is not None:
-        train_cfg["cos_lr"] = bool(args.cos_lr)
-
-    classes = _parse_int_csv(args.classes) if args.classes else []
-    target_category_ids = _parse_int_csv(args.target_category_ids) if args.target_category_ids else []
-    if classes and target_category_ids:
-        raise ValueError("--classes 와 --target-category-ids 는 동시에 사용할 수 없습니다.")
-    if classes:
-        train_cfg["classes"] = classes
-        train_cfg.pop("target_category_ids", None)
-    if target_category_ids:
-        train_cfg["target_category_ids"] = target_category_ids
-        train_cfg.pop("classes", None)
-
-
 def main(argv: list[str] | None = None) -> None:
-    parser = argparse.ArgumentParser(description="STAGE 2: YOLO 학습")
-    parser.add_argument("--run-name", "--name", dest="run_name", required=True, help="실험 이름")
+    parser = argparse.ArgumentParser(description="STAGE 2: YOLO 모델 학습")
+    parser.add_argument("--run-name", required=True, help="실험 이름")
     parser.add_argument("--config", required=True, help="실험 config YAML 경로")
     parser.add_argument("--device", default=None, help="GPU 디바이스 (예: 0, cpu)")
     parser.add_argument("--resume", action="store_true", help="last.pt에서 학습 재개")
     parser.add_argument(
         "--auto-resume",
         action="store_true",
-        help="last.pt가 있으면 자동으로 학습 재개 (없으면 새로 시작)",
+        help="last.pt가 있으면 자동으로 재개 (없으면 새로 시작)",
     )
     parser.add_argument("--verbose", action="store_true", help="상세 로그 출력")
-
-    # 호환 옵션(기존 train_yolo.py/커맨드 스타일)
-    parser.add_argument("--data", "--data-yaml", dest="data_yaml", default=None, help="YOLO data.yaml 경로 지정")
-    parser.add_argument("--project", default=None, help="학습 출력 상위 디렉터리 override")
-    parser.add_argument("--model", default=None, help="모델 alias 또는 checkpoint 경로 override")
-    parser.add_argument("--epochs", type=int, default=None)
-    parser.add_argument("--imgsz", type=int, default=None)
-    parser.add_argument("--batch", type=int, default=None)
-    parser.add_argument("--lr0", type=float, default=None)
-    parser.add_argument("--lrf", type=float, default=None)
-    parser.add_argument("--optimizer", default=None)
-    parser.add_argument("--patience", type=int, default=None)
-    parser.add_argument("--workers", type=int, default=None)
-    parser.add_argument("--seed", type=int, default=None)
-    parser.add_argument("--mosaic", type=float, default=None)
-    parser.add_argument("--close-mosaic", dest="close_mosaic", type=int, default=None)
-    parser.add_argument("--mixup", type=float, default=None)
-    parser.add_argument("--copy-paste", dest="copy_paste", type=float, default=None)
-    parser.add_argument("--box", type=float, default=None)
-    parser.add_argument("--cls", type=float, default=None)
-    parser.add_argument("--dfl", type=float, default=None)
-    parser.add_argument(
-        "--cos-lr",
-        dest="cos_lr",
-        action=argparse.BooleanOptionalAction,
-        default=None,
-        help="cosine LR 스케줄러 on/off",
-    )
-    parser.add_argument("--classes", type=str, default="", help="클래스 인덱스 필터 (예: 0,1,5)")
-    parser.add_argument(
-        "--target-category-ids",
-        type=str,
-        default="",
-        help="category_id 필터 (data.yaml names 매핑 사용)",
-    )
     args = parser.parse_args(argv)
 
     run_name: str = args.run_name
@@ -153,47 +47,35 @@ def main(argv: list[str] | None = None) -> None:
 
     logger.info("STAGE 2 시작 | run_name=%s | config=%s", run_name, config_path)
 
-    # 1) config 로드
     config, repo_root = load_experiment_config(config_path, script_path)
 
-    # CLI --device가 있으면 config를 오버라이드한다.
     if args.device is not None:
         config.setdefault("train", {})["device"] = (
             int(args.device) if args.device.isdigit() else args.device
         )
 
-    try:
-        _apply_train_cli_overrides(config, args, repo_root)
-    except ValueError as exc:
-        logger.error("학습 옵션 설정 실패: %s", exc)
-        sys.exit(2)
-
     paths_cfg = config.get("paths", {})
     model_cfg = config.get("model", {})
     train_cfg = config.get("train", {})
 
-    # 2) 경로 결정
-    if args.data_yaml:
-        data_yaml = _resolve_cli_path(args.data_yaml, repo_root)
-    else:
-        datasets_base = Path(paths_cfg.get("datasets_dir", "data/processed/datasets"))
-        if not datasets_base.is_absolute():
-            datasets_base = (repo_root / datasets_base).resolve()
-        dataset_prefix = config.get("yolo_convert", {}).get("dataset_prefix", "pill_od_yolo")
-        dataset_dir = datasets_base / f"{dataset_prefix}_{run_name}"
-        data_yaml = dataset_dir / "data.yaml"
+    datasets_base = Path(paths_cfg.get("datasets_dir", "data/processed/datasets"))
+    if not datasets_base.is_absolute():
+        datasets_base = (repo_root / datasets_base).resolve()
+    dataset_prefix = config.get("yolo_convert", {}).get("dataset_prefix", "pill_od_yolo")
+    dataset_dir = datasets_base / f"{dataset_prefix}_{run_name}"
+    data_yaml = dataset_dir / "data.yaml"
 
     if not data_yaml.exists():
         logger.error("data.yaml이 존재하지 않습니다: %s", data_yaml)
         logger.error("STAGE 1을 먼저 실행하세요: python scripts/1_preprocess.py --run-name %s ...", run_name)
-        logger.error("또는 --data/--data-yaml로 경로를 직접 지정하세요.")
         sys.exit(1)
 
-    runs_base = Path(args.project) if args.project else Path(paths_cfg.get("runs_dir", "runs"))
+    runs_base = Path(paths_cfg.get("runs_dir", "runs"))
     if not runs_base.is_absolute():
         runs_base = (repo_root / runs_base).resolve()
     run_dir = runs_base / run_name
     run_dir.mkdir(parents=True, exist_ok=True)
+    train_artifacts_dir = run_dir / "train"
 
     best_models_dir = Path(paths_cfg.get("best_models_dir", "artifacts/best_models"))
     if not best_models_dir.is_absolute():
@@ -202,11 +84,9 @@ def main(argv: list[str] | None = None) -> None:
 
     registry_path = runs_base / "_registry.csv"
 
-    # 3) config_resolved.yaml 저장
     save_config_resolved(config, run_dir)
     logger.info("config_resolved.yaml 저장 | %s", run_dir / "config_resolved.yaml")
 
-    # 4) 모델 로드
     try:
         resume_enabled, resume_reason, last_pt = _resolve_resume_mode(
             run_dir,
@@ -229,27 +109,20 @@ def main(argv: list[str] | None = None) -> None:
         detector = PillDetector.from_config(config)
         logger.info("모델 로드 | %s", model_cfg.get("pretrained", "?"))
 
-    # 5) 학습 실행
     logger.info(
         "학습 시작 | epochs=%s | imgsz=%s | batch=%s",
         train_cfg.get("epochs", "?"),
         train_cfg.get("imgsz", "?"),
         train_cfg.get("batch", "?"),
     )
-    if train_cfg.get("classes") is not None:
-        logger.info("클래스 필터(classes) 적용: %s", train_cfg.get("classes"))
-    if train_cfg.get("target_category_ids") is not None:
-        logger.info("클래스 필터(target_category_ids) 적용: %s", train_cfg.get("target_category_ids"))
-
     train_results = detector.train(
         data_yaml=data_yaml,
-        project=str(runs_base),
-        name=run_name,
+        project=str(run_dir),
+        name="train",
         config=config,
     )
 
-    # 6) 학습 결과 후처리
-    train_output_dir = run_dir
+    train_output_dir = train_artifacts_dir
     run_best, artifact_best = copy_best_weights(
         train_output_dir,
         run_dir=run_dir,
@@ -263,10 +136,20 @@ def main(argv: list[str] | None = None) -> None:
     else:
         logger.warning("best.pt를 찾을 수 없습니다. 학습이 정상 완료되었는지 확인하세요.")
 
-    # 7) 메트릭 추출 + competition_best 선정 + 저장
-    metrics = extract_metrics(train_results, results_csv_path=run_dir / "results.csv")
+    train_results_csv = train_artifacts_dir / "results.csv"
+    metrics = extract_metrics(train_results, results_csv_path=train_results_csv)
+    _copy_train_results_shortcut(train_results_csv, run_dir)
+    snapshot_summary = _load_snapshot_summary(train_cfg, train_artifacts_dir)
+    metrics["debug_snapshots"] = snapshot_summary
+    logger.info(
+        "debug snapshots | enabled=%s | saved_epochs=%d | saved_files=%d | dir=%s",
+        snapshot_summary.get("enabled", False),
+        len(snapshot_summary.get("saved_epochs", [])),
+        int(snapshot_summary.get("saved_files", 0)),
+        snapshot_summary.get("snapshot_dir", ""),
+    )
     if metrics.get("mAP75_95") is None:
-        logger.warning("train 결과에서 mAP75_95를 계산하지 못했습니다(all_ap 미가용).")
+        logger.warning("train 결과에서 mAP75_95를 계산하지 못했습니다. all_ap 미제공.")
 
     competition_best_path, competition_report = _select_competition_best_weight(
         config=config,
@@ -294,7 +177,6 @@ def main(argv: list[str] | None = None) -> None:
         competition_best_path if competition_best_path is not None else run_best
     )
 
-    # 8) registry 갱신
     append_run(
         registry_path,
         run_name=run_name,
@@ -310,11 +192,11 @@ def main(argv: list[str] | None = None) -> None:
     )
     logger.info("_registry.csv 갱신 완료")
 
-    # 9) 요약 출력
     logger.info("=" * 60)
     logger.info("STAGE 2 완료")
     logger.info("  run_name               : %s", run_name)
     logger.info("  run_dir                : %s", run_dir)
+    logger.info("  train_artifacts_dir    : %s", train_artifacts_dir)
     logger.info("  best.pt                : %s", run_best or "N/A")
     logger.info("  competition_best.pt    : %s", competition_best_path or "N/A")
     logger.info("  mAP50                  : %.4f", metrics.get("mAP50", 0))
@@ -406,7 +288,6 @@ def _select_competition_best_weight(
 
     metric_ready = [c for c in evaluated_candidates if c.get("mAP75_95") is not None]
     if metric_ready:
-        # 동점이면 candidate_tags 순서를 우선한다.
         order_map = {tag: idx for idx, tag in enumerate(candidate_tags)}
         selected = sorted(
             metric_ready,
@@ -414,7 +295,6 @@ def _select_competition_best_weight(
         )[0]
         report["status"] = "selected_by_map75_95"
     else:
-        # mAP75_95를 계산하지 못한 경우 첫 성공 후보를 선택한다.
         order_map = {tag: idx for idx, tag in enumerate(candidate_tags)}
         selected = sorted(
             evaluated_candidates,
@@ -485,6 +365,59 @@ def _resolve_resume_mode(
         return True, "auto", last_pt
 
     return False, "off", last_pt
+
+
+def _copy_train_results_shortcut(train_results_csv: Path, run_dir: Path) -> Path | None:
+    if not train_results_csv.exists():
+        logger.warning("train/results.csv가 없어 루트 shortcut 복사를 건너뜁니다: %s", train_results_csv)
+        return None
+
+    shortcut_path = run_dir / "results.csv"
+    if train_results_csv.resolve() != shortcut_path.resolve():
+        copy2(str(train_results_csv), str(shortcut_path))
+    return shortcut_path
+
+
+def _load_snapshot_summary(train_cfg: dict, train_artifacts_dir: Path) -> dict[str, Any]:
+    debug_cfg = train_cfg.get("debug_snapshots", {})
+    if not isinstance(debug_cfg, dict):
+        debug_cfg = {}
+
+    try:
+        max_epoch_gap = int(debug_cfg.get("max_epoch_gap", 20))
+    except Exception:
+        max_epoch_gap = 20
+
+    summary: dict[str, Any] = {
+        "enabled": bool(debug_cfg.get("enabled", True)),
+        "scope": str(debug_cfg.get("scope", "val_only")),
+        "percent_points": list(debug_cfg.get("percent_points", [10, 30, 50, 70, 90, 100])),
+        "max_epoch_gap": max_epoch_gap,
+        "saved_epochs": [],
+        "saved_files": 0,
+        "snapshot_dir": "",
+        "index_file": "",
+    }
+
+    output_dirname = str(debug_cfg.get("output_dirname", "snapshots")).strip() or "snapshots"
+    manifest_path = train_artifacts_dir / output_dirname / "snapshot_manifest.json"
+    if not manifest_path.exists():
+        summary["status"] = "manifest_not_found"
+        return summary
+
+    try:
+        with manifest_path.open("r", encoding="utf-8") as f:
+            manifest = json.load(f)
+        if isinstance(manifest, dict):
+            summary.update(manifest)
+            summary["status"] = "ok"
+        else:
+            summary["status"] = "invalid_manifest_type"
+    except Exception as exc:
+        summary["status"] = "manifest_load_failed"
+        summary["error"] = str(exc)
+
+    return summary
 
 
 if __name__ == "__main__":
