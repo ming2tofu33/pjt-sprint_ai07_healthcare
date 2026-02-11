@@ -225,7 +225,8 @@ train:
   lrf: 0.1
   cos_lr: true
   label_smoothing: 0.05
-  patience: 40
+  patience: 20
+  workers: 3
 
   # augmentation
   hsv_h: 0.015
