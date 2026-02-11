@@ -1,8 +1,8 @@
 # performance-tuned: YOLO11s, stronger aug, longer schedule
-_base_: "../base.yaml"
+_base_: "../base.yaml"  # 기본 설정(base.yaml) 상속
 
-manual_overrides:
-  exclude_file_names:
+manual_overrides:   # 수동 제외/보정 규칙 모음
+  exclude_file_names:   # 제외할 이미지 파일명 목록
     - 'K-000250-002483-005886-019552_0_2_0_2_75_000_200.png'
     - 'K-000250-004378-019552-038954_0_2_0_2_70_000_200.png'
     - 'K-000250-005002-012081-012778_0_2_0_2_90_000_200.png'
@@ -212,43 +212,43 @@ manual_overrides:
     - 'K-016235-025469-031885-036637_0_2_0_2_75_000_200.png'
     - 'K-016235-027653-031885-036637_0_2_0_2_75_000_200.png'
 
-model:
-  architecture: "yolo11s"
-  pretrained: "yolo11s.pt"
+model:   # 모델 관련 설정
+  architecture: "yolo11s"  # 사용할 모델 아키텍처
+  pretrained: "yolo11s.pt"  # 초기 가중치 파일
 
-train:
-  epochs: 80
-  imgsz: 640
-  batch: 8
-  optimizer: "AdamW"
-  lr0: 0.01
-  lrf: 0.1
-  cos_lr: true
-  label_smoothing: 0.05
-  patience: 20
-  workers: 3
+train:   # 학습 파라미터
+  epochs: 80  # 학습 에폭 수
+  imgsz: 640  # 입력 이미지 크기
+  batch: 8  # 배치 크기
+  optimizer: "AdamW"  # 최적화 알고리즘
+  lr0: 0.01  # 초기 학습률
+  lrf: 0.1  # 최종 학습률 비율
+  cos_lr: true  # 코사인 러닝레이트 사용 여부
+  label_smoothing: 0.05  # 라벨 스무딩 강도
+  patience: 20  # early stopping 대기 에폭
+  workers: 3  # 데이터 로더 워커 수
 
   # augmentation
-  hsv_h: 0.015
-  hsv_s: 0.7
-  hsv_v: 0.4
-  degrees: 10.0
-  translate: 0.1
-  scale: 0.5
-  shear: 2.0
-  perspective: 0.0
-  flipud: 0.0
-  fliplr: 0.5
-  mosaic: 0.5
-  mixup: 0.0
-  copy_paste: 0.0
+  hsv_h: 0.015  # 색조 증강 범위
+  hsv_s: 0.7  # 채도 증강 범위
+  hsv_v: 0.4  # 명도 증강 범위
+  degrees: 10.0  # 회전 증강 범위
+  translate: 0.1  # 이동 증강 비율
+  scale: 0.5  # 스케일 증강 비율
+  shear: 2.0  # 전단 증강 각도
+  perspective: 0.0  # 원근 증강 정도
+  flipud: 0.0  # 상하 반전 확률
+  fliplr: 0.5  # 좌우 반전 확률
+  mosaic: 0.5  # 모자이크 증강 확률
+  mixup: 0.0  # 믹스업 증강 확률
+  copy_paste: 0.0  # 카피-페이스트 증강 확률
 
-external_data:
-  enabled: true
-  sources:
+external_data:   # 외부 데이터 사용 설정
+  enabled: true  # 외부 데이터 사용 여부
+  sources:   # 외부 데이터 소스 목록
     - name: "external_combined"
-      images_dir: "data/raw/external/combined/images"
-      annotations_dir: "data/raw/external/combined/annotations"
-      recursive: true
-  dedup:
-    dedup_against_train: true
+      images_dir: "data/raw/external/combined/images"  # 외부 이미지 경로
+      annotations_dir: "data/raw/external/combined/annotations"  # 외부 어노테이션 경로
+      recursive: true  # 하위 폴더 재귀 탐색 여부
+  dedup:   # 중복 제거 설정
+    dedup_against_train: true  # 학습 데이터와 중복 제거 여부
