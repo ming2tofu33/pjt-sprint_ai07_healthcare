@@ -35,9 +35,72 @@ from src.utils.registry import append_run  # noqa: E402
 logger = get_logger(__name__)
 
 
+def _resolve_cli_path(path_str: str, repo_root: Path) -> Path:
+    path = Path(path_str)
+    if path.is_absolute():
+        return path
+    return (repo_root / path).resolve()
+
+
+def _parse_int_csv(raw: str) -> list[int]:
+    values = [x.strip() for x in raw.split(",") if x.strip()]
+    if not values:
+        return []
+    return sorted({int(v) for v in values})
+
+
+def _apply_train_cli_overrides(config: dict[str, Any], args: argparse.Namespace, repo_root: Path) -> None:
+    train_cfg = config.setdefault("train", {})
+    model_cfg = config.setdefault("model", {})
+
+    if args.model is not None:
+        model_arg = args.model.strip()
+        if not model_arg:
+            raise ValueError("--model 값이 비어 있습니다.")
+        looks_like_path = ("/" in model_arg) or ("\\" in model_arg)
+        model_cfg["pretrained"] = str(_resolve_cli_path(model_arg, repo_root)) if looks_like_path else model_arg
+
+    key_map: dict[str, str] = {
+        "epochs": "epochs",
+        "imgsz": "imgsz",
+        "batch": "batch",
+        "lr0": "lr0",
+        "lrf": "lrf",
+        "optimizer": "optimizer",
+        "patience": "patience",
+        "workers": "workers",
+        "seed": "seed",
+        "mosaic": "mosaic",
+        "close_mosaic": "close_mosaic",
+        "mixup": "mixup",
+        "copy_paste": "copy_paste",
+        "box": "box",
+        "cls": "cls",
+        "dfl": "dfl",
+    }
+    for arg_name, cfg_name in key_map.items():
+        value = getattr(args, arg_name)
+        if value is not None:
+            train_cfg[cfg_name] = value
+
+    if args.cos_lr is not None:
+        train_cfg["cos_lr"] = bool(args.cos_lr)
+
+    classes = _parse_int_csv(args.classes) if args.classes else []
+    target_category_ids = _parse_int_csv(args.target_category_ids) if args.target_category_ids else []
+    if classes and target_category_ids:
+        raise ValueError("--classes 와 --target-category-ids 는 동시에 사용할 수 없습니다.")
+    if classes:
+        train_cfg["classes"] = classes
+        train_cfg.pop("target_category_ids", None)
+    if target_category_ids:
+        train_cfg["target_category_ids"] = target_category_ids
+        train_cfg.pop("classes", None)
+
+
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description="STAGE 2: YOLO 학습")
-    parser.add_argument("--run-name", required=True, help="실험 이름")
+    parser.add_argument("--run-name", "--name", dest="run_name", required=True, help="실험 이름")
     parser.add_argument("--config", required=True, help="실험 config YAML 경로")
     parser.add_argument("--device", default=None, help="GPU 디바이스 (예: 0, cpu)")
     parser.add_argument("--resume", action="store_true", help="last.pt에서 학습 재개")
@@ -47,6 +110,41 @@ def main(argv: list[str] | None = None) -> None:
         help="last.pt가 있으면 자동으로 학습 재개 (없으면 새로 시작)",
     )
     parser.add_argument("--verbose", action="store_true", help="상세 로그 출력")
+
+    # 호환 옵션(기존 train_yolo.py/커맨드 스타일)
+    parser.add_argument("--data", "--data-yaml", dest="data_yaml", default=None, help="YOLO data.yaml 경로 지정")
+    parser.add_argument("--project", default=None, help="학습 출력 상위 디렉터리 override")
+    parser.add_argument("--model", default=None, help="모델 alias 또는 checkpoint 경로 override")
+    parser.add_argument("--epochs", type=int, default=None)
+    parser.add_argument("--imgsz", type=int, default=None)
+    parser.add_argument("--batch", type=int, default=None)
+    parser.add_argument("--lr0", type=float, default=None)
+    parser.add_argument("--lrf", type=float, default=None)
+    parser.add_argument("--optimizer", default=None)
+    parser.add_argument("--patience", type=int, default=None)
+    parser.add_argument("--workers", type=int, default=None)
+    parser.add_argument("--seed", type=int, default=None)
+    parser.add_argument("--mosaic", type=float, default=None)
+    parser.add_argument("--close-mosaic", dest="close_mosaic", type=int, default=None)
+    parser.add_argument("--mixup", type=float, default=None)
+    parser.add_argument("--copy-paste", dest="copy_paste", type=float, default=None)
+    parser.add_argument("--box", type=float, default=None)
+    parser.add_argument("--cls", type=float, default=None)
+    parser.add_argument("--dfl", type=float, default=None)
+    parser.add_argument(
+        "--cos-lr",
+        dest="cos_lr",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="cosine LR 스케줄러 on/off",
+    )
+    parser.add_argument("--classes", type=str, default="", help="클래스 인덱스 필터 (예: 0,1,5)")
+    parser.add_argument(
+        "--target-category-ids",
+        type=str,
+        default="",
+        help="category_id 필터 (data.yaml names 매핑 사용)",
+    )
     args = parser.parse_args(argv)
 
     run_name: str = args.run_name
@@ -64,24 +162,34 @@ def main(argv: list[str] | None = None) -> None:
             int(args.device) if args.device.isdigit() else args.device
         )
 
+    try:
+        _apply_train_cli_overrides(config, args, repo_root)
+    except ValueError as exc:
+        logger.error("학습 옵션 설정 실패: %s", exc)
+        sys.exit(2)
+
     paths_cfg = config.get("paths", {})
     model_cfg = config.get("model", {})
     train_cfg = config.get("train", {})
 
     # 2) 경로 결정
-    datasets_base = Path(paths_cfg.get("datasets_dir", "data/processed/datasets"))
-    if not datasets_base.is_absolute():
-        datasets_base = (repo_root / datasets_base).resolve()
-    dataset_prefix = config.get("yolo_convert", {}).get("dataset_prefix", "pill_od_yolo")
-    dataset_dir = datasets_base / f"{dataset_prefix}_{run_name}"
-    data_yaml = dataset_dir / "data.yaml"
+    if args.data_yaml:
+        data_yaml = _resolve_cli_path(args.data_yaml, repo_root)
+    else:
+        datasets_base = Path(paths_cfg.get("datasets_dir", "data/processed/datasets"))
+        if not datasets_base.is_absolute():
+            datasets_base = (repo_root / datasets_base).resolve()
+        dataset_prefix = config.get("yolo_convert", {}).get("dataset_prefix", "pill_od_yolo")
+        dataset_dir = datasets_base / f"{dataset_prefix}_{run_name}"
+        data_yaml = dataset_dir / "data.yaml"
 
     if not data_yaml.exists():
         logger.error("data.yaml이 존재하지 않습니다: %s", data_yaml)
         logger.error("STAGE 1을 먼저 실행하세요: python scripts/1_preprocess.py --run-name %s ...", run_name)
+        logger.error("또는 --data/--data-yaml로 경로를 직접 지정하세요.")
         sys.exit(1)
 
-    runs_base = Path(paths_cfg.get("runs_dir", "runs"))
+    runs_base = Path(args.project) if args.project else Path(paths_cfg.get("runs_dir", "runs"))
     if not runs_base.is_absolute():
         runs_base = (repo_root / runs_base).resolve()
     run_dir = runs_base / run_name
@@ -128,6 +236,11 @@ def main(argv: list[str] | None = None) -> None:
         train_cfg.get("imgsz", "?"),
         train_cfg.get("batch", "?"),
     )
+    if train_cfg.get("classes") is not None:
+        logger.info("클래스 필터(classes) 적용: %s", train_cfg.get("classes"))
+    if train_cfg.get("target_category_ids") is not None:
+        logger.info("클래스 필터(target_category_ids) 적용: %s", train_cfg.get("target_category_ids"))
+
     train_results = detector.train(
         data_yaml=data_yaml,
         project=str(runs_base),

@@ -36,6 +36,7 @@ label_contract:
 # --- 수동 오버라이드 (Manual Overrides) ---
 manual_overrides:
   exclude_file_names: []                        # 육안 검사 등으로 제외하기로 한 이미지 파일명 목록
+  exclude_file_names_file: "configs/resources/exclude_4444_208.txt" # 공통 제외 파일명 목록(상대 경로)
   exclude_reason_code: "manual_excluded_file_name" # 수동 제외 시 기록될 사유 코드
   exclude_reason_detail: "known_incomplete_labels" # 수동 제외 시 기록될 상세 사유
   bbox_value_fixes: []                          # 특정 파일의 잘못된 bbox를 수동으로 수정하기 위한 규칙
@@ -110,9 +111,11 @@ split:
 
 # --- 외부 데이터 관리 (External Data - Optional) ---
 external_data:
-  enabled: false                                # 외부 데이터셋 통합 사용 여부
+  enabled: true                                 # 외부 데이터셋 통합 사용 여부
   banned_patterns: []                           # 제외할 파일명 패턴 목록
-  sources: []                                   # 외부 데이터 소스 디렉토리 목록
+  sources:                                      # 외부 데이터 소스 디렉토리 목록
+    - images_dir: "data/raw/external/combined/images"
+      annotations_dir: "data/raw/external/combined/annotations"
   category_id_mapping:
     enabled: false                              # 외부 카테고리 ID를 본 프로젝트 ID로 매핑 여부
     mapping_key: "drug_N"                       # 매핑 기준 키 (drug_N 숫자 파싱 기준)

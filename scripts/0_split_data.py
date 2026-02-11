@@ -28,6 +28,62 @@ from src.dataprep.output.data_pipeline import run as run_pipeline
 logger = get_logger(__name__)
 
 
+def _read_exclude_file_names(path: Path) -> list[str]:
+    names: list[str] = []
+    seen: set[str] = set()
+    for raw in path.read_text(encoding="utf-8-sig").splitlines():
+        text = raw.strip()
+        if not text or text.startswith("#"):
+            continue
+        file_name = Path(text).name
+        key = file_name.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        names.append(file_name)
+    return names
+
+
+def _apply_manual_exclude_file_from_config(config: dict, repo_root: Path) -> None:
+    manual_cfg = config.setdefault("manual_overrides", {})
+    src = manual_cfg.get("exclude_file_names_file")
+    if not isinstance(src, str) or not src.strip():
+        return
+
+    src_path = Path(src)
+    if not src_path.is_absolute():
+        src_path = (repo_root / src_path).resolve()
+    if not src_path.exists():
+        raise FileNotFoundError(f"exclude_file_names_file not found: {src_path}")
+
+    from_file = _read_exclude_file_names(src_path)
+    existing = manual_cfg.get("exclude_file_names", [])
+    if not isinstance(existing, list):
+        existing = []
+
+    merged: list[str] = []
+    seen: set[str] = set()
+    for file_name in [*existing, *from_file]:
+        if not isinstance(file_name, str):
+            continue
+        text = file_name.strip()
+        if not text:
+            continue
+        key = Path(text).name.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        merged.append(Path(text).name)
+
+    manual_cfg["exclude_file_names"] = merged
+    logger.info(
+        "manual exclude list loaded | file=%s | from_file=%d | merged=%d",
+        src_path,
+        len(from_file),
+        len(merged),
+    )
+
+
 # ─────────────────────────────────────────────
 #  COCO 재조립
 # ─────────────────────────────────────────────
@@ -255,6 +311,11 @@ def main(argv: list[str] | None = None) -> None:
     # data_pipeline.run() 은 preprocess 설정 형식을 기대하므로
     # experiment config 그대로 전달한다 (paths, dedup 등 공통 키가 동일).
     config = exp_config
+    try:
+        _apply_manual_exclude_file_from_config(config, repo_root)
+    except FileNotFoundError as exc:
+        logger.error("manual exclude file load failed: %s", exc)
+        sys.exit(1)
 
     # ── 2) 출력 디렉터리 준비 ────────────────────────────────
     paths_cfg = config.get("paths", {})

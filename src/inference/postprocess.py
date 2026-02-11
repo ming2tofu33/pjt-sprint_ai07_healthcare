@@ -21,6 +21,9 @@ def postprocess_detections(
     idx2id: dict[int, int] | dict[str, int],
     *,
     max_det_per_image: int = 4,
+    min_conf: float = 0.0,
+    class_min_conf_by_category: dict[int, float] | None = None,
+    keep_category_ids: set[int] | None = None,
 ) -> list[dict]:
     """Convert batch detection results to submission row dicts.
 
@@ -42,6 +45,9 @@ def postprocess_detections(
     rows: list[dict] = []
     total_truncated = 0
     unmapped_classes: set[int] = set()
+    filtered_by_min_conf = 0
+    filtered_by_category = 0
+    class_min_conf_by_category = class_min_conf_by_category or {}
 
     for det in detections:
         image_stem = det.get("image_stem", "")
@@ -49,19 +55,26 @@ def postprocess_detections(
 
         image_id = _parse_image_id(image_stem)
         sorted_boxes = sorted(boxes, key=lambda b: b["conf"], reverse=True)
+        kept_count = 0
 
-        if len(sorted_boxes) > max_det_per_image:
-            total_truncated += len(sorted_boxes) - max_det_per_image
-            sorted_boxes = sorted_boxes[:max_det_per_image]
-
-        for box in sorted_boxes:
+        for i, box in enumerate(sorted_boxes):
             class_idx = box["class_idx"]
             xywh = box["xywh"]
+            score = float(box["conf"])
 
             category_id = idx2id_norm.get(class_idx)
             if category_id is None:
                 unmapped_classes.add(class_idx)
                 category_id = class_idx
+
+            if keep_category_ids is not None and category_id not in keep_category_ids:
+                filtered_by_category += 1
+                continue
+
+            effective_min_conf = class_min_conf_by_category.get(category_id, min_conf)
+            if score < effective_min_conf:
+                filtered_by_min_conf += 1
+                continue
 
             rows.append(
                 {
@@ -71,9 +84,13 @@ def postprocess_detections(
                     "bbox_y": round(xywh[1], 2),
                     "bbox_w": round(xywh[2], 2),
                     "bbox_h": round(xywh[3], 2),
-                    "score": round(box["conf"], 6),
+                    "score": round(score, 6),
                 }
             )
+            kept_count += 1
+            if kept_count >= max_det_per_image:
+                total_truncated += max(0, len(sorted_boxes) - (i + 1))
+                break
 
     if total_truncated > 0:
         logger.info(
@@ -81,6 +98,10 @@ def postprocess_detections(
             max_det_per_image,
             total_truncated,
         )
+    if filtered_by_min_conf > 0:
+        logger.info("Detections filtered by min_conf: %d", filtered_by_min_conf)
+    if filtered_by_category > 0:
+        logger.info("Detections filtered by keep_category_ids: %d", filtered_by_category)
     if unmapped_classes:
         logger.warning(
             "Unmapped class indices found: %s (fallback: category_id=class_idx)",
