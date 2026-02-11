@@ -117,10 +117,10 @@ external_data:
     - images_dir: "data/raw/external/combined/images"
       annotations_dir: "data/raw/external/combined/annotations"
   category_id_mapping:
-    enabled: false                              # 외부 카테고리 ID를 본 프로젝트 ID로 매핑 여부
+    enabled: true                               # 외부 카테고리 ID를 본 프로젝트 ID로 매핑 여부
     mapping_key: "drug_N"                       # 매핑 기준 키 (drug_N 숫자 파싱 기준)
     fallback_fields: ["drug_N", "dl_mapping_code"] # 대체 매핑 필드
-    on_unmapped: "exclude"                      # 매핑 실패 시 처리 (exclude | keep)
+    on_unmapped: "use_dl_idx"                   # 매핑 실패 시 처리 (exclude | use_dl_idx)
     save_mapping_table: false                   # 매핑 테이블 저장 여부
     mapping_table_out: "data/metadata/category_mapping.csv"
     unmapped_log_out: "data/metadata/audit_unmapped_external.csv"
@@ -176,14 +176,14 @@ yolo_convert:
 
 # --- 모델 설정 (Model Config - Stage 2) ---
 model:
-  architecture: "yolo11s"                       # 사용할 모델 구조 (yolo11n/s/m/l/x)
-  pretrained: "yolo11s.pt"                      # 로드할 사전 학습된 가중치 파일
+  architecture: "yolo8s"                        # 사용할 모델 구조 (yolo11n/s/m/l/x)
+  pretrained: "yolo8s.pt"                       # 로드할 사전 학습된 가중치 파일
 
 # --- 학습 파라미터 (Training Params - Stage 2) ---
 train:
-  epochs: 100                                   # 총 학습 반복 횟수
+  epochs: 80                                    # 총 학습 반복 횟수
   imgsz: 640                                    # 학습 시 입력 이미지 해상도 (32의 배수)
-  batch: 16                                     # 배치 크기 (메모리 용량에 따라 조절)
+  batch: 8                                      # 배치 크기 (메모리 용량에 따라 조절)
   device: 0                                     # 사용할 GPU 디바이스 번호
   lr0: 0.01                                     # 초기 학습률
   lrf: 0.01                                     # 최종 학습률 비율 (lr0 * lrf)
