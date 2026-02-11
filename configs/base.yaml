@@ -176,8 +176,8 @@ yolo_convert:
 
 # --- 모델 설정 (Model Config - Stage 2) ---
 model:
-  architecture: "yolo8s"                        # 사용할 모델 구조 (yolo11n/s/m/l/x)
-  pretrained: "yolo8s.pt"                       # 로드할 사전 학습된 가중치 파일
+  architecture: "yolov8s"                       # 사용할 모델 구조 (yolo11n/s/m/l/x)
+  pretrained: "yolov8s.pt"                      # 로드할 사전 학습된 가중치 파일
 
 # --- 학습 파라미터 (Training Params - Stage 2) ---
 train:
