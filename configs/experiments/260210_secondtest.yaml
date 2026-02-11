@@ -245,10 +245,13 @@ train:   # 학습 파라미터
 
 external_data:   # 외부 데이터 사용 설정
   enabled: true  # 외부 데이터 사용 여부
+category_id_mapping:
+  enabled: true  # 카테고리 ID 매핑 사용 여부
   sources:   # 외부 데이터 소스 목록
     - name: "external_combined"
       images_dir: "data/raw/external/combined/images"  # 외부 이미지 경로
       annotations_dir: "data/raw/external/combined/annotations"  # 외부 어노테이션 경로
       recursive: true  # 하위 폴더 재귀 탐색 여부
+
   dedup:   # 중복 제거 설정
     dedup_against_train: true  # 학습 데이터와 중복 제거 여부
