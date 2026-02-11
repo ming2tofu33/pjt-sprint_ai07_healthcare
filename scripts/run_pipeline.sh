@@ -14,7 +14,7 @@
 #   --conf               STAGE 4 confidence threshold 오버라이드
 #   --resume-train       STAGE 2를 --resume 모드로 강제 실행
 #   --auto-resume-train  STAGE 2에서 last.pt가 있으면 자동 재개
-#   --verbose            상세 로그 출력
+#   --verbose            모든 STAGE 상세 로그 출력 (기본: STAGE 0만 상세 로그)
 #
 # Examples:
 #   # 전체 파이프라인 실행
@@ -47,7 +47,7 @@ SKIP=""
 START=0
 STOP=4
 CONF=""
-VERBOSE=""
+VERBOSE_ALL=false
 RESUME_TRAIN=""
 AUTO_RESUME_TRAIN=""
 
@@ -62,7 +62,7 @@ while [[ $# -gt 0 ]]; do
         --conf)      CONF="$2"; shift 2 ;;
         --resume-train) RESUME_TRAIN="--resume"; shift ;;
         --auto-resume-train) AUTO_RESUME_TRAIN="--auto-resume"; shift ;;
-        --verbose)   VERBOSE="--verbose"; shift ;;
+        --verbose)   VERBOSE_ALL=true; shift ;;
         -h|--help)
             sed -n '2,32p' "$0"
             exit 0
@@ -147,9 +147,12 @@ if [[ -n "$DEVICE" ]]; then
     DEVICE_ARG=(--device "$DEVICE")
 fi
 VERBOSE_ARG=()
-if [[ -n "$VERBOSE" ]]; then
+if [[ "$VERBOSE_ALL" == true ]]; then
     VERBOSE_ARG=(--verbose)
 fi
+
+# 기본값: STAGE 0은 verbose 활성화(데이터 파이프라인 진행상황 확인용)
+STAGE0_VERBOSE_ARG=(--verbose)
 
 TRAIN_RESUME_ARG=()
 if [[ -n "$RESUME_TRAIN" ]]; then
@@ -183,7 +186,7 @@ fi
 echo -e "${GREEN}============================================================${NC}"
 
 run_stage 0 "데이터 정제 + 분할" \
-    python scripts/0_split_data.py "${COMMON_ARGS[@]}" "${VERBOSE_ARG[@]}"
+    python scripts/0_split_data.py "${COMMON_ARGS[@]}" "${STAGE0_VERBOSE_ARG[@]}"
 
 run_stage 1 "YOLO 데이터셋 변환" \
     python scripts/1_preprocess.py "${COMMON_ARGS[@]}" "${VERBOSE_ARG[@]}"

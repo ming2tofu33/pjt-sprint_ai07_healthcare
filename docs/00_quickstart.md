@@ -49,6 +49,17 @@ bash scripts/run_pipeline.sh --run-name $RUN_NAME --config $CONFIG
 - 베스트 모델: `artifacts/best_models/`
 - 레지스트리: `runs/_registry.csv`
 
+산출물 레이아웃은 `configs/base.yaml`의 `paths.artifact_layout`로 선택합니다.
+
+- `legacy`(기본): 학습 산출물이 `runs/<RUN_NAME>/` 루트에 생성
+- `compact`: 학습 산출물이 `runs/<RUN_NAME>/train/`, 제출 디버그가 `runs/<RUN_NAME>/submit/debug/`에 생성
+
+학습 로그 모드/스냅샷 기본값:
+
+- `train.log_mode: batch`
+- `train.debug_snapshots.enabled: false` (필요 시 실험 YAML에서만 켜기)
+- 스냅샷을 켜면 `runs/<RUN_NAME>/train/snapshots/`에 저장
+
 ## 6) 문제 발생 시
 
 - 설정 병합 결과: `runs/<RUN_NAME>/config_resolved.yaml`
