@@ -244,12 +244,12 @@ train:
 
 external_data:
   enabled: true
-category_id_mapping:
-  enabled: true  # 카테고리 ID 매핑 사용 여부
   sources:
     - name: "external_combined"
       images_dir: "data/raw/external/combined/images"
       annotations_dir: "data/raw/external/combined/annotations"
       recursive: true
+  category_id_mapping:
+    enabled: true  # 카테고리 ID 매핑 사용 여부
   dedup:
     dedup_against_train: true
