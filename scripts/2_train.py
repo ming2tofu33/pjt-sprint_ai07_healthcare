@@ -171,6 +171,10 @@ def main(argv: list[str] | None = None) -> None:
     paths_cfg = config.get("paths", {})
     model_cfg = config.get("model", {})
     train_cfg = config.get("train", {})
+    artifact_layout = str(paths_cfg.get("artifact_layout", "legacy")).strip().lower()
+    if artifact_layout not in {"legacy", "compact"}:
+        logger.warning("알 수 없는 paths.artifact_layout=%s, legacy로 처리합니다.", artifact_layout)
+        artifact_layout = "legacy"
 
     # 2) 경로 결정
     if args.data_yaml:
@@ -194,6 +198,16 @@ def main(argv: list[str] | None = None) -> None:
         runs_base = (repo_root / runs_base).resolve()
     run_dir = runs_base / run_name
     run_dir.mkdir(parents=True, exist_ok=True)
+
+    if artifact_layout == "compact":
+        train_project = run_dir
+        train_name = "train"
+        train_output_dir = run_dir / "train"
+    else:
+        train_project = runs_base
+        train_name = run_name
+        train_output_dir = run_dir
+    train_results_csv = train_output_dir / "results.csv"
 
     best_models_dir = Path(paths_cfg.get("best_models_dir", "artifacts/best_models"))
     if not best_models_dir.is_absolute():
@@ -243,19 +257,24 @@ def main(argv: list[str] | None = None) -> None:
 
     train_results = detector.train(
         data_yaml=data_yaml,
-        project=str(runs_base),
-        name=run_name,
+        project=str(train_project),
+        name=train_name,
         config=config,
     )
 
     # 6) 학습 결과 후처리
-    train_output_dir = run_dir
     run_best, artifact_best = copy_best_weights(
         train_output_dir,
         run_dir=run_dir,
         best_models_dir=best_models_dir,
         run_name=run_name,
     )
+
+    if artifact_layout == "compact" and train_results_csv.exists():
+        root_results_csv = run_dir / "results.csv"
+        if train_results_csv.resolve() != root_results_csv.resolve():
+            copy2(str(train_results_csv), str(root_results_csv))
+            logger.info("results.csv shortcut 갱신 | %s -> %s", train_results_csv, root_results_csv)
 
     if run_best:
         logger.info("best.pt 복사 완료 | %s", run_best)
@@ -264,9 +283,13 @@ def main(argv: list[str] | None = None) -> None:
         logger.warning("best.pt를 찾을 수 없습니다. 학습이 정상 완료되었는지 확인하세요.")
 
     # 7) 메트릭 추출 + competition_best 선정 + 저장
-    metrics = extract_metrics(train_results, results_csv_path=run_dir / "results.csv")
+    metrics = extract_metrics(train_results, results_csv_path=train_results_csv)
     if metrics.get("mAP75_95") is None:
         logger.warning("train 결과에서 mAP75_95를 계산하지 못했습니다(all_ap 미가용).")
+
+    train_runtime: dict[str, Any] = getattr(detector, "last_train_runtime", {}) or {}
+    if train_runtime:
+        metrics["train_runtime"] = train_runtime
 
     competition_best_path, competition_report = _select_competition_best_weight(
         config=config,
@@ -315,11 +338,22 @@ def main(argv: list[str] | None = None) -> None:
     logger.info("STAGE 2 완료")
     logger.info("  run_name               : %s", run_name)
     logger.info("  run_dir                : %s", run_dir)
+    logger.info("  artifact_layout        : %s", artifact_layout)
+    logger.info("  train_artifacts_dir    : %s", train_output_dir)
     logger.info("  best.pt                : %s", run_best or "N/A")
     logger.info("  competition_best.pt    : %s", competition_best_path or "N/A")
     logger.info("  mAP50                  : %.4f", metrics.get("mAP50", 0))
     logger.info("  mAP50-95               : %.4f", metrics.get("mAP50_95", 0))
     logger.info("  mAP75-95 (지표)        : %s", map75_95_str)
+    snapshot_runtime = train_runtime.get("debug_snapshots", {}) if isinstance(train_runtime, dict) else {}
+    if isinstance(snapshot_runtime, dict):
+        logger.info(
+            "  snapshots              : enabled=%s | saved_files=%s | saved_epochs=%s | dir=%s",
+            snapshot_runtime.get("enabled", False),
+            snapshot_runtime.get("saved_file_count", 0),
+            len(snapshot_runtime.get("saved_epochs", [])),
+            snapshot_runtime.get("output_dir", "N/A"),
+        )
     logger.info("=" * 60)
 
 

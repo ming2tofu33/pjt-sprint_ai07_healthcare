@@ -1,4 +1,4 @@
-"""제출 CSV 생성 및 대회 포맷 검증 유틸리티."""
+"""제출 CSV 생성 및 형식 검증 유틸리티."""
 from __future__ import annotations
 
 import csv
@@ -11,7 +11,6 @@ from src.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
-# 대회 제출 CSV 컬럼(순서 고정)
 _COLUMNS = [
     "annotation_id",
     "image_id",
@@ -28,15 +27,10 @@ def write_submission(
     rows: list[dict],
     out_path: Path | str,
 ) -> Path:
-    """후처리 결과 rows를 제출 CSV로 저장한다.
-
-    입력 rows는 postprocess_detections() 형식(= annotation_id 미포함)으로 받는다.
-    annotation_id는 이 함수에서 정렬 후 1..N으로 순차 부여한다.
-    """
+    """후처리 결과 rows를 제출 CSV로 저장한다."""
     out_path = Path(out_path)
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
-    # image_id 오름차순 + score 내림차순
     sorted_rows = sorted(rows, key=lambda r: (int(r["image_id"]), -float(r["score"])))
 
     rows_for_csv: list[dict[str, Any]] = []
@@ -69,17 +63,7 @@ def validate_submission(
     max_det_per_image: int = 4,
     valid_category_ids: set[int] | None = None,
 ) -> dict[str, Any]:
-    """제출 CSV를 검증하고 report dict를 반환한다.
-
-    검증 항목:
-    1. 컬럼 헤더 일치
-    2. annotation_id 정수/1 이상/전역 유일
-    3. image_id 정수
-    4. image_id별 row 수 <= max_det_per_image
-    5. category_id 정수(+ 유효 범위는 경고)
-    6. bbox_x/y/w/h 숫자(+ 음수/비정상은 경고)
-    7. score 숫자(+ [0,1] 범위 밖은 경고)
-    """
+    """제출 CSV를 검증하고 report dict를 반환한다."""
     csv_path = Path(csv_path)
     errors: list[str] = []
     warnings: list[str] = []
@@ -144,9 +128,9 @@ def validate_submission(
             continue
 
         if bbox_w <= 0 or bbox_h <= 0:
-            warnings.append(f"{line_label}: bbox 너비/높이가 0 이하입니다: w={bbox_w}, h={bbox_h}")
+            warnings.append(f"{line_label}: bbox 너비/높이가 0 이하입니다. w={bbox_w}, h={bbox_h}")
         if bbox_x < 0 or bbox_y < 0:
-            warnings.append(f"{line_label}: bbox 좌표가 음수입니다: x={bbox_x}, y={bbox_y}")
+            warnings.append(f"{line_label}: bbox 좌표가 음수입니다. x={bbox_x}, y={bbox_y}")
 
         try:
             score = float(row.get("score", 0))
@@ -200,6 +184,7 @@ def write_submission_manifest(
     n_test_images: int,
     csv_path: Path,
     debug_report: dict | None = None,
+    output_path: Path | None = None,
 ) -> Path:
     """제출 매니페스트(submission_manifest.json)를 저장한다."""
     from datetime import datetime
@@ -223,7 +208,7 @@ def write_submission_manifest(
         if debug_report.get("debug_skipped_reason"):
             manifest["debug_skipped_reason"] = str(debug_report.get("debug_skipped_reason"))
 
-    out = run_dir / "submission_manifest.json"
+    out = output_path if output_path is not None else (run_dir / "submission_manifest.json")
     out.parent.mkdir(parents=True, exist_ok=True)
     with out.open("w", encoding="utf-8") as f:
         json.dump(manifest, f, ensure_ascii=False, indent=2)
