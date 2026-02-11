@@ -15,6 +15,7 @@ paths:
   metadata_dir: "data/metadata"                 # 감사 로그 및 메타데이터 저장 경로
   datasets_dir: "data/processed/datasets"       # 최종 YOLO 포맷 데이터셋 저장 경로 (STAGE 1)
   runs_dir: "runs"                              # 학습/평가 결과(모델, 로그, 그래프) 저장 경로 (STAGE 2~3)
+  artifact_layout: "compact"                     # 산출물 레이아웃 (legacy: 기존, compact: train/submit 분리)
   best_models_dir: "artifacts/best_models"      # 배포/제출용 최적 모델 파일 보관함
   submissions_dir: "artifacts/submissions"      # 최종 제출용 CSV 파일 저장 경로 (STAGE 4)
 
@@ -198,7 +199,7 @@ train:
   save: true                                    # 학습 과정 중 체크포인트 저장 여부
   save_period: -1                               # 체크포인트 저장 주기 (-1은 최종 및 최고 성능 모델만 저장)
   verbose: true                                 # 상세 로그 출력 여부
-  log_mode: "epoch"                             # 학습 로그 모드 (epoch: 에폭 요약 1줄, batch: 배치 진행바)
+  log_mode: "batch"                             # 학습 로그 모드 (epoch: 에폭 요약 1줄, batch: 배치 진행바)
   plots: true                                   # 학습 곡선 및 검증 결과 이미지 생성 여부
   debug_snapshots:                              # 학습 중 val 배치 스냅샷 저장 정책
     enabled: true

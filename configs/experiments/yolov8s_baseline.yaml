@@ -1,0 +1,59 @@
+# YOLOv8s baseline (from YOLOv8s_baseline_model.ipynb)
+_base_: "../base.yaml"
+
+model:
+  architecture: "yolov8s"
+  pretrained: "yolov8s.pt"
+
+# Notebook baseline은 원본 train 기준으로 구성
+external_data:
+  enabled: false
+
+train:
+  epochs: 100
+  imgsz: 768
+  batch: 8
+  patience: 30
+  optimizer: "auto"
+  workers: 4
+  device: 0
+  seed: 42
+  deterministic: true
+  cos_lr: false
+  close_mosaic: 10
+  save: true
+  save_period: -1
+  plots: true
+
+  # notebook baseline의 "augment enabled / mosaic on / mixup off / hsv on / flip on" 반영
+  hsv_h: 0.015
+  hsv_s: 0.7
+  hsv_v: 0.4
+  degrees: 0.0
+  translate: 0.1
+  scale: 0.5
+  shear: 0.0
+  perspective: 0.0
+  flipud: 0.0
+  fliplr: 0.5
+  mosaic: 1.0
+  mixup: 0.0
+  copy_paste: 0.0
+
+  # notebook baseline 스냅샷 사용
+  competition_select:
+    enabled: false
+  debug_snapshots:
+    enabled: true
+
+evaluate:
+  conf: 0.001
+  nms_iou: 0.5
+
+submission:
+  conf: 0.001
+  nms_iou: 0.5
+  max_det_per_image: 4
+  augment: false
+  debug:
+    enabled: false

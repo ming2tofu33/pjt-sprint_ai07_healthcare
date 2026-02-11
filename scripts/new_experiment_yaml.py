@@ -91,14 +91,22 @@ def _build_yaml_text(
         f'  architecture: "{arch}"',
         f'  pretrained: "{arch}.pt"',
         "",
+        "paths:",
+        '  artifact_layout: "legacy"',
     ]
+
+    if data_mode == "trExt":
+        lines.append('  external_images_dir: "data/raw/external/combined/images"')
+
+    lines.extend(
+        [
+            "",
+        ]
+    )
 
     if data_mode == "trExt":
         lines.extend(
             [
-                "paths:",
-                '  external_images_dir: "data/raw/external/combined/images"',
-                "",
                 "external_data:",
                 "  enabled: true",
                 "  sources:",
@@ -128,6 +136,9 @@ def _build_yaml_text(
             "  workers: 0",
             "  patience: 16",
             "  verbose: false",
+            '  log_mode: "batch"',
+            "  debug_snapshots:",
+            "    enabled: false",
             "  competition_select:",
             "    enabled: true",
             '    candidates: ["best", "last"]',
