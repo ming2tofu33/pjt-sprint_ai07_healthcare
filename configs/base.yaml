@@ -19,16 +19,6 @@ paths:
   best_models_dir: "artifacts/best_models" # 배포/제출용 최적 모델 파일 보관함
   submissions_dir: "artifacts/submissions" # 최종 제출용 CSV 파일 저장 경로 (STAGE 4)
 
-# --- 소수 데이터 증강 (Minor Data Augmentation) ---
-imbalance_fix:
-  min_threshold: 100 # 이 숫자보다 적은 클래스들만 증강 대상으로 선정
-  target_count: 300 # 선정된 소수 클래스들을 최종적으로 이 개수까지 증강
-  methods: # 각 기능을 아래에서 true/false로 제어합니다.
-  geometric: { enable: true } # true(기본), 기하학적 증강
-  brightness: { enable: true, limit: 0.15, p: 0.5 } # true(기본), 밝기/대비 변화 한계, 적용 확률
-  sharpen: { enable: true, alpha: [0.2, 0.5], p: 0.5 } # true(기본), 선명도 조절 범위, 적용 확률
-  blur: { enable: false, limit: 3, p: 0.2 } # false(기본), 블러 강도 한계, 적용 확률
-
 # --- 산출물 파일명 (Output Filenames) ---
 outputs:
   df_clean_name: "df_clean.csv" # 정제 완료된 어노테이션 통합 파일명
