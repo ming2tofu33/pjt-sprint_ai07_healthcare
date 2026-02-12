@@ -431,26 +431,72 @@ def run(
 
 # AB / 추가: 소수 클래스 기하학적 증강 함수
 def augment_minority_classes(config: dict, yolo_root: Path):
-    """
-    [Step 3] 소수 클래스 기하학적 증강 로직
-    - 대상: 샘플 수 n개 미만 클래스 (목표 300개)
-    - 변환: 기하학적 변환만 적용 (색상 보존)
-    """
-    print("Starting Geometric Augmentation (Naming fixed)...")
+
+    # 스위치: geometric, brightness, sharpen, blur 등을 개별 제어 가능
+    # 1. YAML에서 n(기준)과 m(목표) 가져오기
+    fix_cfg = config.get('imbalance_fix', {})
+    min_threshold = fix_cfg.get('min_threshold', 100)  # n: 이보다 적으면 증강!
+    target_count = fix_cfg.get('target_count', 300)    # m: 최종 목표 개수
+    
+    print(f"● Starting Imbalance Fix Augmentation (Target: {target_count})...")
     
     train_img_dir = yolo_root / "images" / "train"
     train_lbl_dir = yolo_root / "labels" / "train"
     
-    # [추가] 이전 실행의 잔여 증강 파일 제거 (충돌/오류 방지)
+    # 기존 증강 파일 제거 [충돌/오류 방지]
     print(" - Cleaning up previous augmentation files...")
-    for p in train_lbl_dir.glob("*_aug*.txt"):
-        p.unlink()
-    for p in train_img_dir.glob("*_aug*.jpg"):
-        p.unlink()
+    for p in train_lbl_dir.glob("*_aug*.txt"): p.unlink()
+    for p in train_img_dir.glob("*_aug*.jpg"): p.unlink()
 
-    # 1. 원본 라벨만 수집 (이미 증강된 '_aug' 파일은 제외)
-    all_labels = [f for f in os.listdir(train_lbl_dir) if f.endswith('.txt') and '_aug' not in f]
+    # 2. 동적 Transform 리스트 생성 (True인 것만 담기)
+    augment_list = []
     
+    # [A] 기하학적 변환 (enable 체크)
+    if fix_cfg.get('geometric', {}).get('enable', True):
+        augment_list.extend([
+            A.HorizontalFlip(p=0.5),
+            A.VerticalFlip(p=0.5),
+            A.RandomRotate90(p=0.5)
+        ])
+
+    # [B] 밝기 및 대비
+    br_cfg = fix_cfg.get('brightness', {})
+    if br_cfg.get('enable', False):
+        augment_list.append(A.RandomBrightnessContrast(
+            brightness_limit=br_cfg.get('limit', 0.15),
+            contrast_limit=br_cfg.get('limit', 0.15),
+            p=br_cfg.get('p', 0.5)
+        ))
+
+    # [C] 선명도 조절
+    sh_cfg = fix_cfg.get('sharpen', {})
+    if sh_cfg.get('enable', False):
+        alpha = sh_cfg.get('alpha', [0.2, 0.5])
+        augment_list.append(A.Sharpen(
+            alpha=(alpha[0], alpha[1]), 
+            lightness=(0.5, 1.0), 
+            p=sh_cfg.get('p', 0.5)
+        ))
+
+    # [D] 흐림 효과
+    bl_cfg = fix_cfg.get('blur', {})
+    if bl_cfg.get('enable', False):
+        augment_list.append(A.OneOf([
+            A.Blur(blur_limit=bl_cfg.get('limit', 3), p=1.0),
+            A.MedianBlur(blur_limit=bl_cfg.get('limit', 3), p=1.0),
+        ], p=bl_cfg.get('p', 0.2)))
+
+    # [E] 필수 위치 조정
+    augment_list.append(A.ShiftScaleRotate(shift_limit=0.05, scale_limit=0.1, rotate_limit=30, p=0.5))
+
+    # 최종 Transform 구성
+    transform = A.Compose(
+        augment_list, 
+        bbox_params=A.BboxParams(format='yolo', label_fields=['class_labels'])
+    )
+
+    # 3. 데이터 수집 및 증강 실행
+    all_labels = [f for f in os.listdir(train_lbl_dir) if f.endswith('.txt') and '_aug' not in f]
     class_to_files = {}
     for lbl_name in all_labels:
         with open(train_lbl_dir / lbl_name, 'r') as f:
@@ -460,39 +506,25 @@ def augment_minority_classes(config: dict, yolo_root: Path):
                     class_id = parts[0]
                     class_to_files.setdefault(class_id, []).append(lbl_name)
 
-    # 2. 기하학적 변환 도구
-    transform = A.Compose([
-        A.HorizontalFlip(p=0.5),
-        A.VerticalFlip(p=0.5),
-        A.RandomRotate90(p=0.5),
-        A.ShiftScaleRotate(shift_limit=0.05, scale_limit=0.1, rotate_limit=30, p=0.5)
-    ], bbox_params=A.BboxParams(format='yolo', label_fields=['class_labels']))
-
-    # 3. 증강 실행
     for class_id, files in class_to_files.items():
         current_count = len(files)
-        if current_count < 50:          # 부족한 클래스 기준치 (50개 미만) <- 수정가능
-            needed = 300 - current_count
-            print(f" - Class {class_id}: Generating {needed} samples...")
+        if current_count < min_threshold:
+            needed = target_count - current_count
+            
+            print(f" - Class {class_id}: {current_count}개 발견 (기준 {min_threshold}개 미만)")
+            print(f"   -> 목표 {target_count}개를 위해 {needed}개를 새로 생성합니다.")
             
             for i in tqdm(range(needed), desc=f"ID {class_id}", leave=False):
                 try:
                     src_lbl = random.choice(files)
                     base = Path(src_lbl).stem
-                    
-                    # [핵심 수정] 파일명 규칙: 원본이름_aug_순번 (K- 시작 유지!)
                     new_name = f"{base}_aug{i}" 
                     
-                    # 이미지 로드
-                    img_path = None
-                    for ext in ['.jpg', '.png', '.jpeg', '.JPG']:
-                        if (train_img_dir / f"{base}{ext}").exists():
-                            img_path = train_img_dir / f"{base}{ext}"
-                            break
+                    # 이미지 로드 및 전처리
+                    img_path = next((train_img_dir / f"{base}{ext}" for ext in ['.jpg', '.png', '.jpeg', '.JPG'] if (train_img_dir / f"{base}{ext}").exists()), None)
                     if not img_path: continue
 
-                    img = cv2.imread(str(img_path))
-                    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+                    img = cv2.cvtColor(cv2.imread(str(img_path)), cv2.COLOR_BGR2RGB)
                     
                     # 라벨 로드
                     bboxes, cls_labels = [], []
@@ -503,33 +535,22 @@ def augment_minority_classes(config: dict, yolo_root: Path):
                                 cls_labels.append(int(p[0]))
                                 bboxes.append([float(x) for x in p[1:]])
                     
-                    # 증강 실행
+                    # 증강 적용
                     augmented = transform(image=img, bboxes=bboxes, class_labels=cls_labels)
                     
-                    # [안전장치] 객체가 증강 과정에서 사라졌거나 NaN이 발생하면 저장 안 함
+                    # 결과 저장
                     if len(augmented['bboxes']) > 0:
-                        # 이미지 저장
                         cv2.imwrite(str(train_img_dir / f"{new_name}.jpg"), 
                                     cv2.cvtColor(augmented['image'], cv2.COLOR_RGB2BGR))
                         
-                        # 라벨 저장
                         with open(train_lbl_dir / f"{new_name}.txt", 'w') as f:
                             for c, b in zip(augmented['class_labels'], augmented['bboxes']):
-                                # [추가] 타겟 클래스(소수 클래스)만 저장하고, 같이 딸려온 다수 클래스는 제외
-                                if int(c) != int(class_id):
-                                    continue
-
-                                # NaN 값 체크 (숫자가 아닌 값 방지)
+                                # 타겟 클래스만 저장 (요청하신 로직 유지)
+                                if int(c) != int(class_id): continue
                                 if any(math.isnan(x) for x in b): continue
 
-
-
-                                # [수정] 좌표값 0~1 클램핑 (verify_labels 통과용)
-                                xc = max(0.0, min(1.0, b[0]))
-                                yc = max(0.0, min(1.0, b[1]))
-                                w  = max(0.0, min(1.0, b[2]))
-                                h  = max(0.0, min(1.0, b[3]))
-
+                                # 좌표 클램핑 (0.0~1.0)
+                                xc, yc, w, h = [max(0.0, min(1.0, x)) for x in b]
                                 if w > 0 and h > 0:
                                     f.write(f"{int(c)} {xc:.6f} {yc:.6f} {w:.6f} {h:.6f}\n")
                 except: continue
