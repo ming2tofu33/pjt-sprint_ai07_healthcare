@@ -200,7 +200,7 @@ if [[ -n "$TRAIN_DATA_YAML_OVERRIDE" ]]; then
     echo -e "${GREEN}  Custom Data YAML used: $TRAIN_DATA_YAML${NC}"
 else
     #AB / 기존처럼 파이프라인이 만든 경로 사용
-    TRAIN_DATA_YAML="data/processed/datasets/pill_odyolo${RUN_NAME}/data.yaml"
+    TRAIN_DATA_YAML="data/processed/datasets/pill_od_yolo_${RUN_NAME}/data.yaml"
 fi
 
 # AB / 파이썬 스크립트에 넘겨줄 인자 조립
