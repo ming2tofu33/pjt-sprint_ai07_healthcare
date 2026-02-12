@@ -50,11 +50,14 @@ CONF=""
 VERBOSE_ALL=false
 RESUME_TRAIN=""
 AUTO_RESUME_TRAIN=""
+TRAIN_DATA_YAML_OVERRIDE=""
+TRAIN_DATA_YAML=""
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --run-name)  RUN_NAME="$2"; shift 2 ;;
         --config)    CONFIG="$2"; shift 2 ;;
+        --train-data-yaml) TRAIN_DATA_YAML_OVERRIDE="$2"; shift 2 ;;
         --device)    DEVICE="$2"; shift 2 ;;
         --skip)      SKIP="$2"; shift 2 ;;
         --start)     START="$2"; shift 2 ;;
@@ -191,8 +194,20 @@ run_stage 0 "데이터 정제 + 분할" \
 run_stage 1 "YOLO 데이터셋 변환" \
     python scripts/1_preprocess.py "${COMMON_ARGS[@]}" "${VERBOSE_ARG[@]}"
 
+# AB / 학습용 data.yaml 결정 로직
+if [[ -n "$TRAIN_DATA_YAML_OVERRIDE" ]]; then
+    TRAIN_DATA_YAML="$TRAIN_DATA_YAML_OVERRIDE"
+    echo -e "${GREEN}  Custom Data YAML used: $TRAIN_DATA_YAML${NC}"
+else
+    #AB / 기존처럼 파이프라인이 만든 경로 사용
+    TRAIN_DATA_YAML="data/processed/datasets/pill_odyolo${RUN_NAME}/data.yaml"
+fi
+
+# AB / 파이썬 스크립트에 넘겨줄 인자 조립
+TRAIN_DATA_YAML_ARG=(--data-yaml "$TRAIN_DATA_YAML")
+
 run_stage 2 "모델 학습" \
-    python scripts/2_train.py "${COMMON_ARGS[@]}" "${DEVICE_ARG[@]}" "${TRAIN_RESUME_ARG[@]}" "${VERBOSE_ARG[@]}"
+    python scripts/2_train.py "${COMMON_ARGS[@]}" "${DEVICE_ARG[@]}" "${TRAIN_RESUME_ARG[@]}" "${TRAIN_DATA_YAML_ARG[@]}" "${VERBOSE_ARG[@]}"
 
 run_stage 3 "모델 평가" \
     python scripts/3_evaluate.py "${COMMON_ARGS[@]}" "${DEVICE_ARG[@]}" "${VERBOSE_ARG[@]}"
