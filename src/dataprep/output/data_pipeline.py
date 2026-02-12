@@ -2,9 +2,14 @@ from __future__ import annotations
 
 import json
 import os
+import random               # AB / 추가
+import math                 # AB / 추가
 from pathlib import Path
 from time import perf_counter
 from typing import Iterable, Tuple
+import albumentations as A  # AB / 추가
+import cv2                  # AB / 추가
+from tqdm import tqdm       # AB / 추가
 
 from src.utils.config_loader import resolve_path
 from src.dataprep.process.dedup import (
@@ -424,33 +429,29 @@ def run(
     return result
 
 
-# AB) 추가: 소수 클래스 기하학적 증강 함수
+# AB / 추가: 소수 클래스 기하학적 증강 함수
 def augment_minority_classes(config: dict, yolo_root: Path):
     """
     [Step 3] 소수 클래스 기하학적 증강 로직
-    - 대상: 샘플 수 100개 미만 클래스 (목표 300개)
+    - 대상: 샘플 수 n개 미만 클래스 (목표 300개)
     - 변환: 기하학적 변환만 적용 (색상 보존)
     """
-    import albumentations as A
-    import cv2
-    import random
-    import os
-    from tqdm import tqdm
-
-    print("\n[Step 3] Starting Geometric Augmentation for minority classes...")
+    print("Starting Geometric Augmentation (Naming fixed)...")
     
-    # YOLO 데이터셋 구조에 따른 경로 설정
-    train_img_dir = yolo_root / "train" / "images"
-    train_lbl_dir = yolo_root / "train" / "labels"
+    train_img_dir = yolo_root / "images" / "train"
+    train_lbl_dir = yolo_root / "labels" / "train"
     
-    if not train_lbl_dir.exists():
-        print(f"[Warning] Label directory not found: {train_lbl_dir}")
-        return
+    # [추가] 이전 실행의 잔여 증강 파일 제거 (충돌/오류 방지)
+    print(" - Cleaning up previous augmentation files...")
+    for p in train_lbl_dir.glob("*_aug*.txt"):
+        p.unlink()
+    for p in train_img_dir.glob("*_aug*.jpg"):
+        p.unlink()
 
-    # 1. 클래스별 데이터 카운팅 (기존 증강 파일 제외)
+    # 1. 원본 라벨만 수집 (이미 증강된 '_aug' 파일은 제외)
+    all_labels = [f for f in os.listdir(train_lbl_dir) if f.endswith('.txt') and '_aug' not in f]
+    
     class_to_files = {}
-    all_labels = [f for f in os.listdir(train_lbl_dir) if f.endswith('.txt') and not f.startswith('aug_')]
-    
     for lbl_name in all_labels:
         with open(train_lbl_dir / lbl_name, 'r') as f:
             for line in f:
@@ -459,7 +460,7 @@ def augment_minority_classes(config: dict, yolo_root: Path):
                     class_id = parts[0]
                     class_to_files.setdefault(class_id, []).append(lbl_name)
 
-    # 2. 기하학적 증강 도구 설정 (Geometric Only)
+    # 2. 기하학적 변환 도구
     transform = A.Compose([
         A.HorizontalFlip(p=0.5),
         A.VerticalFlip(p=0.5),
@@ -470,47 +471,65 @@ def augment_minority_classes(config: dict, yolo_root: Path):
     # 3. 증강 실행
     for class_id, files in class_to_files.items():
         current_count = len(files)
-        
-        if current_count < 100:
+        if current_count < 50:          # 부족한 클래스 기준치 (50개 미만) <- 수정가능
             needed = 300 - current_count
-            print(f" - Class {class_id}: {current_count} samples -> Generating {needed} augmented samples...")
+            print(f" - Class {class_id}: Generating {needed} samples...")
             
-            for i in tqdm(range(needed), desc=f"Augmenting ID {class_id}", leave=False):
+            for i in tqdm(range(needed), desc=f"ID {class_id}", leave=False):
                 try:
                     src_lbl = random.choice(files)
                     base = Path(src_lbl).stem
                     
-                    # 이미지 찾기
+                    # [핵심 수정] 파일명 규칙: 원본이름_aug_순번 (K- 시작 유지!)
+                    new_name = f"{base}_aug{i}" 
+                    
+                    # 이미지 로드
                     img_path = None
                     for ext in ['.jpg', '.png', '.jpeg', '.JPG']:
-                        temp = train_img_dir / f"{base}{ext}"
-                        if temp.exists():
-                            img_path = temp
+                        if (train_img_dir / f"{base}{ext}").exists():
+                            img_path = train_img_dir / f"{base}{ext}"
                             break
-                    if not img_path is None:
-                        # 이미지 읽기 및 변환
-                        img = cv2.imread(str(img_path))
-                        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-                        
-                        # 라벨 읽기
-                        bboxes, cls_labels = [], []
-                        with open(train_lbl_dir / src_lbl, 'r') as f:
-                            for line in f:
-                                parts = line.split()
-                                if parts:
-                                    cls_labels.append(int(parts[0]))
-                                    bboxes.append([float(x) for x in parts[1:]])
-                        
-                        # 증강 적용
-                        augmented = transform(image=img, bboxes=bboxes, class_labels=cls_labels)
-                        
-                        # 결과 저장
-                        new_name = f"aug_{class_id}_{i}_{base}"
+                    if not img_path: continue
+
+                    img = cv2.imread(str(img_path))
+                    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+                    
+                    # 라벨 로드
+                    bboxes, cls_labels = [], []
+                    with open(train_lbl_dir / src_lbl, 'r') as f:
+                        for line in f:
+                            p = line.split()
+                            if p:
+                                cls_labels.append(int(p[0]))
+                                bboxes.append([float(x) for x in p[1:]])
+                    
+                    # 증강 실행
+                    augmented = transform(image=img, bboxes=bboxes, class_labels=cls_labels)
+                    
+                    # [안전장치] 객체가 증강 과정에서 사라졌거나 NaN이 발생하면 저장 안 함
+                    if len(augmented['bboxes']) > 0:
+                        # 이미지 저장
                         cv2.imwrite(str(train_img_dir / f"{new_name}.jpg"), 
                                     cv2.cvtColor(augmented['image'], cv2.COLOR_RGB2BGR))
                         
+                        # 라벨 저장
                         with open(train_lbl_dir / f"{new_name}.txt", 'w') as f:
                             for c, b in zip(augmented['class_labels'], augmented['bboxes']):
-                                f.write(f"{c} {b[0]:.6f} {b[1]:.6f} {b[2]:.6f} {b[3]:.6f}\n")
-                except Exception:
-                    continue
+                                # [추가] 타겟 클래스(소수 클래스)만 저장하고, 같이 딸려온 다수 클래스는 제외
+                                if int(c) != int(class_id):
+                                    continue
+
+                                # NaN 값 체크 (숫자가 아닌 값 방지)
+                                if any(math.isnan(x) for x in b): continue
+
+
+
+                                # [수정] 좌표값 0~1 클램핑 (verify_labels 통과용)
+                                xc = max(0.0, min(1.0, b[0]))
+                                yc = max(0.0, min(1.0, b[1]))
+                                w  = max(0.0, min(1.0, b[2]))
+                                h  = max(0.0, min(1.0, b[3]))
+
+                                if w > 0 and h > 0:
+                                    f.write(f"{int(c)} {xc:.6f} {yc:.6f} {w:.6f} {h:.6f}\n")
+                except: continue
