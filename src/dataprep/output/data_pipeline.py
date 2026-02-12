@@ -424,3 +424,93 @@ def run(
     return result
 
 
+# AB) 추가: 소수 클래스 기하학적 증강 함수
+def augment_minority_classes(config: dict, yolo_root: Path):
+    """
+    [Step 3] 소수 클래스 기하학적 증강 로직
+    - 대상: 샘플 수 100개 미만 클래스 (목표 300개)
+    - 변환: 기하학적 변환만 적용 (색상 보존)
+    """
+    import albumentations as A
+    import cv2
+    import random
+    import os
+    from tqdm import tqdm
+
+    print("\n[Step 3] Starting Geometric Augmentation for minority classes...")
+    
+    # YOLO 데이터셋 구조에 따른 경로 설정
+    train_img_dir = yolo_root / "train" / "images"
+    train_lbl_dir = yolo_root / "train" / "labels"
+    
+    if not train_lbl_dir.exists():
+        print(f"[Warning] Label directory not found: {train_lbl_dir}")
+        return
+
+    # 1. 클래스별 데이터 카운팅 (기존 증강 파일 제외)
+    class_to_files = {}
+    all_labels = [f for f in os.listdir(train_lbl_dir) if f.endswith('.txt') and not f.startswith('aug_')]
+    
+    for lbl_name in all_labels:
+        with open(train_lbl_dir / lbl_name, 'r') as f:
+            for line in f:
+                parts = line.split()
+                if parts:
+                    class_id = parts[0]
+                    class_to_files.setdefault(class_id, []).append(lbl_name)
+
+    # 2. 기하학적 증강 도구 설정 (Geometric Only)
+    transform = A.Compose([
+        A.HorizontalFlip(p=0.5),
+        A.VerticalFlip(p=0.5),
+        A.RandomRotate90(p=0.5),
+        A.ShiftScaleRotate(shift_limit=0.05, scale_limit=0.1, rotate_limit=30, p=0.5)
+    ], bbox_params=A.BboxParams(format='yolo', label_fields=['class_labels']))
+
+    # 3. 증강 실행
+    for class_id, files in class_to_files.items():
+        current_count = len(files)
+        
+        if current_count < 100:
+            needed = 300 - current_count
+            print(f" - Class {class_id}: {current_count} samples -> Generating {needed} augmented samples...")
+            
+            for i in tqdm(range(needed), desc=f"Augmenting ID {class_id}", leave=False):
+                try:
+                    src_lbl = random.choice(files)
+                    base = Path(src_lbl).stem
+                    
+                    # 이미지 찾기
+                    img_path = None
+                    for ext in ['.jpg', '.png', '.jpeg', '.JPG']:
+                        temp = train_img_dir / f"{base}{ext}"
+                        if temp.exists():
+                            img_path = temp
+                            break
+                    if not img_path is None:
+                        # 이미지 읽기 및 변환
+                        img = cv2.imread(str(img_path))
+                        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+                        
+                        # 라벨 읽기
+                        bboxes, cls_labels = [], []
+                        with open(train_lbl_dir / src_lbl, 'r') as f:
+                            for line in f:
+                                parts = line.split()
+                                if parts:
+                                    cls_labels.append(int(parts[0]))
+                                    bboxes.append([float(x) for x in parts[1:]])
+                        
+                        # 증강 적용
+                        augmented = transform(image=img, bboxes=bboxes, class_labels=cls_labels)
+                        
+                        # 결과 저장
+                        new_name = f"aug_{class_id}_{i}_{base}"
+                        cv2.imwrite(str(train_img_dir / f"{new_name}.jpg"), 
+                                    cv2.cvtColor(augmented['image'], cv2.COLOR_RGB2BGR))
+                        
+                        with open(train_lbl_dir / f"{new_name}.txt", 'w') as f:
+                            for c, b in zip(augmented['class_labels'], augmented['bboxes']):
+                                f.write(f"{c} {b[0]:.6f} {b[1]:.6f} {b[2]:.6f} {b[3]:.6f}\n")
+                except Exception:
+                    continue

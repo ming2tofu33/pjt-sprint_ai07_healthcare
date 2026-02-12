@@ -49,15 +49,15 @@ STOP=4
 CONF=""
 VERBOSE_ALL=false
 RESUME_TRAIN=""
-AUTO_RESUME_TRAIN=""
-TRAIN_DATA_YAML_OVERRIDE=""
-TRAIN_DATA_YAML=""
+AUTO_RESUME_TRAIN=""        # AB / 자동 재개 옵션 변수 추가
+TRAIN_DATA_YAML_OVERRIDE="" # AB / custom data.yaml 경로 옵션 변수 추가
+TRAIN_DATA_YAML=""      # AB / 최종 학습용 data.yaml 경로 변수 추가
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --run-name)  RUN_NAME="$2"; shift 2 ;;
         --config)    CONFIG="$2"; shift 2 ;;
-        --train-data-yaml) TRAIN_DATA_YAML_OVERRIDE="$2"; shift 2 ;;
+        --train-data-yaml) TRAIN_DATA_YAML_OVERRIDE="$2"; shift 2 ;; # AB / custom data.yaml 경로 옵션 추가
         --device)    DEVICE="$2"; shift 2 ;;
         --skip)      SKIP="$2"; shift 2 ;;
         --start)     START="$2"; shift 2 ;;
@@ -199,7 +199,7 @@ if [[ -n "$TRAIN_DATA_YAML_OVERRIDE" ]]; then
     TRAIN_DATA_YAML="$TRAIN_DATA_YAML_OVERRIDE"
     echo -e "${GREEN}  Custom Data YAML used: $TRAIN_DATA_YAML${NC}"
 else
-    #AB / 기존처럼 파이프라인이 만든 경로 사용
+    # AB / 기존처럼 파이프라인이 만든 경로 사용
     TRAIN_DATA_YAML="data/processed/datasets/pill_od_yolo_${RUN_NAME}/data.yaml"
 fi
 

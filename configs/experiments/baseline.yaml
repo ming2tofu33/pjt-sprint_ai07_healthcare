@@ -6,6 +6,6 @@ model:
   pretrained: "yolo11s.pt"
 
 train:
-  epochs: 100
+  epochs: 1
   imgsz: 640
   batch: 16
