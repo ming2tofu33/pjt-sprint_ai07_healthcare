@@ -250,3 +250,26 @@ submission:
     enabled: true                               # 제출 파일 생성 전 샘플 시각화 결과 저장 여부
     sample_size: 12                             # 시각화할 샘플 이미지 개수
     seed: 42                                    # 샘플링 시드
+  ensemble:
+    enabled: false                              # true 이면 STAGE 4에서 멀티모델 WBF 제출 활성화
+    method: "wbf"                               # 1차 구현은 wbf만 지원
+    strict_category_map: true                   # run 간 category_id set 불일치 시 즉시 실패
+    runs:                                       # 최소 2개 run 필요
+      - run_name: "run_v8_main"
+        weight_tag: "competition_best"          # competition_best | best | last
+        conf: 0.25
+        nms_iou: 0.5
+        imgsz: 640
+        augment: false
+        model_weight: 1.0
+      - run_name: "run_v11_aux"
+        weight_tag: "competition_best"
+        conf: 0.25
+        nms_iou: 0.5
+        imgsz: 1024
+        augment: false
+        model_weight: 1.0
+    wbf:
+      iou_thr: 0.55
+      skip_box_thr: 0.0001
+      conf_type: "avg"

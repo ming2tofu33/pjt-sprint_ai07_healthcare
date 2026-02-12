@@ -3,13 +3,11 @@
 Responsibilities:
 - Top-K selection per image
 - YOLO class index -> original category_id mapping
-- xywh (absolute) conversion pass-through for submission rows
-
-Note:
-- annotation_id is intentionally NOT created here.
-- annotation_id is assigned in write_submission() as global 1..N sequence.
+- Shared submission filter logic for single/ensemble pipelines
 """
 from __future__ import annotations
+
+from collections import defaultdict
 
 from src.utils.logger import get_logger
 
@@ -25,40 +23,17 @@ def postprocess_detections(
     class_min_conf_by_category: dict[int, float] | None = None,
     keep_category_ids: set[int] | None = None,
 ) -> list[dict]:
-    """Convert batch detection results to submission row dicts.
-
-    Returned row schema:
-    {
-        "image_id": int,
-        "category_id": int,
-        "bbox_x": float,
-        "bbox_y": float,
-        "bbox_w": float,
-        "bbox_h": float,
-        "score": float,
-    }
-    """
-    idx2id_norm: dict[int, int] = {}
-    for key, value in idx2id.items():
-        idx2id_norm[int(key)] = int(value)
+    """Convert model detections to row dicts and apply shared submission filters."""
+    idx2id_norm: dict[int, int] = {int(k): int(v) for k, v in idx2id.items()}
 
     rows: list[dict] = []
-    total_truncated = 0
     unmapped_classes: set[int] = set()
-    filtered_by_min_conf = 0
-    filtered_by_category = 0
-    class_min_conf_by_category = class_min_conf_by_category or {}
-
     for det in detections:
-        image_stem = det.get("image_stem", "")
-        boxes = det.get("boxes", [])
+        image_stem = str(det.get("image_stem", ""))
+        image_id = parse_image_id(image_stem)
 
-        image_id = _parse_image_id(image_stem)
-        sorted_boxes = sorted(boxes, key=lambda b: b["conf"], reverse=True)
-        kept_count = 0
-
-        for i, box in enumerate(sorted_boxes):
-            class_idx = box["class_idx"]
+        for box in det.get("boxes", []):
+            class_idx = int(box["class_idx"])
             xywh = box["xywh"]
             score = float(box["conf"])
 
@@ -67,52 +42,96 @@ def postprocess_detections(
                 unmapped_classes.add(class_idx)
                 category_id = class_idx
 
-            if keep_category_ids is not None and category_id not in keep_category_ids:
-                filtered_by_category += 1
-                continue
-
-            effective_min_conf = class_min_conf_by_category.get(category_id, min_conf)
-            if score < effective_min_conf:
-                filtered_by_min_conf += 1
-                continue
-
             rows.append(
                 {
                     "image_id": image_id,
-                    "category_id": category_id,
-                    "bbox_x": round(xywh[0], 2),
-                    "bbox_y": round(xywh[1], 2),
-                    "bbox_w": round(xywh[2], 2),
-                    "bbox_h": round(xywh[3], 2),
+                    "category_id": int(category_id),
+                    "bbox_x": round(float(xywh[0]), 2),
+                    "bbox_y": round(float(xywh[1]), 2),
+                    "bbox_w": round(float(xywh[2]), 2),
+                    "bbox_h": round(float(xywh[3]), 2),
                     "score": round(score, 6),
                 }
             )
-            kept_count += 1
-            if kept_count >= max_det_per_image:
-                total_truncated += max(0, len(sorted_boxes) - (i + 1))
-                break
 
-    if total_truncated > 0:
-        logger.info(
-            "Top-%d rule applied: %d detections truncated",
-            max_det_per_image,
-            total_truncated,
-        )
-    if filtered_by_min_conf > 0:
-        logger.info("Detections filtered by min_conf: %d", filtered_by_min_conf)
-    if filtered_by_category > 0:
-        logger.info("Detections filtered by keep_category_ids: %d", filtered_by_category)
     if unmapped_classes:
         logger.warning(
             "Unmapped class indices found: %s (fallback: category_id=class_idx)",
             sorted(unmapped_classes),
         )
 
-    logger.info("Postprocess completed | images=%d | rows=%d", len(detections), len(rows))
-    return rows
+    filtered_rows = apply_submission_filters_and_topk(
+        rows,
+        max_det_per_image=max_det_per_image,
+        min_conf=min_conf,
+        class_min_conf_by_category=class_min_conf_by_category,
+        keep_category_ids=keep_category_ids,
+    )
+    logger.info("Postprocess completed | images=%d | rows=%d", len(detections), len(filtered_rows))
+    return filtered_rows
 
 
-def _parse_image_id(stem: str) -> int:
+def apply_submission_filters_and_topk(
+    rows: list[dict],
+    *,
+    max_det_per_image: int = 4,
+    min_conf: float = 0.0,
+    class_min_conf_by_category: dict[int, float] | None = None,
+    keep_category_ids: set[int] | None = None,
+) -> list[dict]:
+    """Apply category/conf filters and keep top-K boxes per image."""
+    class_min_conf_by_category = class_min_conf_by_category or {}
+
+    filtered: list[dict] = []
+    filtered_by_min_conf = 0
+    filtered_by_category = 0
+
+    for row in rows:
+        category_id = int(row["category_id"])
+        score = float(row["score"])
+
+        if keep_category_ids is not None and category_id not in keep_category_ids:
+            filtered_by_category += 1
+            continue
+
+        effective_min_conf = float(class_min_conf_by_category.get(category_id, min_conf))
+        if score < effective_min_conf:
+            filtered_by_min_conf += 1
+            continue
+
+        normalized = dict(row)
+        normalized["image_id"] = int(row["image_id"])
+        normalized["category_id"] = category_id
+        normalized["score"] = round(score, 6)
+        normalized["bbox_x"] = round(float(row["bbox_x"]), 2)
+        normalized["bbox_y"] = round(float(row["bbox_y"]), 2)
+        normalized["bbox_w"] = round(float(row["bbox_w"]), 2)
+        normalized["bbox_h"] = round(float(row["bbox_h"]), 2)
+        filtered.append(normalized)
+
+    by_image: dict[int, list[dict]] = defaultdict(list)
+    for row in filtered:
+        by_image[int(row["image_id"])].append(row)
+
+    output: list[dict] = []
+    total_truncated = 0
+    for image_id, image_rows in by_image.items():
+        sorted_rows = sorted(image_rows, key=lambda r: float(r["score"]), reverse=True)
+        kept = sorted_rows[:max_det_per_image]
+        total_truncated += max(0, len(sorted_rows) - len(kept))
+        output.extend(kept)
+
+    if total_truncated > 0:
+        logger.info("Top-%d rule applied: %d detections truncated", max_det_per_image, total_truncated)
+    if filtered_by_min_conf > 0:
+        logger.info("Detections filtered by min_conf: %d", filtered_by_min_conf)
+    if filtered_by_category > 0:
+        logger.info("Detections filtered by keep_category_ids: %d", filtered_by_category)
+
+    return output
+
+
+def parse_image_id(stem: str) -> int:
     """Parse numeric image_id from filename stem, fallback to hash."""
     try:
         return int(stem)
