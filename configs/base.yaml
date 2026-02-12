@@ -21,7 +21,7 @@ paths:
 
 # --- 소수 데이터 증강 (Minor Data Augmentation) ---
 imbalance_fix:
-  min_threshold: 300 # 이 숫자보다 적은 클래스들만 증강 대상으로 선정
+  min_threshold: 100 # 이 숫자보다 적은 클래스들만 증강 대상으로 선정
   target_count: 300 # 선정된 소수 클래스들을 최종적으로 이 개수까지 증강
   methods: # 각 기능을 아래에서 true/false로 제어합니다.
   geometric: { enable: true } # true(기본), 기하학적 증강
