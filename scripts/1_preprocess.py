@@ -28,6 +28,7 @@ if str(REPO_ROOT) not in sys.path:
 from src.utils.config_loader import load_experiment_config
 from src.utils.logger import get_logger
 from src.dataprep.output.export_yolo import run_export, verify_labels
+from src.dataprep.output.data_pipeline import augment_minority_classes  # AB / 호출 추가
 
 logger = get_logger(__name__)
 
@@ -168,6 +169,8 @@ def main(argv: list[str] | None = None) -> None:
         logger.error("누락 이미지가 임계값 초과 — critical failure")
         sys.exit(1)
 
+    augment_minority_classes(config, output_dir)    # AB / 소수 클래스 증강 수행
+
     # ── 6) label 검증 (선택) ─────────────────────────────────
     do_verify = yolo_cfg.get("verify_labels", True)
     if do_verify:
@@ -209,6 +212,7 @@ def main(argv: list[str] | None = None) -> None:
     logger.info("  nc           : %d", nc)
     logger.info("  class_map    : %s", class_map_path)
     logger.info("=" * 60)
+    
 
 
 if __name__ == "__main__":
