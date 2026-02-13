@@ -1,0 +1,19 @@
+_base_: "../base.yaml"
+
+model:
+  architecture: "yolo11m"   # s 모델보다 성능이 우수한 Medium 모델 사용
+  pretrained: "yolo11m.pt"
+
+train:
+  epochs: 100               # 충분한 학습
+  imgsz: 640
+  batch: 8                  # 모델이 커졌으므로 VRAM 초과 방지를 위해 배치는 줄임 (GPU 메모리 여유 시 16 권장)
+  patience: 20              # 조기 종료 대기
+
+  # 일반화 성능 향상을 위한 추가 증강
+  mixup: 0.1
+  copy_paste: 0.1
+
+submission:
+  conf: 0.15                # 제출 시 Recall을 높이기 위해 신뢰도 임계값 약간 낮춤
+  nms_iou: 0.5              # 중복 박스 제거 기준

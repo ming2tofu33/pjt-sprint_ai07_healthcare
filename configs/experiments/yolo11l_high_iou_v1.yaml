@@ -1,0 +1,77 @@
+# High-IoU 리더보드(mAP@[0.75:0.95]) 지향 실험 설정
+# 주의: 이 파일은 base 대비 "의도적으로 바꾼 값"만 오버라이드한다.
+_base_: "../base.yaml"                          # 공통 재현성/경로/파이프라인 규칙은 base를 그대로 사용
+
+model:
+  architecture: "yolo11l"                       # 큰 백본으로 박스 위치 정밀도(고 IoU 구간) 개선 기대
+  pretrained: "yolo11l.pt"                      # 대용량 모델은 사전학습 가중치에서 시작해야 수렴 안정적
+
+paths:
+  external_images_dir: "data/raw/external/combined/images"  # STAGE 1에서 external 소스 이미지 인덱싱 경로 고정
+
+external_data:
+  enabled: true                                 # train 원본 + external combined를 함께 사용
+  sources:
+    - name: "combined"                          # 외부 소스 식별 이름(로그/감사용)
+      images_dir: "data/raw/external/combined/images"        # external 이미지 루트
+      annotations_dir: "data/raw/external/combined/annotations" # external 라벨(JSON) 루트
+      recursive: true                           # 하위 폴더까지 모두 스캔
+  category_id_mapping:
+    enabled: true                               # external category를 train canonical ID 체계로 강제 정렬
+    mapping_key: "drug_N"                       # 매핑의 주 기준은 drug_N 숫자값
+    fallback_fields: ["drug_N", "dl_mapping_code"] # drug_N 우선, 필요 시 dl_mapping_code 보조 사용
+    on_unmapped: "exclude"                      # 매핑 불가 샘플은 라벨 오염 방지를 위해 제외
+  dedup:
+    dedup_against_train: true                   # train과 exact 중복인 external 샘플은 제거
+
+train:
+  # Core
+  epochs: 160                                   # 고 IoU 지표는 수렴이 느려 충분한 에폭 확보
+  imgsz: 1024                                   # 작은 글자/음각 경계 보존을 위해 고해상도 사용
+  batch: 2                                      # 1024 + 11l 조합의 GPU 메모리 안정 구간
+  optimizer: "AdamW"                            # 작은 lr에서 위치 미세 조정이 비교적 안정적
+  lr0: 0.0008                                   # 큰 모델 + 고해상도에서 초기 진동/발산 리스크 완화
+  lrf: 0.01                                     # 학습 후반 lr을 충분히 낮춰 박스 위치를 미세 수렴
+  patience: 40                                  # 긴 학습에서 일시 정체로 인한 조기 종료 방지
+  workers: 0                                    # 현재 프로젝트/환경 정책(메모리 안정 우선) 준수
+
+  # Augmentation (precision-friendly)
+  hsv_h: 0.015                                  # 색상 변화는 가볍게: 도메인 유지 + 일반화만 확보
+  hsv_s: 0.60                                   # 채도 편차를 주되 과도한 색 왜곡은 피하는 중간 강도
+  hsv_v: 0.45                                   # 밝기 변동 강화로 음각/각인 글자의 조명 변화 대응력 확보
+  degrees: 180.0                                # 알약은 회전 불변성이 커서 강한 회전 증강 허용
+  translate: 0.08                               # 박스 중심 이동 강건성 확보, 과도한 이동은 위치 오차 유발
+  scale: 0.35                                   # 크기 스케일 다양화로 거리/촬영 배율 변화 대응
+  shear: 0.0                                    # 전단 왜곡은 실제 촬영 분포와 달라 고 IoU에 불리
+  perspective: 0.0003                           # 투시 변형은 아주 약하게만 적용해 경계 왜곡 최소화
+  flipud: 0.5                                   # 상하 반전 허용(도메인상 방향성 약함)
+  fliplr: 0.5                                   # 좌우 반전 허용(도메인상 방향성 약함)
+  mosaic: 0.30                                  # 다양성은 확보하되 과한 합성으로 박스 정밀도 저하 방지
+  mixup: 0.02                                   # 분류 일반화만 약하게 확보, 경계 흐림 리스크 최소화
+  copy_paste: 0.0                               # 인위적 합성 경계가 고 IoU 지표에 불리해 비활성화
+
+  # Loss gain
+  box: 8.0                                      # 위치 오차 패널티를 조금 더 강조해 고 IoU 구간 최적화
+  cls: 0.4                                      # 클래스 손실 비중을 낮춰 박스 정밀도 중심으로 학습
+  dfl: 1.8                                      # 경계 분포 학습(DFL)을 소폭 강화해 박스 미세 정렬 유도
+
+  # Competition metric-based checkpoint selection
+  competition_select:
+    enabled: true                               # Ultralytics 기본 best 외에 대회 지표 기준 재선정 활성화
+    candidates: ["best", "last"]               # 과적합 전/후 구간 모두 후보로 비교
+    output_name: "competition_best.pt"          # 제출/평가 파이프라인이 우선 참조하는 이름으로 고정
+    use_tta: false                              # 선정 비교는 무증강으로 공정하게(속도/재현성도 유리)
+
+evaluate:
+  conf: 0.001                                   # PR 곡선 기반 mAP 계산 손실 최소화를 위한 관례값
+  nms_iou: 0.65                                 # 근접 객체를 너무 빨리 지우지 않도록 base(0.6)보다 완화
+
+submission:
+  conf: 0.08                                    # 저신뢰 박스 일부를 남겨 후처리 Top-4에서 선택폭 확보
+  nms_iou: 0.65                                 # 평가와 동일한 NMS 강도로 오프라인-제출 괴리 축소
+  augment: true                                 # 제출 시 TTA로 강건성 향상 시도(시간 비용은 증가)
+  max_det_per_image: 4                          # 대회 규칙(이미지당 최대 4개) 준수
+  debug:
+    enabled: true                               # 제출 전 샘플 시각 점검으로 이상치 조기 발견
+    sample_size: 12                             # 점검 비용 대비 커버리지가 괜찮은 기본 샘플 수
+    seed: 42                                    # 같은 샘플을 반복 확인해 실험 간 비교 일관성 확보

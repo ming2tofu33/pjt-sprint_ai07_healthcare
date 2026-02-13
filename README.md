@@ -127,6 +127,16 @@ pjt-sprint_ai07_healthcare/
 - 실험별 변경은 `configs/experiments/*.yaml`에서만 관리합니다.
 - 실행 시 병합된 최종 설정은 `runs/<exp>/config_resolved.yaml`에 저장합니다.
 - 실험 결과는 `runs/_registry.csv`로 중앙 기록합니다.
+- 기본 산출물 모드는 `paths.artifact_layout: legacy` 입니다.
+
+## runs 산출물 모드
+
+| 모드 | STAGE 2 학습 산출물 | STAGE 4 디버그/매니페스트 |
+|---|---|---|
+| `legacy` (기본) | `runs/<run_name>/` | `runs/<run_name>/submission_debug/`, `runs/<run_name>/submission_manifest.json` |
+| `compact` (옵트인) | `runs/<run_name>/train/` + 루트 `results.csv` shortcut | `runs/<run_name>/submit/debug/`, `runs/<run_name>/submit/submission_manifest.json` + 루트 shortcut |
+
+`competition_select`(`competition_best.pt`) 로직은 기존 동작을 유지하며, 이 레이아웃 전환 작업과는 분리되어 있습니다.
 
 ## 문서
 

@@ -1,0 +1,15 @@
+_base_: "../base.yaml"
+
+# --- 학습 파라미터 (Training Params - Stage 2) ---
+train:
+  epochs: 100 # 총 학습 반복 횟수
+  workers: 4 # 데이터 로딩 워커 수 (요청: num_workers=0)
+  cos_lr: True # 코사인 LR 스케줄러 사용 여부 (baseline은 false)
+  optimizer: "AdamW" # 옵티마이저 종류
+
+  # 증강 (Augmentation)
+  hsv_s: 0.9 # 채도(Saturation) 변화 범위 / 색을 미친듯이 흔들어야 모델이 "아, 색 말고 글자를 봐야겠구나" 하고 깨닫습니다.
+  hsv_v: 0.7 # 명도(Value) 변화 범위 / 명도(Value)도 같이 흔들어주면 음각이 더 잘 보입니다.
+
+  # 손실 가중치 (Loss Gain)
+  box: 9.0 # 바운딩 박스 손실 가중치

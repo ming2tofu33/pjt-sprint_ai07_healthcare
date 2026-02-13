@@ -15,6 +15,7 @@ import csv
 import json
 import sys
 from pathlib import Path
+from shutil import copy2
 
 # ── 프로젝트 루트를 sys.path 에 추가 ────────────────────────────
 SCRIPT_DIR = Path(__file__).resolve().parent
@@ -124,6 +125,10 @@ def main(argv: list[str] | None = None) -> None:
     sub_cfg = config.get("submission", {})
     debug_cfg = sub_cfg.get("debug", {}) if isinstance(sub_cfg.get("debug", {}), dict) else {}
     train_cfg = config.get("train", {})
+    artifact_layout = str(paths_cfg.get("artifact_layout", "legacy")).strip().lower()
+    if artifact_layout not in {"legacy", "compact"}:
+        logger.warning("알 수 없는 paths.artifact_layout=%s, legacy로 처리합니다.", artifact_layout)
+        artifact_layout = "legacy"
 
     # confidence threshold: CLI > config
     conf = args.conf if args.conf is not None else float(sub_cfg.get("conf", 0.25))
@@ -147,6 +152,15 @@ def main(argv: list[str] | None = None) -> None:
     if not runs_base.is_absolute():
         runs_base = (repo_root / runs_base).resolve()
     run_dir = runs_base / run_name
+
+    if artifact_layout == "compact":
+        debug_output_dir = run_dir / "submit" / "debug"
+        manifest_output_path = run_dir / "submit" / "submission_manifest.json"
+        root_manifest_shortcut = run_dir / "submission_manifest.json"
+    else:
+        debug_output_dir = run_dir / "submission_debug"
+        manifest_output_path = run_dir / "submission_manifest.json"
+        root_manifest_shortcut = None
 
     if args.weights:
         selected_weight = _resolve_cli_path(args.weights, repo_root)
@@ -318,6 +332,7 @@ def main(argv: list[str] | None = None) -> None:
         detections=detections,
         idx2name=idx2name,
         max_det_per_image=max_det_per_image,
+        output_dir=debug_output_dir,
         sample_size=debug_sample_size,
         seed=debug_seed,
         enabled=debug_enabled,
@@ -354,25 +369,34 @@ def main(argv: list[str] | None = None) -> None:
     )
 
     # ── 10) 매니페스트 저장 ─────────────────────────────────
-    write_submission_manifest(
+    manifest_path = write_submission_manifest(
         report,
         run_dir=run_dir,
         conf=conf,
         n_test_images=n_test_images,
         csv_path=csv_path,
         debug_report=debug_report,
+        output_path=manifest_output_path,
     )
+    if root_manifest_shortcut is not None and manifest_path.exists():
+        if manifest_path.resolve() != root_manifest_shortcut.resolve():
+            root_manifest_shortcut.parent.mkdir(parents=True, exist_ok=True)
+            copy2(str(manifest_path), str(root_manifest_shortcut))
+            logger.info("submission_manifest shortcut 갱신 | %s -> %s", manifest_path, root_manifest_shortcut)
 
     # ── 11) 요약 출력 ───────────────────────────────────────
     logger.info("=" * 60)
     logger.info("STAGE 4 완료")
     logger.info("  run_name       : %s", run_name)
+    logger.info("  artifact_layout: %s", artifact_layout)
     logger.info("  weight_file    : %s", selected_weight)
     logger.info("  test_images    : %d", n_test_images)
     logger.info("  conf_threshold : %.3f", conf)
     logger.info("  min_conf       : %.3f", min_conf)
     logger.info("  max_det/image  : %d", max_det_per_image)
     logger.info("  submission CSV : %s", csv_path)
+    logger.info("  manifest       : %s", manifest_path)
+    logger.info("  debug_dir      : %s", debug_report.get("debug_output_dir", ""))
     logger.info("  total rows     : %d", report["total_rows"])
     logger.info("  n_images       : %d", report["n_images"])
     logger.info("  validation     : %s", "PASS" if report["valid"] else "FAIL")

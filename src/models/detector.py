@@ -17,16 +17,20 @@ from __future__ import annotations
 import json
 import csv
 import shutil
+import re
 from pathlib import Path
 from typing import Any, Optional
 
 import numpy as np
 import yaml
+from src.utils.logger import get_logger
 
 try:
     from ultralytics import YOLO
 except ImportError:
     YOLO = None  # type: ignore[assignment,misc]
+
+logger = get_logger(__name__)
 
 
 def _parse_int_list(value: Any) -> list[int]:
@@ -79,6 +83,79 @@ def _load_idx_to_category_from_data_yaml(data_yaml: Path) -> dict[int, int]:
     return {}
 
 
+def _safe_float(value: Any) -> float | None:
+    """다양한 숫자 타입(torch/tensor 포함)을 안전하게 float으로 변환한다."""
+    if value is None:
+        return None
+    try:
+        if hasattr(value, "item"):
+            return float(value.item())
+        return float(value)
+    except Exception:
+        return None
+
+
+def _is_primary_rank(trainer: Any) -> bool:
+    """DDP 환경에서 메인 프로세스(rank -1 또는 0)에서만 작업하도록 판별한다."""
+    rank = getattr(trainer, "rank", -1)
+    return rank in (-1, 0)
+
+
+def _is_primary_process(state: Any) -> bool:
+    """trainer/validator 객체를 받아 메인 프로세스 여부를 판단한다."""
+    rank = getattr(state, "rank", None)
+    if rank is None:
+        return True
+    return rank in (-1, 0)
+
+
+def _parse_val_batch_index(file_name: str) -> int | None:
+    """`val_batch{idx}_*.jpg` 파일명에서 배치 인덱스를 추출한다."""
+    match = re.search(r"val_batch(\d+)_", file_name)
+    if not match:
+        return None
+    try:
+        return int(match.group(1))
+    except ValueError:
+        return None
+
+
+def _build_snapshot_epochs(
+    total_epochs: int,
+    percent_points: list[int],
+    max_epoch_gap: int,
+) -> list[int]:
+    """하이브리드 규칙(퍼센트 + 최대 간격 보정)으로 스냅샷 epoch 목록을 계산한다."""
+    if total_epochs <= 0:
+        return []
+
+    base_points: set[int] = {1, total_epochs}
+    for point in percent_points:
+        try:
+            p = int(point)
+        except Exception:
+            continue
+        p = max(0, min(100, p))
+        epoch = int(round((p / 100.0) * total_epochs))
+        epoch = max(1, min(total_epochs, epoch))
+        base_points.add(epoch)
+
+    seeds = sorted(base_points)
+    if max_epoch_gap <= 0 or len(seeds) <= 1:
+        return seeds
+
+    expanded: list[int] = [seeds[0]]
+    for target in seeds[1:]:
+        cursor = expanded[-1]
+        while target - cursor > max_epoch_gap:
+            cursor += max_epoch_gap
+            expanded.append(cursor)
+        if target != expanded[-1]:
+            expanded.append(target)
+
+    return expanded
+
+
 class PillDetector:
     """Ultralytics YOLO 모델을 감싼 래퍼.
 
@@ -96,6 +173,7 @@ class PillDetector:
             )
         self.model_path = str(model_path)
         self.model: YOLO = YOLO(self.model_path)
+        self.last_train_runtime: dict[str, Any] = {}
 
     # ── 팩토리 ──────────────────────────────────────────────
 
@@ -142,6 +220,7 @@ class PillDetector:
             학습 결과 객체.
         """
         train_cfg = dict(config.get("train", {})) if config else {}
+        self.last_train_runtime = {}
 
         # config 에서 직접 전달할 학습 하이퍼파라미터 추출
         kwargs: dict[str, Any] = {}
@@ -169,6 +248,13 @@ class PillDetector:
         for key in _DIRECT_KEYS:
             if key in train_cfg:
                 kwargs[key] = train_cfg[key]
+
+        # 로그 모드: 기본은 기존 배치 로그(batch) 유지, epoch 모드는 배치 로그를 억제한다.
+        log_mode = str(train_cfg.get("log_mode", "batch")).strip().lower()
+        if log_mode not in {"batch", "epoch"}:
+            log_mode = "batch"
+        if log_mode == "epoch":
+            kwargs["verbose"] = False
 
         # Optional class filtering:
         # - classes: class indices
@@ -200,7 +286,271 @@ class PillDetector:
         if device is not None:
             kwargs["device"] = device
 
+        # 스냅샷 설정
+        raw_snapshot_cfg = train_cfg.get("debug_snapshots", {})
+        snapshot_cfg = raw_snapshot_cfg if isinstance(raw_snapshot_cfg, dict) else {}
+        snapshot_enabled = bool(snapshot_cfg.get("enabled", False))
+        snapshot_scope = str(snapshot_cfg.get("scope", "val_only"))
+        snapshot_points_raw = snapshot_cfg.get("percent_points", [10, 30, 50, 70, 90, 100])
+        if isinstance(snapshot_points_raw, list):
+            snapshot_points: list[int] = []
+            for value in snapshot_points_raw:
+                try:
+                    snapshot_points.append(int(value))
+                except Exception:
+                    continue
+            if not snapshot_points:
+                snapshot_points = [10, 30, 50, 70, 90, 100]
+        else:
+            snapshot_points = [10, 30, 50, 70, 90, 100]
+        try:
+            snapshot_max_gap = int(snapshot_cfg.get("max_epoch_gap", 20))
+        except Exception:
+            snapshot_max_gap = 20
+        snapshot_output_dirname = str(snapshot_cfg.get("output_dirname", "snapshots")).strip() or "snapshots"
+        snapshot_index_filename = str(snapshot_cfg.get("index_filename", "snapshot_index.csv")).strip() or "snapshot_index.csv"
+        total_epochs = int(train_cfg.get("epochs", kwargs.get("epochs", 100)))
+        if total_epochs <= 0:
+            total_epochs = 100
+        snapshot_targets = _build_snapshot_epochs(total_epochs, snapshot_points, snapshot_max_gap) if snapshot_enabled else []
+        snapshot_target_set = set(snapshot_targets)
+        snapshot_state: dict[str, Any] = {
+            "enabled": snapshot_enabled,
+            "scope": snapshot_scope,
+            "percent_points": snapshot_points,
+            "max_epoch_gap": snapshot_max_gap,
+            "scheduled_epochs": snapshot_targets,
+            "saved_epochs": [],
+            "saved_file_count": 0,
+            "output_dir": "",
+            "index_file": "",
+            "train_artifacts_dir": "",
+            "current_epoch": 0,
+            "total_epochs": total_epochs,
+            "val_plots_forced_epochs": [],
+        }
+
+        def _resolve_snapshot_dir(save_dir: Path) -> Path:
+            base_dir = save_dir if save_dir.name.lower() == "train" else (save_dir / "train")
+            return base_dir / snapshot_output_dirname
+
+        def _write_snapshot_manifest(snapshot_dir: Path, trainer_epochs: int) -> None:
+            snapshot_manifest = {
+                "enabled": snapshot_state["enabled"],
+                "scope": snapshot_state["scope"],
+                "percent_points": snapshot_state["percent_points"],
+                "max_epoch_gap": snapshot_state["max_epoch_gap"],
+                "scheduled_epochs": snapshot_state["scheduled_epochs"],
+                "saved_epochs": snapshot_state["saved_epochs"],
+                "saved_file_count": snapshot_state["saved_file_count"],
+                "index_file": snapshot_state["index_file"],
+                "output_dir": str(snapshot_dir),
+                "total_epochs": int(trainer_epochs),
+                "val_plots_forced_epochs": snapshot_state["val_plots_forced_epochs"],
+            }
+            manifest_path = snapshot_dir / "snapshot_manifest.json"
+            with manifest_path.open("w", encoding="utf-8") as f:
+                json.dump(snapshot_manifest, f, ensure_ascii=False, indent=2)
+
+        def _on_fit_epoch_log(trainer: Any) -> None:
+            if not _is_primary_rank(trainer):
+                return
+            current_epoch = int(getattr(trainer, "epoch", -1)) + 1
+            trainer_epochs = int(getattr(trainer, "epochs", total_epochs) or total_epochs)
+            save_dir_attr = getattr(trainer, "save_dir", None)
+            if save_dir_attr is not None:
+                snapshot_state["train_artifacts_dir"] = str(Path(save_dir_attr))
+
+            train_loss = getattr(trainer, "tloss", None)
+            box_loss = cls_loss = dfl_loss = None
+            if train_loss is not None:
+                try:
+                    values = train_loss.tolist() if hasattr(train_loss, "tolist") else list(train_loss)
+                except Exception:
+                    values = []
+                if len(values) >= 3:
+                    box_loss = _safe_float(values[0])
+                    cls_loss = _safe_float(values[1])
+                    dfl_loss = _safe_float(values[2])
+
+            metrics_dict = getattr(trainer, "metrics", {}) or {}
+            precision = _safe_float(metrics_dict.get("metrics/precision(B)"))
+            recall = _safe_float(metrics_dict.get("metrics/recall(B)"))
+            map50 = _safe_float(metrics_dict.get("metrics/mAP50(B)"))
+            map50_95 = _safe_float(metrics_dict.get("metrics/mAP50-95(B)"))
+
+            def _fmt(value: float | None) -> str:
+                return "-" if value is None else f"{value:.4f}"
+
+            logger.info(
+                "train epoch %d/%d | box=%s cls=%s dfl=%s | P=%s R=%s mAP50=%s mAP50-95=%s",
+                current_epoch,
+                trainer_epochs,
+                _fmt(box_loss),
+                _fmt(cls_loss),
+                _fmt(dfl_loss),
+                _fmt(precision),
+                _fmt(recall),
+                _fmt(map50),
+                _fmt(map50_95),
+            )
+
+        def _save_snapshot_from_dir(source_dir: Path, *, current_epoch: int, trainer_epochs: int) -> int:
+            if current_epoch not in snapshot_target_set:
+                return 0
+            if not source_dir.exists():
+                return 0
+
+            progress = int(round((current_epoch / max(1, trainer_epochs)) * 100))
+            progress = max(0, min(100, progress))
+
+            snapshot_dir = _resolve_snapshot_dir(source_dir)
+            snapshot_dir.mkdir(parents=True, exist_ok=True)
+            index_path = snapshot_dir / snapshot_index_filename
+            snapshot_state["output_dir"] = str(snapshot_dir)
+            snapshot_state["index_file"] = str(index_path)
+            snapshot_state["train_artifacts_dir"] = str(source_dir)
+
+            source_files = sorted(source_dir.glob("val_batch*_labels.jpg")) + sorted(source_dir.glob("val_batch*_pred.jpg"))
+            if not source_files:
+                return 0
+
+            write_header = not index_path.exists()
+            files_written = 0
+            with index_path.open("a", encoding="utf-8", newline="") as f:
+                writer = csv.DictWriter(
+                    f,
+                    fieldnames=["epoch", "progress", "batch_idx", "kind", "source_file", "snapshot_file"],
+                )
+                if write_header:
+                    writer.writeheader()
+
+                for src in source_files:
+                    file_name = src.name
+                    if file_name.endswith("_labels.jpg"):
+                        kind = "labels"
+                    elif file_name.endswith("_pred.jpg"):
+                        kind = "pred"
+                    else:
+                        continue
+
+                    batch_idx = _parse_val_batch_index(file_name)
+                    if batch_idx is None:
+                        continue
+
+                    dst_name = f"e{current_epoch:04d}_p{progress:03d}_val_b{batch_idx}_{kind}.jpg"
+                    dst = snapshot_dir / dst_name
+                    if dst.exists():
+                        continue
+                    shutil.copy2(str(src), str(dst))
+                    files_written += 1
+
+                    writer.writerow(
+                        {
+                            "epoch": current_epoch,
+                            "progress": progress,
+                            "batch_idx": batch_idx,
+                            "kind": kind,
+                            "source_file": str(src),
+                            "snapshot_file": str(dst),
+                        }
+                    )
+
+            if files_written > 0:
+                saved_epochs = snapshot_state["saved_epochs"]
+                if current_epoch not in saved_epochs:
+                    saved_epochs.append(current_epoch)
+                    saved_epochs.sort()
+                snapshot_state["saved_file_count"] = int(snapshot_state["saved_file_count"]) + files_written
+                _write_snapshot_manifest(snapshot_dir, trainer_epochs)
+
+            return files_written
+
+        def _on_train_epoch_end_snapshot(trainer: Any) -> None:
+            if not snapshot_enabled or not _is_primary_rank(trainer):
+                return
+            current_epoch = int(getattr(trainer, "epoch", -1)) + 1
+            trainer_epochs = int(getattr(trainer, "epochs", total_epochs) or total_epochs)
+            snapshot_state["current_epoch"] = current_epoch
+            snapshot_state["total_epochs"] = trainer_epochs
+            save_dir_attr = getattr(trainer, "save_dir", None)
+            if save_dir_attr is not None:
+                snapshot_state["train_artifacts_dir"] = str(Path(save_dir_attr))
+
+        def _on_val_start_snapshot(validator: Any) -> None:
+            if not snapshot_enabled or not _is_primary_process(validator):
+                return
+            current_epoch = int(snapshot_state.get("current_epoch", 0))
+            if current_epoch not in snapshot_target_set:
+                return
+            try:
+                validator.args.plots = True
+            except Exception:
+                return
+            forced_epochs = snapshot_state["val_plots_forced_epochs"]
+            if current_epoch not in forced_epochs:
+                forced_epochs.append(current_epoch)
+                forced_epochs.sort()
+
+        def _on_val_end_snapshot(validator: Any) -> None:
+            if not snapshot_enabled or not _is_primary_process(validator):
+                return
+            current_epoch = int(snapshot_state.get("current_epoch", 0))
+            trainer_epochs = int(snapshot_state.get("total_epochs", total_epochs))
+            if current_epoch not in snapshot_target_set:
+                return
+            save_dir_attr = getattr(validator, "save_dir", None)
+            if save_dir_attr is None:
+                return
+            save_dir = Path(save_dir_attr)
+            _save_snapshot_from_dir(save_dir, current_epoch=current_epoch, trainer_epochs=trainer_epochs)
+
+        def _on_train_end(trainer: Any) -> None:
+            if not _is_primary_rank(trainer):
+                return
+            save_dir_attr = getattr(trainer, "save_dir", None)
+            if save_dir_attr is not None:
+                save_dir = Path(save_dir_attr)
+                snapshot_state["train_artifacts_dir"] = str(save_dir)
+                if snapshot_enabled:
+                    snapshot_dir = _resolve_snapshot_dir(save_dir)
+                    snapshot_dir.mkdir(parents=True, exist_ok=True)
+                    if not snapshot_state["output_dir"]:
+                        snapshot_state["output_dir"] = str(snapshot_dir)
+                    if not snapshot_state["index_file"]:
+                        snapshot_state["index_file"] = str(snapshot_dir / snapshot_index_filename)
+                    trainer_epochs = int(getattr(trainer, "epochs", total_epochs) or total_epochs)
+                    _write_snapshot_manifest(snapshot_dir, trainer_epochs)
+
+        if log_mode == "epoch":
+            self.model.add_callback("on_fit_epoch_end", _on_fit_epoch_log)
+        if snapshot_enabled:
+            self.model.add_callback("on_train_epoch_end", _on_train_epoch_end_snapshot)
+            self.model.add_callback("on_val_start", _on_val_start_snapshot)
+            self.model.add_callback("on_val_end", _on_val_end_snapshot)
+        self.model.add_callback("on_train_end", _on_train_end)
+
         results = self.model.train(**kwargs)
+
+        default_train_dir = Path(str(project)) / str(name)
+        train_artifacts_dir = snapshot_state["train_artifacts_dir"] or str(default_train_dir)
+        self.last_train_runtime = {
+            "log_mode": log_mode,
+            "train_artifacts_dir": train_artifacts_dir,
+            "debug_snapshots": {
+                "enabled": snapshot_state["enabled"],
+                "scope": snapshot_state["scope"],
+                "percent_points": snapshot_state["percent_points"],
+                "max_epoch_gap": snapshot_state["max_epoch_gap"],
+                "scheduled_epochs": snapshot_state["scheduled_epochs"],
+                "saved_epochs": snapshot_state["saved_epochs"],
+                "saved_file_count": snapshot_state["saved_file_count"],
+                "val_plots_forced_epochs": snapshot_state["val_plots_forced_epochs"],
+                "output_dir": snapshot_state["output_dir"],
+                "index_file": snapshot_state["index_file"],
+            },
+        }
+
         return results
 
     # ── 평가 ────────────────────────────────────────────────

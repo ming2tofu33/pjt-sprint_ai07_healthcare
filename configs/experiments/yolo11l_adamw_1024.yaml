@@ -1,0 +1,80 @@
+# ============================================================
+# Experiment: YOLO11-L + AdamW @ 1024 (High-IoU friendly)
+# - 목표: mAP@[0.75:0.95] 개선(박스 정밀도 우선)
+# - 증강: 알약 도메인 기준 '약하게'
+# ============================================================
+
+# base 설정을 그대로 가져오고 아래 항목만 오버라이드
+# (레포에서 base.yaml 경로에 맞게 수정하세요)
+_base_: "../base.yaml"
+
+random_seed: 42
+
+# --- 분할 ---
+# NOTE: stratified split은 scripts가 해당 키를 읽을 때만 동작합니다.
+#       현재 파이프라인이 split.train_ratio/group_id만 사용한다면, 아래는 메모용입니다.
+split:
+  enabled: true
+  train_ratio: 0.8
+
+# --- 모델 ---
+model:
+  architecture: "yolo11l"
+  pretrained: "yolo11l.pt"
+
+# --- 학습 ---
+train:
+  # core
+  epochs: 120
+  imgsz: 1024
+  batch: 2               # RTX 3080 (10GB) 기준 1024 해상도 + YOLO11L은 2~4 권장
+  optimizer: "AdamW"
+  lr0: 0.001
+  weight_decay: 0.01
+
+  # schedule
+  warmup_epochs: 4
+  cos_lr: true
+  ema: true
+
+  # stability
+  patience: 30
+  label_smoothing: 0.0
+
+  # augment (알약 도메인 최적화)
+  hsv_h: 0.015
+  hsv_s: 0.7
+  hsv_v: 0.4
+  degrees: 180.0         # 알약은 회전 불변 (Top-down)
+  translate: 0.1
+  scale: 0.5             # 크기 변화 다양화
+  shear: 0.0
+  perspective: 0.0005
+  flipud: 0.5            # 상하 반전 허용
+  fliplr: 0.5
+
+  # mosaic/mixup: 데이터 증강 극대화
+  mosaic: 1.0
+  mixup: 0.15
+  close_mosaic: 10       # 마지막 10 epoch만 mosaic off
+
+  # loss (기본 유지, 필요시 튜닝)
+  box: 7.5
+  cls: 0.5
+  dfl: 1.5
+
+# --- 평가 ---
+evaluate:
+  conf: 0.001
+  nms_iou: 0.6
+
+# --- 제출 ---
+submission:
+  # score 후보를 넉넉히 남기고, NMS로 정리
+  conf: 0.10
+  nms_iou: 0.6
+  max_det_per_image: 4
+  debug:
+    enabled: true
+    sample_size: 12
+    seed: 42
