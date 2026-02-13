@@ -64,6 +64,7 @@ def _apply_train_cli_overrides(config: dict[str, Any], args: argparse.Namespace,
         "epochs": "epochs",
         "imgsz": "imgsz",
         "batch": "batch",
+        "rect": "rect",
         "lr0": "lr0",
         "lrf": "lrf",
         "optimizer": "optimizer",
@@ -118,6 +119,13 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--epochs", type=int, default=None)
     parser.add_argument("--imgsz", type=int, default=None)
     parser.add_argument("--batch", type=int, default=None)
+    parser.add_argument(
+        "--rect",
+        dest="rect",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="rectangular training on/off",
+    )
     parser.add_argument("--lr0", type=float, default=None)
     parser.add_argument("--lrf", type=float, default=None)
     parser.add_argument("--optimizer", default=None)

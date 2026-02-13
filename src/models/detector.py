@@ -155,7 +155,7 @@ class PillDetector:
         # train 섹션의 키를 Ultralytics 인자로 매핑
         _DIRECT_KEYS = [
             "epochs", "imgsz", "batch", "lr0", "lrf", "optimizer",
-            "patience", "workers", "seed", "deterministic", "close_mosaic",
+            "patience", "workers", "seed", "deterministic", "rect", "close_mosaic",
             "pretrained", "save", "save_period", "verbose", "plots",
             # 증강
             "hsv_h", "hsv_s", "hsv_v", "degrees", "translate", "scale",

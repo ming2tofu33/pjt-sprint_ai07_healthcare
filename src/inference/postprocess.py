@@ -80,11 +80,11 @@ def postprocess_detections(
                 {
                     "image_id": image_id,
                     "category_id": category_id,
-                    "bbox_x": round(xywh[0], 2),
-                    "bbox_y": round(xywh[1], 2),
-                    "bbox_w": round(xywh[2], 2),
-                    "bbox_h": round(xywh[3], 2),
-                    "score": round(score, 6),
+                    "bbox_x": float(xywh[0]),
+                    "bbox_y": float(xywh[1]),
+                    "bbox_w": float(xywh[2]),
+                    "bbox_h": float(xywh[3]),
+                    "score": float(score),
                 }
             )
             kept_count += 1

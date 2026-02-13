@@ -44,7 +44,7 @@ def _resolve_cli_path(path_str: str, repo_root: Path) -> Path:
 
 
 def _parse_int_csv(raw: str) -> set[int]:
-    values = [x.strip() for x in raw.split(",") if x.strip()]
+    values = [x.strip().lstrip("\ufeff") for x in raw.split(",") if x.strip()]
     return {int(v) for v in values}
 
 
@@ -262,7 +262,7 @@ def main(argv: list[str] | None = None) -> None:
         if not keep_file.exists():
             logger.error("keep_category_ids 파일이 존재하지 않습니다: %s", keep_file)
             sys.exit(1)
-        for line in keep_file.read_text(encoding="utf-8").splitlines():
+        for line in keep_file.read_text(encoding="utf-8-sig").splitlines():
             text = line.strip()
             if not text:
                 continue

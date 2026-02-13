@@ -27,9 +27,47 @@ if str(REPO_ROOT) not in sys.path:
 
 from src.utils.config_loader import load_experiment_config
 from src.utils.logger import get_logger
-from src.dataprep.output.export_yolo import run_export, verify_labels
+from src.dataprep.output.export_yolo import (
+    build_hardcase_offline_aug,
+    run_export,
+    verify_labels,
+)
 
 logger = get_logger(__name__)
+
+
+def _parse_int_csv(raw: str) -> set[int]:
+    values = [x.strip().lstrip("\ufeff") for x in raw.split(",") if x.strip()]
+    return {int(v) for v in values}
+
+
+def _load_target_ids(ids_arg: str, ids_file: str, repo_root: Path) -> set[int]:
+    if ids_arg.strip():
+        return _parse_int_csv(ids_arg)
+    if ids_file.strip():
+        p = Path(ids_file)
+        if not p.is_absolute():
+            p = (repo_root / p).resolve()
+        if not p.exists():
+            raise FileNotFoundError(f"target ids file not found: {p}")
+        ids: set[int] = set()
+        for line in p.read_text(encoding="utf-8-sig").splitlines():
+            text = line.strip()
+            if not text:
+                continue
+            if "," in text:
+                ids.update(_parse_int_csv(text))
+            else:
+                ids.add(int(text.lstrip("\ufeff")))
+        return ids
+    raise ValueError("Provide either --hardcase-target-category-ids or --hardcase-target-category-ids-file")
+
+
+def _resolve_cli_path(path_str: str, repo_root: Path) -> Path:
+    p = Path(path_str)
+    if p.is_absolute():
+        return p
+    return (repo_root / p).resolve()
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -39,6 +77,19 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--copy", action="store_true", default=False,
                         help="이미지를 복사 (기본: hardlink)")
     parser.add_argument("--verbose", action="store_true", help="상세 로그 출력")
+    parser.add_argument("--build-hardcase", action="store_true", help="STAGE 1 이후 하드케이스 오프라인 증강 생성")
+    parser.add_argument("--hardcase-data-yaml", default="", help="하드케이스 소스 data.yaml (미지정 시 STAGE 1 output)")
+    parser.add_argument("--hardcase-target-category-ids", default="", help="하드케이스 대상 category_id csv")
+    parser.add_argument(
+        "--hardcase-target-category-ids-file",
+        default="runs/analysis/target74_category_ids.txt",
+        help="하드케이스 대상 category_id 파일",
+    )
+    parser.add_argument("--hardcase-focus-category-ids", default="", help="우선 보강 category_id csv (미지정 시 target 전체)")
+    parser.add_argument("--hardcase-copies-per-image", type=int, default=1, help="선정 이미지당 증강 복제 수")
+    parser.add_argument("--hardcase-max-images", type=int, default=0, help="증강 원본 이미지 수 제한(0=전체)")
+    parser.add_argument("--hardcase-out-subdir", default="offline_hardcase_low8_v2", help="data/processed/yolo 하위 출력 폴더명")
+    parser.add_argument("--hardcase-seed", type=int, default=42, help="하드케이스 생성 시드")
     args = parser.parse_args(argv)
 
     run_name: str = args.run_name
@@ -199,6 +250,41 @@ def main(argv: list[str] | None = None) -> None:
                 )
 
     # ── 7) 요약 출력 ────────────────────────────────────────
+    hardcase_summary: dict | None = None
+    if args.build_hardcase:
+        try:
+            if args.hardcase_data_yaml.strip():
+                hardcase_data_yaml = _resolve_cli_path(args.hardcase_data_yaml, repo_root)
+            else:
+                hardcase_data_yaml = Path(result["data_yaml"]).resolve()
+
+            target_ids = _load_target_ids(
+                args.hardcase_target_category_ids,
+                args.hardcase_target_category_ids_file,
+                repo_root,
+            )
+            focus_ids = _parse_int_csv(args.hardcase_focus_category_ids) if args.hardcase_focus_category_ids.strip() else set()
+
+            hardcase_summary = build_hardcase_offline_aug(
+                data_yaml_path=hardcase_data_yaml,
+                target_category_ids=target_ids,
+                focus_category_ids=focus_ids,
+                copies_per_image=max(1, int(args.hardcase_copies_per_image)),
+                max_images=max(0, int(args.hardcase_max_images)),
+                out_subdir=args.hardcase_out_subdir,
+                seed=int(args.hardcase_seed),
+                repo_root=repo_root,
+            )
+            logger.info(
+                "hardcase 생성 완료 | out=%s | selected=%d | aug=%d",
+                hardcase_summary["output_data_yaml"],
+                hardcase_summary["selected_source_images"],
+                hardcase_summary["augmented_images_created"],
+            )
+        except (FileNotFoundError, ValueError) as e:
+            logger.error("hardcase 생성 실패: %s", e)
+            sys.exit(1)
+
     logger.info("=" * 60)
     logger.info("STAGE 1 완료")
     logger.info("  run_name     : %s", run_name)
@@ -208,6 +294,9 @@ def main(argv: list[str] | None = None) -> None:
     logger.info("  val images   : %d", image_counts["val"])
     logger.info("  nc           : %d", nc)
     logger.info("  class_map    : %s", class_map_path)
+    if hardcase_summary is not None:
+        logger.info("  hardcase.yaml: %s", hardcase_summary["output_data_yaml"])
+        logger.info("  hardcase rows: %d -> %d", hardcase_summary["train_rows_original"], hardcase_summary["train_rows_new"])
     logger.info("=" * 60)
 
 

@@ -28,7 +28,10 @@ from pathlib import Path
 from time import perf_counter
 from typing import Any, Iterable
 
+import cv2
+import numpy as np
 import pandas as pd
+import yaml
 
 try:
     from tqdm import tqdm
@@ -567,6 +570,249 @@ def verify_labels(output_dir: Path, nc: int, progress: bool = False) -> dict:
                         break
 
     return {"total_files": total_files, "total_lines": total_lines, "errors": errors}
+
+
+def _to_posix_abs(p: Path) -> str:
+    return str(p.resolve()).replace("\\", "/")
+
+
+def _load_idx_to_category(names: Any) -> dict[int, int]:
+    if isinstance(names, dict):
+        return {int(k): int(v) for k, v in names.items()}
+    if isinstance(names, list):
+        return {i: int(v) for i, v in enumerate(names)}
+    raise ValueError("Unsupported names format in data.yaml (expected dict or list)")
+
+
+def _image_to_label_path(image_path: Path) -> Path:
+    s = str(image_path).replace("\\", "/")
+    if "/images/" not in s:
+        raise ValueError(f"cannot map image->label path (missing '/images/'): {image_path}")
+    label_s = s.replace("/images/", "/labels/")
+    return Path(label_s).with_suffix(".txt")
+
+
+def _read_label_classes(label_path: Path) -> list[int]:
+    if not label_path.exists():
+        return []
+    classes: list[int] = []
+    for line in label_path.read_text(encoding="utf-8").splitlines():
+        text = line.strip()
+        if not text:
+            continue
+        parts = text.split()
+        if not parts:
+            continue
+        try:
+            cls_idx = int(float(parts[0]))
+        except ValueError:
+            continue
+        classes.append(cls_idx)
+    return classes
+
+
+def _gamma_transform(img: np.ndarray, gamma: float) -> np.ndarray:
+    inv = 1.0 / max(gamma, 1e-6)
+    table = np.array([(i / 255.0) ** inv * 255 for i in range(256)]).astype(np.uint8)
+    return cv2.LUT(img, table)
+
+
+def _motion_blur_kernel(size: int, angle_deg: float) -> np.ndarray:
+    kernel = np.zeros((size, size), dtype=np.float32)
+    kernel[size // 2, :] = 1.0
+    center = (size / 2.0 - 0.5, size / 2.0 - 0.5)
+    mat = cv2.getRotationMatrix2D(center, angle_deg, 1.0)
+    rotated = cv2.warpAffine(kernel, mat, (size, size))
+    denom = max(rotated.sum(), 1e-6)
+    return rotated / denom
+
+
+def _apply_hardcase(img: np.ndarray, rng: np.random.Generator) -> tuple[np.ndarray, dict[str, Any]]:
+    out = img.copy()
+    meta: dict[str, Any] = {}
+
+    gamma = float(rng.uniform(0.7, 1.5))
+    out = _gamma_transform(out, gamma)
+    meta["gamma"] = gamma
+
+    alpha = float(rng.uniform(0.85, 1.2))
+    beta = int(rng.integers(-20, 21))
+    out = cv2.convertScaleAbs(out, alpha=alpha, beta=beta)
+    meta["alpha_contrast"] = alpha
+    meta["beta_brightness"] = beta
+
+    exposure_mode = rng.choice(["over", "under", "none"], p=[0.35, 0.35, 0.30]).item()
+    meta["exposure_mode"] = exposure_mode
+    if exposure_mode == "over":
+        add = int(rng.integers(15, 50))
+        out = cv2.convertScaleAbs(out, alpha=1.0, beta=add)
+        meta["exposure_shift"] = add
+    elif exposure_mode == "under":
+        sub = int(rng.integers(15, 50))
+        out = cv2.convertScaleAbs(out, alpha=1.0, beta=-sub)
+        meta["exposure_shift"] = -sub
+    else:
+        meta["exposure_shift"] = 0
+
+    blur_mode = rng.choice(["gaussian", "motion"], p=[0.55, 0.45]).item()
+    meta["blur_mode"] = blur_mode
+    if blur_mode == "gaussian":
+        k = int(rng.choice([3, 5, 7]))
+        sigma = float(rng.uniform(0.2, 1.6))
+        out = cv2.GaussianBlur(out, (k, k), sigmaX=sigma, sigmaY=sigma)
+        meta["blur_k"] = k
+        meta["blur_sigma"] = sigma
+    else:
+        k = int(rng.choice([5, 7, 9, 11, 13]))
+        ang = float(rng.uniform(0.0, 180.0))
+        kernel = _motion_blur_kernel(k, ang)
+        out = cv2.filter2D(out, -1, kernel)
+        meta["blur_k"] = k
+        meta["blur_angle"] = ang
+
+    return out, meta
+
+
+def build_hardcase_offline_aug(
+    *,
+    data_yaml_path: Path,
+    target_category_ids: set[int],
+    focus_category_ids: set[int],
+    copies_per_image: int = 1,
+    max_images: int = 0,
+    out_subdir: str = "offline_hardcase_low8_v2",
+    seed: int = 42,
+    repo_root: Path | None = None,
+) -> dict[str, Any]:
+    """Build offline hardcase-augmented train list/yaml from an existing YOLO dataset."""
+    if not data_yaml_path.exists():
+        raise FileNotFoundError(f"data yaml not found: {data_yaml_path}")
+    if not target_category_ids:
+        raise ValueError("target_category_ids is empty")
+
+    root = repo_root or REPO_ROOT
+    cfg = yaml.safe_load(data_yaml_path.read_text(encoding="utf-8"))
+    idx2cat = _load_idx_to_category(cfg.get("names"))
+
+    yolo_root = _resolve_repo_path(str(cfg.get("path", "data/processed/yolo")), root)
+    train_list_path = _resolve_repo_path(str(cfg.get("train")), yolo_root)
+    if not train_list_path.exists():
+        raise FileNotFoundError(f"train list not found: {train_list_path}")
+
+    if focus_category_ids:
+        focus_ids = {x for x in focus_category_ids if x in target_category_ids}
+    else:
+        focus_ids = set(target_category_ids)
+    if not focus_ids:
+        raise ValueError("focus_category_ids became empty after filtering against target ids")
+
+    out_base = (root / "data/processed/yolo" / out_subdir).resolve()
+    out_img_dir = out_base / "images" / "train"
+    out_lbl_dir = out_base / "labels" / "train"
+    out_base.mkdir(parents=True, exist_ok=True)
+    out_img_dir.mkdir(parents=True, exist_ok=True)
+    out_lbl_dir.mkdir(parents=True, exist_ok=True)
+
+    train_lines = [ln.strip() for ln in train_list_path.read_text(encoding="utf-8").splitlines() if ln.strip()]
+    rng = np.random.default_rng(seed)
+
+    selected: list[tuple[Path, Path, list[int]]] = []
+    for line in train_lines:
+        img_path = Path(line)
+        if not img_path.is_absolute():
+            img_path = _resolve_repo_path(line, yolo_root)
+        label_path = _image_to_label_path(img_path)
+        cls_indices = _read_label_classes(label_path)
+        if not cls_indices:
+            continue
+        cats = [idx2cat[c] for c in cls_indices if c in idx2cat]
+        if not cats:
+            continue
+        if not any(c in target_category_ids for c in cats):
+            continue
+        if not any(c in focus_ids for c in cats):
+            continue
+        selected.append((img_path, label_path, cats))
+
+    if max_images > 0 and len(selected) > max_images:
+        sel_idx = rng.choice(len(selected), size=max_images, replace=False)
+        selected = [selected[int(i)] for i in sel_idx]
+
+    manifest_rows: list[dict[str, Any]] = []
+    aug_paths: list[str] = []
+
+    for img_path, label_path, cats in selected:
+        img = cv2.imread(str(img_path), cv2.IMREAD_COLOR)
+        if img is None:
+            continue
+
+        stem = img_path.stem
+        for i in range(copies_per_image):
+            aug_img, meta = _apply_hardcase(img, rng)
+            aug_name = f"{stem}__hc{i+1:02d}.png"
+            dst_img = out_img_dir / aug_name
+            dst_lbl = out_lbl_dir / f"{Path(aug_name).stem}.txt"
+
+            ok = cv2.imwrite(str(dst_img), aug_img)
+            if not ok:
+                continue
+            shutil.copy2(label_path, dst_lbl)
+
+            aug_paths.append(_to_posix_abs(dst_img))
+            manifest_rows.append(
+                {
+                    "source_image": _to_posix_abs(img_path),
+                    "source_label": _to_posix_abs(label_path),
+                    "aug_image": _to_posix_abs(dst_img),
+                    "aug_label": _to_posix_abs(dst_lbl),
+                    "focus_hit_categories": ",".join(str(c) for c in sorted(set(c for c in cats if c in focus_ids))),
+                    "gamma": meta.get("gamma"),
+                    "alpha_contrast": meta.get("alpha_contrast"),
+                    "beta_brightness": meta.get("beta_brightness"),
+                    "exposure_mode": meta.get("exposure_mode"),
+                    "exposure_shift": meta.get("exposure_shift"),
+                    "blur_mode": meta.get("blur_mode"),
+                    "blur_k": meta.get("blur_k"),
+                    "blur_sigma": meta.get("blur_sigma", ""),
+                    "blur_angle": meta.get("blur_angle", ""),
+                }
+            )
+
+    out_train_list = out_base / "train_with_hardcase.txt"
+    merged_lines = train_lines + aug_paths
+    out_train_list.write_text("\n".join(merged_lines) + "\n", encoding="utf-8")
+
+    out_yaml = out_base / "data_with_hardcase.yaml"
+    out_cfg = dict(cfg)
+    out_cfg["path"] = "data/processed/yolo"
+    out_cfg["train"] = f"{out_subdir}/train_with_hardcase.txt"
+    out_yaml.write_text(yaml.safe_dump(out_cfg, sort_keys=False, allow_unicode=True), encoding="utf-8")
+
+    manifest_csv = out_base / "hardcase_manifest.csv"
+    if manifest_rows:
+        with manifest_csv.open("w", newline="", encoding="utf-8") as f:
+            writer = csv.DictWriter(f, fieldnames=list(manifest_rows[0].keys()))
+            writer.writeheader()
+            writer.writerows(manifest_rows)
+
+    summary = {
+        "data_yaml_src": str(data_yaml_path.resolve()),
+        "train_list_src": str(train_list_path.resolve()),
+        "target_category_count": len(target_category_ids),
+        "focus_category_count": len(focus_ids),
+        "selected_source_images": len(selected),
+        "copies_per_image": copies_per_image,
+        "augmented_images_created": len(aug_paths),
+        "train_rows_original": len(train_lines),
+        "train_rows_new": len(merged_lines),
+        "output_train_list": str(out_train_list.resolve()),
+        "output_data_yaml": str(out_yaml.resolve()),
+        "output_manifest_csv": str(manifest_csv.resolve()),
+    }
+    summary_path = out_base / "summary.json"
+    summary_path.write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
+    summary["output_summary_json"] = str(summary_path.resolve())
+    return summary
 
 
 # ─────────────────────────────────────────────
