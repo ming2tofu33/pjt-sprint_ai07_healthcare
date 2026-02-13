@@ -49,6 +49,7 @@ STOP=4
 CONF=""
 VERBOSE_ALL=false
 RESUME_TRAIN=""
+AUTO_RESUME_TRAIN=""
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
