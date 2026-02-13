@@ -11,15 +11,15 @@
 
 ---
 
-## 📌 Project Overview ⭐⭐⭐⭐⭐
+## 📌 Project Overview
 
 **Task:** Object Detection for Medical Pill Images  
 **Goal:** 재현 가능한 파이프라인으로 약 객체의 정확한 위치 및 클래스 예측
 
 - **Model:** YOLO-based Detector (YOLOv8m)
 - **Framework:** PyTorch / Ultralytics
-- **Key Feature:** 표준화된 실험 관리 + 자동 제출 산출물 생성 + 재현성 100% 보장
-- **Focus:** 데이터 전처리부터 학습·평가·제출까지 전 과정 자동화
+- **Key Feature:** STAGE 0~4 표준 파이프라인 + `competition_best.pt` 우선 선택 + 제출 검증 자동화
+- **Focus:** 대회 지표 `mAP75_95` 중심으로 데이터 전처리부터 학습·평가·제출까지 전 과정 추적
 
 본 프로젝트는 **재현 가능한 데이터 처리, 안정적인 학습/평가, 제출 산출물의 일관된 관리**를 목표로 설계되었습니다.
 
@@ -31,13 +31,13 @@
 |------|------|
 | **프로젝트명** | Healthcare Pill Detection |
 | **목표** | 모바일 촬영 알약 이미지에서 최대 4개 객체 검출 |
-| **데이터셋** | X,XXX장 (Train/Val/Test: 70/15/15) |
-| **클래스 수** | XXX개 알약 종류 |
-| **최종 모델** | YOLOv8m (2-stage training) |
-| **최종 성능** | mAP@0.75:0.95: 0.XXX / Public Score: 0.99402 |
-| **Baseline 대비 개선** | +X.X% |
-| **핵심 기법** | 2단계 학습, 클래스별 오버샘플링, TTA |
-| **개발 기간** | YYYY.MM - YYYY.MM (N주) |
+| **데이터셋** | Raw 총 14,244장 (내부 232 + External 14,012), 정제 후 학습 이미지 10,226장 / 박스 39,226개 |
+| **클래스 수** | 학습 118개 클래스(통합 기준), 제출 필터 실험 74개 카테고리 |
+| [변경:R-01] **최종 모델** | YOLOv8m 고해상도 파인튜닝 + 제출 후처리 튜닝 |
+| **최종 성능** | Public Score 0.99524 (최종 제출본 2) |
+| **초기 모델 대비 Public Score 개선** | 상대적 개선 약 + 10.5% 성능 향상  (0.90052 → 0.99524) |
+| **핵심 기법** | exclude_4444_208 필터, external 통합 매핑, 고해상도/rect 실험, 제출 후처리 표준화 |
+| **개발 기간** | 2026.01.29 - 2026.02.13 |
 | **팀 구성** | 5인 (PM, Data Engineer, Model Architect 등) |
 
 ---
@@ -48,24 +48,50 @@
 
 | 단계 | 모델 | 핵심 기법 | mAP@0.5 | mAP@0.5:0.95 | Epoch | Public Score | 개선 폭 |
 |------|------|-----------|---------|--------------|-------|--------------|---------|
-| Baseline | YOLOv8n | Default config | 0.XXX | 0.XXX | 50 | 0.960 | - |
-| v1 | YOLOv8m | 모델 크기 증가 | 0.XXX | 0.XXX | 50 | 0.96X | +X.X% |
-| v2 | YOLOv8m | +2단계 학습 | 0.XXX | 0.XXX | 100 | 0.97X | +X.X% |
-| v3 | YOLOv8m | +오버샘플링 | 0.XXX | 0.XXX | 100 | 0.98X | +X.X% |
-| **Final** | **YOLOv8m** | **+TTA** | **0.XXX** | **0.XXX** | **100** | **0.99X** | **+X.X%** |
+| v0 First Model | | | |
+| v1 Baseline Model | YOLOv8s | |  |
+| [변경:R-02] v1 (Baseline 개선 1차) | YOLOv8m | 데이터 정제 + 튜닝 | 작성 예정 | **0.95200** | 작성 예정 | **0.96859** | - |
+| [변경:R-02] v2 (개선 2차) | YOLOv8m | external 통합 + `exclude_4444_208` 적용 | 작성 예정 | 작성 예정 | 작성 예정 | **0.99361** | +0.02502p |
+| [변경:R-02] v3 (최종 제출본 1) | YOLOv8m | 고해상도/rect + 제출 후처리 | **0.98937** | **0.98615** | 48(최고점 기준) | **0.99402** | +0.00041p |
+| [변경:R-02] **v4 (최종 제출본 2)** | **YOLOv8m** | **하드케이스 보강 + 후처리 표준화** | 작성 예정 | 작성 예정 | 작성 예정 | **0.99524** | **+0.00122p** |
 
 ### Key Improvements
 
-- **2단계 학습 (+X.X%)**: COCO pretrained → Pill dataset fine-tuning으로 작은 객체 검출 성능 향상
-- **클래스별 오버샘플링 (+X.X%)**: 소수 클래스(100개 미만) 2배 증강으로 클래스 불균형 완화
-- **TTA (+X.X%)**: Flip + Multi-scale 추론으로 최종 mAP 개선 (단, 추론 시간 3배 증가)
+  **점수 개선 흐름:** `(초기 모델) 0.90052 -> 0.96859 -> 0.99361 -> 0.99402 -> 0.99524`
+- **핵심 평가 지표:** `mAP75_95`를 대회 기준 핵심 지표로 사용하고, `mAP50`, `mAP50_95`는 보조 지표로 함께 추적
+- **가중치 선택 전략:** STAGE 2에서 `best.pt`/`last.pt`를 재평가해 `competition_best.pt`를 생성하고, STAGE 3/4에서 우선 사용
 
 📊 **전체 실험 로그:** [runs/_registry.csv](runs/_registry.csv)  
 📄 **상세 분석:** [docs/02_experiments.md](docs/02_experiments.md)
 
 ---
 
-## 👥 Team & Contributions ⭐⭐⭐⭐
+## 🧪 Experiment Demo
+
+🔍 Stage별 실험 작동 데모
+
+| Stage |  Demo - 동작 설명  |
+|------|------|
+| **Stage 0** | ![Stage 0](docs/exp_gif/run_0.gif) |
+| 0 단계 | 데이터 정제/검증/분할 + COCO 재조립 |
+| **Stage 1** | ![Stage 1](docs/exp_gif/run_1.gif) |
+| 1 단계 | YOLO 학습용 데이터셋 변환 + 라벨 검증 |
+| **Stage 2** | ![Stage 2](docs/exp_gif/run_2.gif) |
+| 2 단계 | 모델 학습 + `competition_best.pt` 선택 |
+| **Stage 3**  | ![Stage 3](docs/exp_gif/run_3.gif) |
+| 3 단계 | 검증셋 평가 + `metrics.json` 업데이트  |
+| **Stage 4** | ![Stage 4](docs/exp_gif/run_4.gif) |
+| 4 단계 | 테스트 추론 + 제출 CSV/manifest 생성 |
+
+### 원커맨드 파이프라인 실행 데모
+
+| Run Pipeline |
+|------|
+| ![OneQ Run](docs/exp_gif/oneQ-run.gif) |
+
+---
+
+## 👥 Team & Contributions 
 
 | Member | ▶ Lead Role </br> ▷ Sub Role | Key Contributions |
 | :------: | ------  | ------ | 
@@ -77,7 +103,7 @@
 
 ---
 
-## 💡 Approach & Strategy ⭐⭐⭐⭐
+## 💡 Approach & Strategy
 
 ### 1. 문제 분석
 
@@ -87,81 +113,72 @@
 
 ### 2. 핵심 전략
 
-1. **2단계 학습**: Pretrained COCO → Fine-tuning on Pill dataset (전이 학습 효과)
-2. **클래스별 오버샘플링**: 100개 미만 샘플 클래스 2배 복제 → 불균형 완화
-3. **TTA (Test Time Augmentation)**: Flip + Multi-scale 추론으로 robustness 확보
+1. **STAGE 0~1 데이터 정합성 강화**: `exclude_4444_208.txt` 기반 수동 제외 + external 매핑/정제 + YOLO 포맷 변환 표준화
+2. **STAGE 2~3 모델 선택 안정화**: `competition_select`로 `competition_best.pt`를 생성해 검증/제출에 일관 적용
+3. **STAGE 4 제출 후처리 표준화**: `conf`, `min-conf`, `NMS IoU`, `Top-k`, category 필터를 명시적으로 관리
 
 ### 3. 실험 과정 요약
 
 ```
-Baseline (YOLOv8s) 
-  ↓ 모델 크기 증가
-YOLOv8m 
-  ↓ 2단계 학습
-성능 향상 
-  ↓ 클래스별 오버샘플링
-불균형 해소 
-  ↓ TTA
-최종 제출
+v0 : First Model Public 0.90052
+  ↓ -
+v1: Baseline Model Public 0.96859
+  ↓ external 통합 + exclude_4444_208
+v2 Public 0.99361
+  ↓ 고해상도/rect + 후처리 튜닝
+v3 Public 0.99402
+  ↓ 하드케이스 보강 + 저신뢰 구간 보정
+v4 Public 0.99524
 ```
+
 
 📄 **상세 실험 과정:** [docs/02_experiments.md](docs/02_experiments.md)
 
 ---
 
-## 🔍 Key Improvements & Lessons Learned ⭐⭐⭐⭐
-
-> TODO(USER): 이 섹션은 초안입니다. 검증된 수치/근거로 직접 수정해주세요.
+## 🔍 Key Improvements & Lessons Learned
 
 ### ✅ 성능 향상 요인
 
-#### 1. 2단계 학습 (+X.X%)
-- **방법**: COCO pretrained weights → Pill dataset fine-tuning
-- **효과**: 작은 객체(< 50px) 검출율 15% 향상
-- **이유**: 일반 객체 지식 활용 + 도메인 특화 학습
+#### 1. 대회 지표 중심 추적 체계
+- **방법**: STAGE 2/3에서 `mAP75_95`를 핵심 지표로 기록하고 `runs/_registry.csv`에 누적 관리
+- **효과**: 실험 간 비교 기준을 단일화하여 모델 선택 의사결정 단순화
 
-#### 2. 클래스별 오버샘플링 (+X.X%)
-- **방법**: 샘플 수 100개 미만 클래스를 2배 복제
-- **효과**: 소수 클래스 Recall 20% 향상
-- **이유**: 클래스 불균형 완화 → 희귀 알약 학습 개선
+#### 2. 데이터 정합성 강화
+- **방법**: `exclude_4444_208` 적용, external 데이터 category 매핑, STAGE 0/1의 표준화된 정제-변환
+- **효과**: 잘못된 라벨/중복/불일치 데이터 유입을 줄여 제출 안정성 향상
 
-#### 3. TTA (Test Time Augmentation) (+X.X%)
-- **방법**: Horizontal Flip + Multi-scale (0.9, 1.0, 1.1)
-- **효과**: mAP 0.5% 향상
-- **Trade-off**: 추론 시간 3배 증가 → 최종 제출에만 사용
+#### 3. 제출 품질 관리 자동화
+- **방법**: `competition_best.pt` 우선 선택, 후처리 파라미터(`conf/min-conf/iou/topk`) 표준화
+- **효과**: 제출 포맷 오류를 줄이고 점수 개선 실험을 반복 가능하게 운영
 
 ---
 
 ### ❌ 시도했으나 효과 없었던 것
 
-#### 1. Mosaic Augmentation 강화
-- **시도**: Mosaic probability 0.5 → 1.0
-- **결과**: mAP -0.3% 하락
-- **원인**: 알약 이미지가 단순하여 과도한 증강이 노이즈로 작용
-- **교훈**: 도메인 특성에 맞는 증강 전략 필요
+#### 1. 과도한 합성 증강
+- **관찰**: 도메인 특성과 맞지 않는 강한 증강은 bbox 품질과 일반화에 불리할 수 있음
+- **결론**: 고해상도/rect 기반의 안정적 파인튜닝과 보수적 후처리 조합이 더 일관적
 
-#### 2. Attention Mechanism 추가
-- **시도**: YOLOv8에 CBAM (Channel/Spatial Attention) 추가
-- **결과**: 성능 유사 (+0.1%), 학습 시간 2배 증가
-- **원인**: 알약 검출은 feature가 명확하여 추가 attention 불필요
-- **교훈**: 모델 복잡도 증가 ≠ 성능 향상
+#### 2. 과도한 모델 복잡도 증가
+- **관찰**: 복잡도 상승 대비 점수 향상이 제한적일 수 있음
+- **결론**: 현재는 파이프라인 정합성/실험 재현성 개선이 성능 개선에 더 직접적
 
 ---
 
-## 🛠️ Tech Stack ⭐⭐⭐⭐
+## 🛠️ Tech Stack
 
 | 분류 | 기술 |
 |------|------|
-| **Framework** | PyTorch 2.0+, Ultralytics YOLOv8 |
-| **Model** | YOLOv8m (pretrained on COCO) |
-| **Environment** | Python 3.11, CUDA 12.1, Jupyter Lab |
-| **Tools** | Git, Weights & Biases (실험 추적), TensorBoard |
-| **MLOps** | Docker, GitHub Actions (CI/CD 파이프라인) |
-| **Visualization** | Matplotlib, Seaborn, Plotly |
+| **Framework** | PyTorch 2.5.1 + Ultralytics 8.4.12 |
+| **Model Family** | YOLOv8 / YOLO11 실험 |
+| **Data Processing** | Pandas, Polars, OpenCV, Albumentations |
+| **Experiment Tracking** | `runs/_registry.csv`, `metrics.json`, `config_resolved.yaml` |
+| **Visualization** | Matplotlib, Seaborn |
 
 ---
 
-## 🖥️ Environment Setup ⭐⭐⭐⭐⭐
+## 🖥️ Environment Setup 
 
 ### System Requirements
 
@@ -197,7 +214,7 @@ pip install -r requirements.txt
 
 ---
 
-## 🚀 Quick Start ⭐⭐⭐⭐⭐
+## 🚀 Quick Start
 
 ### Step-by-Step Execution
 
@@ -225,15 +242,16 @@ bash scripts/run_pipeline.sh --run-name $RUN_NAME --config $CONFIG
 
 | Config File | Description | Use Case |
 |-------------|-------------|----------|
-| `configs/experiments/baseline.yaml` | YOLOv8n 기본 설정 | 빠른 프로토타이핑 |
-| `configs/experiments/yolov8m.yaml` | YOLOv8m + 2단계 학습 | 성능 향상 실험 |
-| `configs/experiments/final.yaml` | 최종 제출 설정 (TTA 포함) | 대회 제출용 |
+| `configs/experiments/baseline.yaml` | 공통 baseline 템플릿 | 빠른 파이프라인 검증 |
+| `configs/experiments/yolov8s_baseline.yaml` | YOLOv8s baseline 학습 | 단일 모델 기준선 확보 |
+| `configs/experiments/yolo11m_ext_balanced_v1.yaml` | YOLO11m + external 통합 실험 | 성능 비교 실험 |
+| `configs/experiments/yolov8s_hSV_v2.yaml` | HSV 튜닝 실험 | 데이터 증강 계열 비교 |
 
 📄 **상세 설정 가이드:** [docs/02_experiments.md](docs/02_experiments.md)
 
 ---
 
-## 📁 Project Structure ⭐⭐⭐⭐⭐
+## 📁 Project Structure
 
 ```
 pjt-sprint_ai07_healthcare/
@@ -275,7 +293,7 @@ pjt-sprint_ai07_healthcare/
 
 ---
 
-## ⚙️ Operating Principles ⭐⭐⭐⭐
+## ⚙️ Operating Principles
 
 우리 팀은 **재현성 · 일관성 · 추적 가능성**을 위해 다음 원칙을 따릅니다:
 
@@ -298,25 +316,23 @@ pjt-sprint_ai07_healthcare/
 
 ---
 
-## 🧪 Experiment Management ⭐⭐⭐
+## 🧪 Experiment Management 
 
 ### 실험 자동 기록
 
 모든 실험은 자동으로 기록되며, 다음 위치에 저장됩니다:
 
 - **실험 설정**: `runs/<run_name>/config_resolved.yaml`
-- **학습 결과**: `runs/<run_name>/train/` (weights, logs, TensorBoard)
-- **평가 결과**: `runs/<run_name>/results/` (metrics.json, confusion_matrix.png)
-- **제출 파일**: `runs/<run_name>/submit/` (submission.csv, metadata.json)
+- **학습 결과**: `runs/<run_name>/train/` (`compact`) 또는 `runs/<run_name>/` (`legacy`)
+- **평가 결과**: `runs/<run_name>/eval/val/` + `runs/<run_name>/metrics.json`
+- **제출 파일**: `artifacts/submissions/*.csv`, `runs/<run_name>/submit/` (`compact`)
 
 ### 실험 비교
 
 ```bash
-# 여러 실험 비교
-python scripts/compare_experiments.py --exp-ids exp001,exp002,exp003
-
 # 전체 실험 요약 확인
-cat runs/_registry.csv
+type runs\\_registry.csv   # Windows
+# cat runs/_registry.csv   # Linux/Mac
 ```
 
 📊 **전체 실험 요약**: [runs/_registry.csv](runs/_registry.csv)  
@@ -331,8 +347,8 @@ cat runs/_registry.csv
 
 | Mode | STAGE 2 Output | STAGE 4 Output |
 |------|----------------|----------------|
-| `legacy` (default) | `runs/<run_name>/` | `submission_debug/`, `submission_manifest.json` |
-| `compact` | `runs/<run_name>/train/` | `submit/debug/`, `submission_manifest.json` |
+| `compact` (default) | `runs/<run_name>/train/` | `runs/<run_name>/submit/debug/`, `runs/<run_name>/submit/submission_manifest.json` |
+| `legacy` | `runs/<run_name>/` | `runs/<run_name>/submission_debug/`, `runs/<run_name>/submission_manifest.json` |
 
 일반적으로 default 모드 사용을 권장합니다.
 
@@ -360,7 +376,7 @@ cat runs/_registry.csv
 - ✅ **재현 가능한 데이터 파이프라인 구축** (Random Seed 고정 + 설정 버전 관리)
 - ✅ **실험 기록 자동화 및 산출물 일관성 확보** (`runs/_registry.csv` 중앙 관리)
 - ✅ **YOLO 기반 모델의 안정적 학습/평가 환경 구성** (One-command 실행)
-- ✅ **Baseline 대비 +X.X% 성능 향상** (mAP@0.5:0.95: 0.XXX → 0.XXX)
+- ✅ **Public Score + 10.5% 개선** (`0.90052 -> 0.99524`)
 
 ### 향후 개선 방향
 
@@ -371,34 +387,25 @@ cat runs/_registry.csv
 
 ---
 
-## 📚 References ⭐⭐⭐
-
-> TODO(USER): placeholder 항목(예: Related Work)을 실제 참고문헌으로 교체해주세요.
+## 📚 References
 
 - [Ultralytics YOLOv8 Documentation](https://docs.ultralytics.com/)
 - [YOLOv8 Paper: "YOLOv8: A Real-Time Object Detection System"](https://arxiv.org/)
 - [PyTorch Official Documentation](https://pytorch.org/docs/stable/index.html)
 - [COCO Dataset](https://cocodataset.org/)
-- [Related Work 1: Medical Image Object Detection]
-- [Related Work 2: Class Imbalance in Object Detection]
 
 ---
 
-## 📄 License ⭐⭐
-
-This project is licensed under the MIT License
-
----
-
-## 🙏 Acknowledgments ⭐⭐
+## 🙏 Acknowledgments 
 
 - **Dataset**: Kaggle 비공식 대회
 - **Pretrained Model**: [Ultralytics YOLO](https://github.com/ultralytics/ultralytics)
-- **Mentor**: [Jinyong Shin](https://github.com/jinyongshin) - 프로젝트 방향 설정 및 기술 자문- **Team Members**: 협업과 코드 리뷰에 감사드립니다
+- **Mentor**: [Jinyong Shin](https://github.com/jinyongshin) - 프로젝트 방향 설정 및 기술 자문
+- **Team Members**: 협업과 코드 리뷰에 감사드립니다.
 
 ---
 
-## 📞 Contact ⭐
+## 📞 Contact 
 
 - **Email**: ming2tofu33@gmail.com
 - **Blog**: [프로젝트 페이지](https://www.notion.so/sprint-ai07-healthcare/Healthcare-Project-0787fcf828e6834da8f40130b654fa4c)
@@ -414,24 +421,6 @@ This project is licensed under the MIT License
 
 ---
 
-## 🚧 Known Issues & Limitations ⭐⭐
-
-> TODO(USER): 이 섹션은 초안입니다. 실제 실험 근거로 보완해주세요.
-
-### Current Limitations
-
-- **추론 속도**: TTA 적용 시 추론 시간 3배 증가 (배포 환경에서는 미사용 권장)
-- **작은 객체 검출**: 30px 미만 객체의 검출율 여전히 낮음 (Recall < 70%)
-- **클래스 불균형**: 일부 희귀 클래스(< 10 샘플)는 학습 부족
-
-### Future Work
-
-- Multi-scale Training 강화
-- Focal Loss 적용 실험
-- 추가 데이터 수집 (희귀 클래스 우선)
-
----
-
 ## 📖 Documentation
 
 | 문서 | 내용 |
@@ -441,7 +430,6 @@ This project is licensed under the MIT License
 | [00_quickstart.md](docs/00_quickstart.md) | 프로젝트 시작 가이드 |
 | [01_data_pipeline.md](docs/01_data_pipeline.md) | 데이터 처리 파이프라인 상세 |
 | [02_experiments.md](docs/02_experiments.md) | 실험 관리 및 설정 가이드 |
-| [03_retrospective.md](docs/03_retrospective.md) | 프로젝트 회고 및 인사이트 |
-| [visualization.md](docs/visualization.md) | 결과 시각화 모음 |
+| [docs/03_retrospective.md](docs/03_retrospective.md) | 프로젝트 회고 및 인사이트 |
 
 ---
