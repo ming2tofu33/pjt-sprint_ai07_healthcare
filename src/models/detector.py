@@ -236,6 +236,7 @@ class PillDetector:
             "epochs", "imgsz", "batch", "lr0", "lrf", "optimizer",
             "patience", "workers", "seed", "deterministic", "close_mosaic",
             "pretrained", "save", "save_period", "verbose", "plots",
+            "rect",
             # 증강
             "hsv_h", "hsv_s", "hsv_v", "degrees", "translate", "scale",
             "shear", "perspective", "flipud", "fliplr",
@@ -248,6 +249,7 @@ class PillDetector:
         for key in _DIRECT_KEYS:
             if key in train_cfg:
                 kwargs[key] = train_cfg[key]
+        logger.info("train option | rect=%s", kwargs.get("rect", "<ultralytics_default>"))
 
         # 로그 모드: 기본은 기존 배치 로그(batch) 유지, epoch 모드는 배치 로그를 억제한다.
         log_mode = str(train_cfg.get("log_mode", "batch")).strip().lower()

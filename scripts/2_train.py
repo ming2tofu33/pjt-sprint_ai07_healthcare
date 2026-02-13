@@ -177,15 +177,38 @@ def main(argv: list[str] | None = None) -> None:
         artifact_layout = "legacy"
 
     # 2) 경로 결정
+    datasets_base = Path(paths_cfg.get("datasets_dir", "data/processed/datasets"))
+    if not datasets_base.is_absolute():
+        datasets_base = (repo_root / datasets_base).resolve()
+    dataset_prefix = config.get("yolo_convert", {}).get("dataset_prefix", "pill_od_yolo")
+    dataset_dir = datasets_base / f"{dataset_prefix}_{run_name}"
+    default_data_yaml = dataset_dir / "data.yaml"
+
+    balanced_cfg_raw = train_cfg.get("balanced_sampling", {})
+    balanced_cfg = balanced_cfg_raw if isinstance(balanced_cfg_raw, dict) else {}
+    balanced_enabled = bool(balanced_cfg.get("enabled", False))
+    balanced_output_name = str(balanced_cfg.get("output_data_yaml", "data_balanced.yaml")).strip() or "data_balanced.yaml"
+
     if args.data_yaml:
         data_yaml = _resolve_cli_path(args.data_yaml, repo_root)
+        logger.info("학습 data.yaml 선택: CLI override | %s", data_yaml)
     else:
-        datasets_base = Path(paths_cfg.get("datasets_dir", "data/processed/datasets"))
-        if not datasets_base.is_absolute():
-            datasets_base = (repo_root / datasets_base).resolve()
-        dataset_prefix = config.get("yolo_convert", {}).get("dataset_prefix", "pill_od_yolo")
-        dataset_dir = datasets_base / f"{dataset_prefix}_{run_name}"
-        data_yaml = dataset_dir / "data.yaml"
+        data_yaml = default_data_yaml
+        if balanced_enabled:
+            balanced_data_yaml = Path(balanced_output_name)
+            if not balanced_data_yaml.is_absolute():
+                balanced_data_yaml = dataset_dir / balanced_data_yaml
+            if balanced_data_yaml.exists():
+                data_yaml = balanced_data_yaml
+                logger.info("학습 data.yaml 선택: balanced sampling manifest | %s", data_yaml)
+            else:
+                logger.warning(
+                    "balanced_sampling.enabled=true 이지만 data yaml이 없어 기본값으로 폴백합니다: %s",
+                    balanced_data_yaml,
+                )
+                logger.info("학습 data.yaml 선택: default fallback | %s", data_yaml)
+        else:
+            logger.info("학습 data.yaml 선택: default | %s", data_yaml)
 
     if not data_yaml.exists():
         logger.error("data.yaml이 존재하지 않습니다: %s", data_yaml)

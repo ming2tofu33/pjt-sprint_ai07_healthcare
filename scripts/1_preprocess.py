@@ -29,6 +29,7 @@ from src.utils.config_loader import load_experiment_config
 from src.utils.logger import get_logger
 from src.dataprep.output.export_yolo import run_export, verify_labels
 from src.dataprep.output.data_pipeline import augment_minority_classes  # AB / 호출 추가
+from src.dataprep.output.balanced_train_list import build_balanced_train_manifest
 
 logger = get_logger(__name__)
 
@@ -169,7 +170,12 @@ def main(argv: list[str] | None = None) -> None:
         logger.error("누락 이미지가 임계값 초과 — critical failure")
         sys.exit(1)
 
-    augment_minority_classes(config, output_dir)    # AB / 소수 클래스 증강 수행
+    aug_result = augment_minority_classes(config, output_dir)
+    if aug_result:
+        logger.info("증강 요약: classes=%d, generated=%d, errors=%d",
+                     aug_result.get("augmented_classes", 0),
+                     aug_result.get("total_generated", 0),
+                     aug_result.get("errors", 0))
 
     # ── 6) label 검증 (선택) ─────────────────────────────────
     do_verify = yolo_cfg.get("verify_labels", True)
@@ -200,6 +206,25 @@ def main(argv: list[str] | None = None) -> None:
                     "label 검증 에러 %d건 (%.1f%%) — 임계값 이하이므로 계속 진행합니다.",
                     n_errors, error_ratio * 100,
                 )
+
+    balanced_result = build_balanced_train_manifest(
+        config=config,
+        yolo_root=output_dir,
+        base_data_yaml=Path(result["data_yaml"]),
+    )
+    if balanced_result is None:
+        logger.info("균형 샘플링 비활성화: train.balanced_sampling.enabled=false")
+    elif not balanced_result.get("generated", False):
+        logger.info("균형 샘플링 미생성: reason=%s", balanced_result.get("reason", "unknown"))
+    else:
+        logger.info(
+            "균형 샘플링 생성: minor_classes=%d, added_lines=%d, final_lines=%d",
+            balanced_result.get("minor_classes", 0),
+            balanced_result.get("added_lines", 0),
+            balanced_result.get("final_train_lines", 0),
+        )
+        logger.info("  train_list : %s", balanced_result.get("output_train_list", "N/A"))
+        logger.info("  data_yaml  : %s", balanced_result.get("output_data_yaml", "N/A"))
 
     # ── 7) 요약 출력 ────────────────────────────────────────
     logger.info("=" * 60)

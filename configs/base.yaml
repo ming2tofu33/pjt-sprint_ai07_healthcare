@@ -21,9 +21,9 @@ paths:
 
 # --- 소수 데이터 증강 (Minor Data Augmentation) ---
 imbalance_fix:
+  enabled: false # 오프라인 소수 클래스 증강 사용 여부 (기본: 비활성)
   min_threshold: 100 # 이 숫자보다 적은 클래스들만 증강 대상으로 선정
   target_count: 300 # 선정된 소수 클래스들을 최종적으로 이 개수까지 증강
-  methods: # 각 기능을 아래에서 true/false로 제어합니다.
   geometric: { enable: true } # true(기본), 기하학적 증강
   brightness: { enable: true, limit: 0.15, p: 0.5 } # true(기본), 밝기/대비 변화 한계, 적용 확률
   sharpen: { enable: true, alpha: [0.2, 0.5], p: 0.5 } # true(기본), 선명도 조절 범위, 적용 확률
@@ -201,6 +201,7 @@ train:
   optimizer: "auto" # 최적화 알고리즘 (auto, SGD, Adam, AdamW)
   patience: 20 # 성능 개선 없을 시 조기 종료할 epoch 수
   workers: 0 # 데이터 로딩 워커 수 (요청: num_workers=0)
+  rect: false # 이미지 비율 보존 rectangular batch 사용 여부
   cos_lr: false # 코사인 LR 스케줄러 사용 여부 (baseline은 false)
   label_smoothing: 0.0 # 라벨 스무딩 강도 (baseline은 0.0)
   seed: 42 # 학습 재현성을 위한 고정 시드
@@ -218,6 +219,13 @@ train:
     max_epoch_gap: 20 # 저장 시점 간 최대 epoch 간격
     output_dirname: "snapshots" # train 하위 스냅샷 폴더명
     index_filename: "snapshot_index.csv" # 스냅샷 인덱스 파일명
+  balanced_sampling: # 경량 온라인 오버샘플링용 train 목록 생성
+    enabled: false
+    min_threshold: 100
+    target_count: 300
+    max_repeat_per_image: 4
+    output_train_list: "train_balanced.txt"
+    output_data_yaml: "data_balanced.yaml"
   competition_select: # 대회 지표(mAP75_95) 기준 가중치 재선정
     enabled: true
     candidates: ["best", "last"] # 재평가 후보 (weights/<tag>.pt)

@@ -12,6 +12,7 @@ import cv2                  # AB / 추가
 from tqdm import tqdm       # AB / 추가
 
 from src.utils.config_loader import resolve_path
+from src.utils.logger import get_logger
 from src.dataprep.process.dedup import (
     add_train_dedup_key,
     dedup_exact_records,
@@ -29,6 +30,8 @@ from src.dataprep.output.manifest import write_manifest
 from src.dataprep.process.normalize import extract_category_lookup_id, normalize_record
 from src.dataprep.process.quality_audit import run_aux_detector_audit, run_pixel_overlap_audit
 from src.dataprep.process.split import add_group_id, make_group_split, write_splits
+
+logger = get_logger(__name__)
 
 
 def build_train_mapping(
@@ -430,27 +433,43 @@ def run(
 
 
 # AB / 추가: 소수 클래스 기하학적 증강 함수
-def augment_minority_classes(config: dict, yolo_root: Path):
+def augment_minority_classes(config: dict, yolo_root: Path) -> dict | None:
+    """소수 클래스 오프라인 증강.
 
-    # 스위치: geometric, brightness, sharpen, blur 등을 개별 제어 가능
-    # 1. YAML에서 n(기준)과 m(목표) 가져오기
+    config['imbalance_fix'] 설정에 따라 min_threshold 미만인 클래스의
+    이미지를 target_count까지 증강한다. 한 이미지의 **모든** bbox를 유지한다.
+
+    Returns
+    -------
+    dict | None
+        증강 요약 (augmented_classes, total_generated, errors).
+        imbalance_fix 설정이 없으면 None.
+    """
     fix_cfg = config.get('imbalance_fix', {})
-    min_threshold = fix_cfg.get('min_threshold', 100)  # n: 이보다 적으면 증강!
-    target_count = fix_cfg.get('target_count', 300)    # m: 최종 목표 개수
-    
-    print(f"● Starting Imbalance Fix Augmentation (Target: {target_count})...")
-    
+    if not fix_cfg:
+        return None
+    if not bool(fix_cfg.get("enabled", False)):
+        logger.info("오프라인 소수 클래스 증강 비활성화 (imbalance_fix.enabled=false)")
+        return None
+
+    min_threshold = fix_cfg.get('min_threshold', 100)
+    target_count = fix_cfg.get('target_count', 300)
+
+    logger.info("소수 클래스 증강 시작 (threshold=%d, target=%d)", min_threshold, target_count)
+
     train_img_dir = yolo_root / "images" / "train"
     train_lbl_dir = yolo_root / "labels" / "train"
-    
+
     # 기존 증강 파일 제거 [충돌/오류 방지]
-    print(" - Cleaning up previous augmentation files...")
-    for p in train_lbl_dir.glob("*_aug*.txt"): p.unlink()
-    for p in train_img_dir.glob("*_aug*.jpg"): p.unlink()
+    logger.debug("이전 증강 파일 정리 중...")
+    for p in train_lbl_dir.glob("*_aug*.txt"):
+        p.unlink()
+    for p in train_img_dir.glob("*_aug*.jpg"):
+        p.unlink()
 
     # 2. 동적 Transform 리스트 생성 (True인 것만 담기)
     augment_list = []
-    
+
     # [A] 기하학적 변환 (enable 체크)
     if fix_cfg.get('geometric', {}).get('enable', True):
         augment_list.extend([
@@ -473,8 +492,8 @@ def augment_minority_classes(config: dict, yolo_root: Path):
     if sh_cfg.get('enable', False):
         alpha = sh_cfg.get('alpha', [0.2, 0.5])
         augment_list.append(A.Sharpen(
-            alpha=(alpha[0], alpha[1]), 
-            lightness=(0.5, 1.0), 
+            alpha=(alpha[0], alpha[1]),
+            lightness=(0.5, 1.0),
             p=sh_cfg.get('p', 0.5)
         ))
 
@@ -491,66 +510,110 @@ def augment_minority_classes(config: dict, yolo_root: Path):
 
     # 최종 Transform 구성
     transform = A.Compose(
-        augment_list, 
+        augment_list,
         bbox_params=A.BboxParams(format='yolo', label_fields=['class_labels'])
     )
 
-    # 3. 데이터 수집 및 증강 실행
+    # 3. 데이터 수집 — unique 파일 기반 카운트 (B4 fix)
     all_labels = [f for f in os.listdir(train_lbl_dir) if f.endswith('.txt') and '_aug' not in f]
-    class_to_files = {}
+    class_to_files: dict[str, set] = {}
     for lbl_name in all_labels:
         with open(train_lbl_dir / lbl_name, 'r') as f:
             for line in f:
                 parts = line.split()
                 if parts:
                     class_id = parts[0]
-                    class_to_files.setdefault(class_id, []).append(lbl_name)
+                    class_to_files.setdefault(class_id, set()).add(lbl_name)
 
-    for class_id, files in class_to_files.items():
+    # 4. 증강 실행
+    error_count = 0
+    total_generated = 0
+    augmented_classes: list[str] = []
+
+    for class_id, files_set in class_to_files.items():
+        files = list(files_set)  # set → list (random.choice 용)
         current_count = len(files)
-        if current_count < min_threshold:
-            needed = target_count - current_count
-            
-            print(f" - Class {class_id}: {current_count}개 발견 (기준 {min_threshold}개 미만)")
-            print(f"   -> 목표 {target_count}개를 위해 {needed}개를 새로 생성합니다.")
-            
-            for i in tqdm(range(needed), desc=f"ID {class_id}", leave=False):
-                try:
-                    src_lbl = random.choice(files)
-                    base = Path(src_lbl).stem
-                    new_name = f"{base}_aug{i}" 
-                    
-                    # 이미지 로드 및 전처리
-                    img_path = next((train_img_dir / f"{base}{ext}" for ext in ['.jpg', '.png', '.jpeg', '.JPG'] if (train_img_dir / f"{base}{ext}").exists()), None)
-                    if not img_path: continue
+        if current_count >= min_threshold:
+            continue
 
-                    img = cv2.cvtColor(cv2.imread(str(img_path)), cv2.COLOR_BGR2RGB)
-                    
-                    # 라벨 로드
-                    bboxes, cls_labels = [], []
-                    with open(train_lbl_dir / src_lbl, 'r') as f:
-                        for line in f:
-                            p = line.split()
-                            if p:
-                                cls_labels.append(int(p[0]))
-                                bboxes.append([float(x) for x in p[1:]])
-                    
-                    # 증강 적용
-                    augmented = transform(image=img, bboxes=bboxes, class_labels=cls_labels)
-                    
-                    # 결과 저장
-                    if len(augmented['bboxes']) > 0:
-                        cv2.imwrite(str(train_img_dir / f"{new_name}.jpg"), 
-                                    cv2.cvtColor(augmented['image'], cv2.COLOR_RGB2BGR))
-                        
-                        with open(train_lbl_dir / f"{new_name}.txt", 'w') as f:
-                            for c, b in zip(augmented['class_labels'], augmented['bboxes']):
-                                # 타겟 클래스만 저장 (요청하신 로직 유지)
-                                if int(c) != int(class_id): continue
-                                if any(math.isnan(x) for x in b): continue
+        needed = target_count - current_count
+        augmented_classes.append(class_id)
 
-                                # 좌표 클램핑 (0.0~1.0)
-                                xc, yc, w, h = [max(0.0, min(1.0, x)) for x in b]
-                                if w > 0 and h > 0:
-                                    f.write(f"{int(c)} {xc:.6f} {yc:.6f} {w:.6f} {h:.6f}\n")
-                except: continue
+        logger.info("  class %s: %d개 (< %d) → %d개 증강 예정",
+                     class_id, current_count, min_threshold, needed)
+
+        for i in tqdm(range(needed), desc=f"cls {class_id}", leave=False):
+            try:
+                src_lbl = random.choice(files)
+                base = Path(src_lbl).stem
+                # B1 fix: class_id를 파일명에 포함하여 충돌 방지
+                new_name = f"{base}_cls{class_id}_aug{i}"
+
+                # 이미지 로드
+                img_path = next(
+                    (train_img_dir / f"{base}{ext}"
+                     for ext in ['.jpg', '.png', '.jpeg', '.JPG']
+                     if (train_img_dir / f"{base}{ext}").exists()),
+                    None,
+                )
+                if not img_path:
+                    continue
+
+                img = cv2.cvtColor(cv2.imread(str(img_path)), cv2.COLOR_BGR2RGB)
+
+                # 라벨 로드 — 모든 클래스
+                bboxes, cls_labels = [], []
+                with open(train_lbl_dir / src_lbl, 'r') as f:
+                    for line in f:
+                        p = line.split()
+                        if p:
+                            cls_labels.append(int(p[0]))
+                            bboxes.append([float(x) for x in p[1:]])
+
+                # 증강 적용
+                augmented = transform(image=img, bboxes=bboxes, class_labels=cls_labels)
+
+                # 결과 저장 — B2 fix: 모든 클래스 bbox 유지
+                if len(augmented['bboxes']) > 0:
+                    cv2.imwrite(
+                        str(train_img_dir / f"{new_name}.jpg"),
+                        cv2.cvtColor(augmented['image'], cv2.COLOR_RGB2BGR),
+                    )
+
+                    wrote_lines = 0
+                    with open(train_lbl_dir / f"{new_name}.txt", 'w') as f:
+                        for c, b in zip(augmented['class_labels'], augmented['bboxes']):
+                            if any(math.isnan(x) for x in b):
+                                continue
+
+                            # 좌표 클램핑 (0.0~1.0)
+                            xc, yc, w, h = [max(0.0, min(1.0, x)) for x in b]
+                            if w > 0 and h > 0:
+                                f.write(f"{int(c)} {xc:.6f} {yc:.6f} {w:.6f} {h:.6f}\n")
+                                wrote_lines += 1
+
+                    # 빈 라벨 파일 방지: 유효 bbox 없으면 이미지+라벨 삭제
+                    if wrote_lines == 0:
+                        new_img_path = train_img_dir / f"{new_name}.jpg"
+                        new_lbl_path = train_lbl_dir / f"{new_name}.txt"
+                        if new_img_path.exists():
+                            new_img_path.unlink()
+                        if new_lbl_path.exists():
+                            new_lbl_path.unlink()
+                        continue
+
+                    total_generated += 1
+
+            except Exception as exc:  # B3 fix: 예외 로깅
+                error_count += 1
+                logger.warning("증강 실패 (class %s, src=%s): %s", class_id, src_lbl, exc)
+                continue
+
+    logger.info("소수 클래스 증강 완료: classes=%d, generated=%d, errors=%d",
+                len(augmented_classes), total_generated, error_count)
+
+    return {
+        "augmented_classes": len(augmented_classes),
+        "total_generated": total_generated,
+        "errors": error_count,
+    }
