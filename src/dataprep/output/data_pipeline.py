@@ -6,8 +6,8 @@ from pathlib import Path
 from time import perf_counter
 from typing import Iterable, Tuple
 
-from src.dataprep.config import resolve_path
-from src.dataprep.dedup import (
+from src.utils.config_loader import resolve_path
+from src.dataprep.process.dedup import (
     add_train_dedup_key,
     dedup_exact_records,
     dedup_iou_records,
@@ -18,16 +18,16 @@ from src.dataprep.dedup import (
     filter_object_count,
     should_keep_external_record_after_dedup,
 )
-from src.dataprep.export import write_outputs
-from src.dataprep.io_utils import parse_one_json, scan_image_files, scan_json_files
-from src.dataprep.manifest import write_manifest
-from src.dataprep.normalize import normalize_record
-from src.dataprep.quality_audit import run_aux_detector_audit, run_pixel_overlap_audit
-from src.dataprep.split import add_group_id, make_group_split, write_splits
+from src.dataprep.output.export import write_outputs
+from src.dataprep.setup.io_utils import parse_one_json, scan_image_files, scan_json_files
+from src.dataprep.output.manifest import write_manifest
+from src.dataprep.process.normalize import extract_category_lookup_id, normalize_record
+from src.dataprep.process.quality_audit import run_aux_detector_audit, run_pixel_overlap_audit
+from src.dataprep.process.split import add_group_id, make_group_split, write_splits
 
 
 def build_train_mapping(
-    train_json_paths: Iterable[Path], mapping_key: str
+    train_json_paths: Iterable[Path],
 ) -> Tuple[dict[str, int], dict[str, str], list[dict[str, str]]]:
     """
     Train annotation에서 매핑 테이블을 구축한다.
@@ -59,11 +59,10 @@ def build_train_mapping(
         ann0 = annotations[0]
         cat0 = categories[0]
 
-        dl_idx = img0.get(mapping_key)
-        if dl_idx is None:
-            continue
-        dl_idx = str(dl_idx).strip()
-        if dl_idx == "":
+        lookup_key = extract_category_lookup_id(img0.get("drug_N"))
+        if lookup_key is None:
+            lookup_key = extract_category_lookup_id(img0.get("dl_mapping_code"))
+        if lookup_key is None:
             continue
 
         cat_id = ann0.get("category_id")
@@ -73,23 +72,23 @@ def build_train_mapping(
             except Exception:
                 continue
 
-        prev = id_map.get(dl_idx)
+        prev = id_map.get(lookup_key)
         if prev is not None and prev != cat_id:
             suspect_rows.append(
                 {
                     "source_json": str(p),
-                    "dl_idx": dl_idx,
+                    "dl_idx": lookup_key,
                     "prev_category_id": str(prev),
                     "new_category_id": str(cat_id),
                     "reason": "inconsistent_category_id",
                 }
             )
             continue
-        id_map[dl_idx] = cat_id
+        id_map[lookup_key] = cat_id
 
         name = cat0.get("name")
         if isinstance(name, str) and name.strip():
-            name_map.setdefault(dl_idx, name)
+            name_map.setdefault(lookup_key, name)
 
     return id_map, name_map, suspect_rows
 
@@ -136,8 +135,7 @@ def build_df_clean(
 
     # 1단계) Train 기반 category 매핑 테이블 구축 (external 정렬에 사용)
     train_json_paths = scan_json_files(train_ann_dir, recursive=True)
-    mapping_key = config.get("external_data", {}).get("category_id_mapping", {}).get("mapping_key", "dl_idx")
-    train_map_id, train_map_name, suspect_rows = build_train_mapping(train_json_paths, mapping_key)
+    train_map_id, train_map_name, suspect_rows = build_train_mapping(train_json_paths)
     if "audit_suspect_files.csv" in audit_logs and suspect_rows:
         audit_logs["audit_suspect_files.csv"].extend(suspect_rows)
 
@@ -145,7 +143,7 @@ def build_df_clean(
     train_image_index, train_image_dups = scan_image_files(train_images_dir, recursive=True)
 
     if not quiet:
-        print(f"[INFO] train: {len(train_json_paths)} jsons, {len(train_image_index)} images", flush=True)
+        print(f"[INFO] train: {len(train_json_paths)}개 json, {len(train_image_index)}개 이미지", flush=True)
 
     records: list[dict] = []
     train_dedup_keys: set[tuple] = set()
@@ -156,7 +154,7 @@ def build_df_clean(
     for i, p in enumerate(train_json_paths, start=1):
         if not quiet and log_every > 0 and (i == 1 or i % log_every == 0):
             dt = perf_counter() - t0
-            print(f"[INFO] train progress: {i}/{len(train_json_paths)} ({dt:.1f}s)", flush=True)
+            print(f"[INFO] train 진행률: {i}/{len(train_json_paths)} ({dt:.1f}s)", flush=True)
         data, err = parse_one_json(p)
         if err or data is None:
             logs["excluded_rows"].append(
@@ -213,24 +211,27 @@ def build_df_clean(
             for root in (img_dir, ann_dir):
                 for dirpath, _, filenames in os.walk(root):
                     if any(pat.lower() in dirpath.lower() for pat in banned_patterns):
-                        raise RuntimeError(f"Banned pattern found in path: {dirpath}")
+                        raise RuntimeError(f"경로에서 금지 패턴이 발견되었습니다: {dirpath}")
                     for fn in filenames:
                         full = os.path.join(dirpath, fn)
                         if any(pat.lower() in full.lower() for pat in banned_patterns):
-                            raise RuntimeError(f"Banned pattern found in file: {full}")
+                            raise RuntimeError(f"파일에서 금지 패턴이 발견되었습니다: {full}")
 
             ext_image_index, ext_image_dups = scan_image_files(img_dir, recursive=recursive)
             ext_json_paths = scan_json_files(ann_dir, recursive=recursive)
 
             if not quiet:
-                print(f"[INFO] external[{name}]: {len(ext_json_paths)} jsons, {len(ext_image_index)} images", flush=True)
+                print(
+                    f"[INFO] external[{name}]: {len(ext_json_paths)}개 json, {len(ext_image_index)}개 이미지",
+                    flush=True,
+                )
 
             ext_image_size_cache: dict[str, tuple[int, int]] = {}
             t1 = perf_counter()
             for j, p in enumerate(ext_json_paths, start=1):
                 if not quiet and log_every > 0 and (j == 1 or j % log_every == 0):
                     dt = perf_counter() - t1
-                    print(f"[INFO] external[{name}] progress: {j}/{len(ext_json_paths)} ({dt:.1f}s)", flush=True)
+                    print(f"[INFO] external[{name}] 진행률: {j}/{len(ext_json_paths)} ({dt:.1f}s)", flush=True)
                 data, err = parse_one_json(p)
                 if err or data is None:
                     logs["excluded_rows"].append(

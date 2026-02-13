@@ -1,0 +1,78 @@
+# 목적: 원본 + external(combined) 모두 사용하면서, RTX 3080 10GB에서 비교적 여유 있게 도는 고득점 지향 설정
+_base_: "../base.yaml"
+
+model:
+  architecture: "yolo11m"                       # 11l 대비 가볍고, 11s 대비 표현력이 좋아 속도/성능 균형
+  pretrained: "yolo11m.pt"
+
+paths:
+  external_images_dir: "data/raw/external/combined/images"  # STAGE 1 external 이미지 인덱싱 경로
+
+external_data:
+  enabled: true                                 # train + external 동시 사용
+  sources:
+    - name: "combined"
+      images_dir: "data/raw/external/combined/images"
+      annotations_dir: "data/raw/external/combined/annotations"
+      recursive: true
+  category_id_mapping:
+    enabled: true
+    mapping_key: "drug_N"                       # 주 기준: drug_N 정수화 값
+    fallback_fields: ["drug_N", "dl_mapping_code"]
+    on_unmapped: "exclude"                      # 매핑 불가 행 제외(라벨 오염 방지)
+  dedup:
+    dedup_against_train: true                   # train과 exact 중복 external 샘플 제거
+
+train:
+  # Core (3080 10GB 기준 타협점)
+  epochs: 48                                    # 외부 데이터 포함 시 에폭당 시간이 길어 과도한 장기학습 방지
+  imgsz: 768                                    # 1024보다 가볍고, 640보다 디테일 보존
+  batch: 4                                      # OOM 리스크를 낮추면서 처리량 확보
+  optimizer: "AdamW"
+  lr0: 0.0012
+  lrf: 0.01
+  patience: 16                                  # plateau 시 조기 종료로 총 시간 절감
+  workers: 0                                    # 프로젝트 기본 정책 유지
+  verbose: false                                # 학습 로그 과다 출력 방지
+  plots: true
+
+  # Augmentation (고 IoU 친화: 과한 합성은 줄임)
+  hsv_h: 0.015
+  hsv_s: 0.55
+  hsv_v: 0.40
+  degrees: 180.0
+  translate: 0.08
+  scale: 0.35
+  shear: 0.0
+  perspective: 0.0003
+  flipud: 0.5
+  fliplr: 0.5
+  mosaic: 0.30
+  mixup: 0.02
+  copy_paste: 0.0
+
+  # Loss gain (mAP75_95용 박스 정밀도 강조)
+  box: 7.8
+  cls: 0.45
+  dfl: 1.7
+
+  competition_select:
+    enabled: true
+    candidates: ["best", "last"]
+    output_name: "competition_best.pt"
+    use_tta: false
+
+evaluate:
+  conf: 0.001
+  nms_iou: 0.65
+
+submission:
+  conf: 0.001
+  nms_iou: 0.65
+  augment: true
+  max_det_per_image: 40
+  debug:
+    enabled: true
+    sample_size: 12
+    seed: 42
+

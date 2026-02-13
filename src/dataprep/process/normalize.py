@@ -29,17 +29,23 @@ def _clip_bbox_xywh(x: float, y: float, w: float, h: float, width: float, height
     return x1c, y1c, x2c - x1c, y2c - y1c
 
 
-def _extract_k_code_id(value: Any) -> Optional[str]:
-    """`K-######` 토큰에서 숫자 ID를 추출해 문자열로 반환한다."""
+def extract_category_lookup_id(value: Any) -> Optional[str]:
+    """약물 코드/숫자 텍스트를 정규화해 canonical 숫자 ID 문자열로 반환한다."""
     if value is None:
         return None
+
     text = str(value).strip()
     if text == "":
         return None
-    m = re.search(r"K-(\d{6})", text)
-    if not m:
-        return None
-    return str(int(m.group(1)))
+
+    if text.isdigit():
+        return str(int(text))
+
+    m = re.search(r"K-(\d+)", text, re.IGNORECASE)
+    if m:
+        return str(int(m.group(1)))
+
+    return None
 
 
 def _safe_int(value: Any) -> Optional[int]:
@@ -85,6 +91,40 @@ def _manual_bbox_index(rule: dict) -> Optional[int]:
         return 2
     if field in {"h", "bbox_h", "height"}:
         return 3
+    return None
+
+
+def _resolve_external_lookup_key(img0: dict, mapping_cfg: dict) -> Optional[str]:
+    """
+    external 행에서 canonical 매핑 키를 결정한다.
+
+    drug 계열 필드를 우선 사용하고, 밀림 가능성이 있는 dl_idx는 의도적으로 무시한다.
+    """
+    fields: list[str] = ["drug_N"]
+
+    mapping_key = mapping_cfg.get("mapping_key")
+    if isinstance(mapping_key, str):
+        key = mapping_key.strip()
+        if key and key != "dl_idx" and key not in fields:
+            fields.append(key)
+
+    fallback_fields = mapping_cfg.get("fallback_fields", ["dl_mapping_code", "drug_N"])
+    if not isinstance(fallback_fields, list):
+        fallback_fields = ["dl_mapping_code", "drug_N"]
+
+    for field in fallback_fields:
+        if not isinstance(field, str):
+            continue
+        key = field.strip()
+        if not key or key == "dl_idx" or key in fields:
+            continue
+        fields.append(key)
+
+    for field in fields:
+        candidate = extract_category_lookup_id(img0.get(field))
+        if candidate is not None:
+            return candidate
+
     return None
 
 
@@ -298,40 +338,16 @@ def normalize_record(
     if source == "external" and external_cfg:
         mapping_cfg = external_cfg.get("category_id_mapping", {})
         if mapping_cfg.get("enabled", False):
-            key = mapping_cfg.get("mapping_key", "dl_idx")
-            dl_idx = img0.get(key)
-            dl_idx = "" if dl_idx is None else str(dl_idx).strip()
+            lookup_key = _resolve_external_lookup_key(img0, mapping_cfg)
             mapped_id = None
-            mapped_lookup_key = dl_idx
-            fallback_key = None
+            mapped_lookup_key = lookup_key or ""
 
-            # external 메타데이터의 dl_idx가 누락/불량이면 K-code 필드를 fallback으로 시도한다.
-            fallback_fields = mapping_cfg.get("fallback_fields", ["dl_mapping_code", "drug_N"])
-            if not isinstance(fallback_fields, list):
-                fallback_fields = ["dl_mapping_code", "drug_N"]
-            for field in fallback_fields:
-                if not isinstance(field, str):
-                    continue
-                candidate = _extract_k_code_id(img0.get(field))
-                if candidate is not None:
-                    fallback_key = candidate
-                    break
-
-            if dl_idx != "" and mapping_id is not None and dl_idx in mapping_id:
-                mapped_id = mapping_id[dl_idx]
-                mapped_lookup_key = dl_idx
-            elif fallback_key is not None and mapping_id is not None and fallback_key in mapping_id:
-                mapped_id = mapping_id[fallback_key]
-                mapped_lookup_key = fallback_key
+            if lookup_key is not None and mapping_id is not None and lookup_key in mapping_id:
+                mapped_id = mapping_id[lookup_key]
             else:
                 on_unmapped = str(mapping_cfg.get("on_unmapped", "exclude")).lower()
-                if on_unmapped == "use_dl_idx":
-                    if fallback_key is not None and fallback_key.isdigit():
-                        mapped_id = int(fallback_key)
-                        mapped_lookup_key = fallback_key
-                    elif dl_idx.isdigit():
-                        mapped_id = int(dl_idx)
-                        mapped_lookup_key = dl_idx
+                if on_unmapped == "use_dl_idx" and lookup_key is not None and lookup_key.isdigit():
+                    mapped_id = int(lookup_key)
 
             if mapped_id is None:
                 _log_excluded(
@@ -339,12 +355,12 @@ def normalize_record(
                         "source": source,
                         "file_name": file_name,
                         "source_json": str(source_json),
-                        "reason_code": "unmapped_dl_idx",
-                        "detail": f"{key}={dl_idx}",
+                        "reason_code": "unmapped_category_key",
+                        "detail": f"lookup_key={mapped_lookup_key}",
                     }
                 )
                 audit["audit_unmapped_external.csv"].append(
-                    {"file_name": file_name, "source_json": str(source_json), "dl_idx": dl_idx}
+                    {"file_name": file_name, "source_json": str(source_json), "dl_idx": mapped_lookup_key}
                 )
 
                 return None, None
@@ -555,6 +571,7 @@ def normalize_record(
         "width": width,
         "height": height,
         "category_id": cat_id,
+        "category_name": cat0.get("name", "") if cat0 else "",
         "bbox": json.dumps([x, y, w, h]),
         "bbox_x": x,
         "bbox_y": y,

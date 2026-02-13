@@ -1,57 +1,57 @@
-at <<EOF > .gitignore
-# ============================================
-# 1. Project Specific (Data & Stage-wise)
-# ============================================
+# ============================================================
+# Project outputs and large assets
+# ============================================================
 
-# [STAGE 0~1] 원본 및 전처리 데이터 제외
-# 부모 폴더를 제외하되 특정 파일 예외 처리를 위해 /* 패턴 사용
-data/*
-!data/coco_data/
+# Data lake (raw/processed/metadata) is local-only
+# Keep only directory placeholders when needed.
+data/**
+!data/raw/.gitkeep
+!data/processed/.gitkeep
+!data/metadata/.gitkeep
+!data/processed/manifests/.gitkeep
+!data/processed/annotations/.gitkeep
 
-# [STAGE 3~4] 실험 결과물
-runs/*
+# Experiment outputs
+runs/**
 !runs/.gitkeep
 !runs/_registry.csv
 
-# [STAGE 5] 최종 산출물
-artifacts/
+# Final artifacts
+artifacts/**
 !artifacts/.gitkeep
 !artifacts/best_models/.gitkeep
-!submissions/.gitkeep
+!artifacts/submissions/.gitkeep
 
+# Personal playground
+playground/**
+!playground/.gitkeep
 
-# ============================================
-
-# 모델 가중치 (대용량 바이너리)
+# Model binaries / weights
 *.pt
 *.pth
 *.onnx
 *.weights
 
-# ============================================
-# 2. Python & Development
-# ============================================
+# ============================================================
+# Python / tooling
+# ============================================================
 __pycache__/
 *.py[cod]
 venv/
-env/
 .venv/
+env/
 dist/
 build/
 *.egg-info/
 
-# ============================================
-# 3. Jupyter Notebook & IDEs
-# ============================================
+# Notebooks / IDE
 .ipynb_checkpoints/
 .vscode/
 .idea/
 .DS_Store
 Thumbs.db
 
-# ============================================
-# 4. ML Tools & Logs (Ultralytics / Tracking)
-# ============================================
+# ML tool outputs
 yolo_settings.json
 .ultralytics/
 wandb/
@@ -60,17 +60,7 @@ lightning_logs/
 *.log
 nohup.out
 
-# ============================================
-# 5. Exception (공유 권장 파일)
-# ============================================
-*.csv
-!runs/_registry.csv
-!data/coco_data/meta/*.json
-
-
-# ============================================
-# Claude / AI coding assistants (local-only)
-# ============================================
+# Local assistant caches
 .claude/
 **/.claude/
 claude*.log

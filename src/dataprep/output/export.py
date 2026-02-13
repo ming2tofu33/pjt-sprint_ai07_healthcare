@@ -76,6 +76,7 @@ def write_outputs(
         "height",
         "group_id",
         "category_id",
+        "category_name",
         "bbox",
         "bbox_x",
         "bbox_y",

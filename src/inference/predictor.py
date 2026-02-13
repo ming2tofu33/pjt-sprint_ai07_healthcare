@@ -33,6 +33,7 @@ def batch_predict(
     device: Any = None,
     imgsz: int = 640,
     verbose: bool = False,
+    augment: bool = False,
 ) -> list[dict]:
     """배치 추론을 실행하고 이미지별 detection dict 리스트를 반환한다.
 
@@ -54,6 +55,8 @@ def batch_predict(
         추론 이미지 크기.
     verbose : bool
         Ultralytics verbose 출력.
+    augment : bool
+        True 이면 TTA(Test-Time Augmentation)를 적용한다.
 
     Returns
     -------
@@ -100,6 +103,7 @@ def batch_predict(
         imgsz=imgsz,
         save=False,
         verbose=verbose,
+        augment=augment,
     )
 
     # 결과 파싱

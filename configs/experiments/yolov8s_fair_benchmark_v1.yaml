@@ -1,0 +1,100 @@
+_base_: "../base.yaml"
+
+# Fair benchmark config: YOLOv8 (s scale)
+# - Keep train/eval conditions identical with yolo11s_fair_benchmark_v1.yaml
+# - Change only model architecture/weights
+
+model:
+  architecture: "yolov8s"
+  pretrained: "yolov8s.pt"
+
+train:
+  # Fixed conditions for fair comparison
+  epochs: 100
+  imgsz: 768
+  batch: 8
+  optimizer: "AdamW"
+  lr0: 0.001
+  lrf: 0.01
+  patience: 20
+  workers: 4
+  seed: 42
+  deterministic: true
+  pretrained: true
+  verbose: false
+  plots: true
+
+  # Fixed augmentation profile (must match v11 config exactly)
+  hsv_h: 0.015
+  hsv_s: 0.55
+  hsv_v: 0.40
+  degrees: 180.0
+  translate: 0.08
+  scale: 0.35
+  shear: 0.0
+  perspective: 0.0003
+  flipud: 0.5
+  fliplr: 0.5
+  mosaic: 0.30
+  mixup: 0.02
+  copy_paste: 0.0
+
+  # Fixed loss gain profile
+  box: 7.8
+  cls: 0.45
+  dfl: 1.7
+
+  competition_select:
+    enabled: true
+    candidates: ["best", "last"]
+    output_name: "competition_best.pt"
+    use_tta: false
+
+evaluate:
+  conf: 0.001
+  nms_iou: 0.65
+  device: 0
+  augment: false
+
+submission:
+  conf: 0.08
+  nms_iou: 0.65
+  augment: true
+  max_det_per_image: 4
+  debug:
+    enabled: true
+    sample_size: 12
+    seed: 42
+
+# Study design metadata (for experiment governance/reporting)
+benchmark:
+  comparison:
+    pair_id: "yolov8s_vs_yolo11s"
+    model_scale: "s_vs_s"
+    fixed_conditions:
+      imgsz: 768
+      epochs: 100
+      batch: 8
+      optimizer: "AdamW"
+      augmentation_profile: "balanced_fixed_v1"
+    seeds: [42, 52, 62]
+
+  compute_budget:
+    criterion: "match_flops_or_latency"
+    profiling:
+      device: 0
+      imgsz: 768
+      batch: 1
+      warmup_iters: 30
+      measure_iters: 200
+      precision: "fp16"
+
+  small_object_eval:
+    enabled: true
+    area_bins_px2: [0, 1024, 9216, 1000000000]
+    required_reports: ["AP_small", "per_class_pr_curve", "fp_fn_error_analysis"]
+
+  statistics:
+    min_seeds: 3
+    aggregate_by_seed: true
+    summary: ["mean", "std", "ci95"]

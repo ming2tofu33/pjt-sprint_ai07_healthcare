@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import shutil
 import sys
 from pathlib import Path
 
@@ -34,7 +35,7 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--run-name", required=True, help="실험 이름")
     parser.add_argument("--config", required=True, help="실험 config YAML 경로")
     parser.add_argument("--device", default=None, help="GPU 디바이스 (예: 0, cpu)")
-    parser.add_argument("--quiet", action="store_true", help="진행 로그 억제")
+    parser.add_argument("--verbose", action="store_true", help="상세 로그 출력")
     args = parser.parse_args(argv)
 
     run_name: str = args.run_name
@@ -55,15 +56,22 @@ def main(argv: list[str] | None = None) -> None:
     paths_cfg = config.get("paths", {})
 
     # ── 2) 경로 결정 ────────────────────────────────────────
-    # runs/<run_name>/weights/best.pt
+    # runs/<run_name>/weights/{competition_best.pt|best.pt}
     runs_base = Path(paths_cfg.get("runs_dir", "runs"))
     if not runs_base.is_absolute():
         runs_base = (repo_root / runs_base).resolve()
     run_dir = runs_base / run_name
+    eval_project_dir = run_dir / "eval"
+    eval_name = "val"
+    eval_artifacts_dir = eval_project_dir / eval_name
 
-    best_pt = run_dir / "weights" / "best.pt"
-    if not best_pt.exists():
-        logger.error("best.pt 가 존재하지 않습니다: %s", best_pt)
+    weights_dir = run_dir / "weights"
+    competition_pt = weights_dir / "competition_best.pt"
+    best_pt = weights_dir / "best.pt"
+    selected_weight = competition_pt if competition_pt.exists() else best_pt
+    if not selected_weight.exists():
+        logger.error("가중치 파일이 존재하지 않습니다: %s", selected_weight)
+        logger.error("확인 경로: competition=%s | best=%s", competition_pt, best_pt)
         logger.error("STAGE 2 를 먼저 실행하세요: python scripts/2_train.py --run-name %s ...", run_name)
         sys.exit(1)
 
@@ -84,17 +92,35 @@ def main(argv: list[str] | None = None) -> None:
     registry_path = runs_base / "_registry.csv"
 
     # ── 3) 모델 로드 ────────────────────────────────────────
-    logger.info("모델 로드 | %s", best_pt)
-    detector = PillDetector.from_weights(best_pt)
+    logger.info("평가 가중치 선택 | selected=%s | fallback=%s", selected_weight, best_pt)
+    detector = PillDetector.from_weights(selected_weight)
 
     # ── 4) 평가 실행 ────────────────────────────────────────
     eval_cfg = config.get("evaluate", {})
-    logger.info("평가 시작 | conf=%.4f | iou=%.2f | device=%s",
+    logger.info("평가 시작 | conf=%.4f | nms_iou=%.2f | device=%s",
                 eval_cfg.get("conf", 0.001),
-                eval_cfg.get("iou", 0.75),
+                eval_cfg.get("nms_iou", 0.6),
                 eval_cfg.get("device", "auto"))
 
-    metrics = detector.validate(data_yaml=data_yaml, config=config)
+    # 동일 run_name 재평가 시 이전 val 산출물과 섞이지 않도록 정리
+    if eval_artifacts_dir.exists():
+        logger.info("기존 평가 산출물 삭제 | %s", eval_artifacts_dir)
+        shutil.rmtree(eval_artifacts_dir)
+    eval_project_dir.mkdir(parents=True, exist_ok=True)
+
+    metrics = detector.validate(
+        data_yaml=data_yaml,
+        config=config,
+        project=eval_project_dir,
+        name=eval_name,
+        exist_ok=True,
+    )
+
+    eval_artifacts_dir_abs = eval_artifacts_dir.resolve()
+    try:
+        eval_artifacts_rel = str(eval_artifacts_dir_abs.relative_to(repo_root.resolve()))
+    except ValueError:
+        eval_artifacts_rel = str(eval_artifacts_dir_abs)
 
     # ── 5) 메트릭 저장 ──────────────────────────────────────
     # 기존 metrics.json 이 있으면 병합 (학습 메트릭 유지 + eval 추가)
@@ -109,19 +135,31 @@ def main(argv: list[str] | None = None) -> None:
 
     # eval 결과를 eval_ prefix 로 저장하여 학습 메트릭과 구분
     eval_metrics = {f"eval_{k}": v for k, v in metrics.items()}
+    eval_metrics["eval_artifacts_dir"] = str(eval_artifacts_dir_abs)
+    eval_metrics["eval_artifacts_rel"] = eval_artifacts_rel
     merged = {**existing_metrics, **eval_metrics}
 
     save_metrics(merged, run_dir, "metrics.json")
-    logger.info("metrics.json 갱신 | eval_mAP50=%.4f | eval_mAP50-95=%.4f",
-                metrics.get("mAP50", 0), metrics.get("mAP50_95", 0))
+
+    map75_95 = metrics.get("mAP75_95")
+    map75_95_str = f"{map75_95:.4f}" if map75_95 is not None else "N/A"
+    logger.info("metrics.json 갱신 | eval_mAP50=%.4f | eval_mAP50-95=%.4f | eval_mAP75-95=%s (대회지표)",
+                metrics.get("mAP50", 0), metrics.get("mAP50_95", 0), map75_95_str)
+    logger.info("평가 산출물 경로 | %s", eval_artifacts_dir_abs)
 
     # ── 6) registry 갱신 ────────────────────────────────────
+    update_kwargs: dict = {
+        "best_map50": f"{metrics.get('mAP50', 0):.4f}",
+        "best_map50_95": f"{metrics.get('mAP50_95', 0):.4f}",
+        "notes": "eval_complete",
+    }
+    if map75_95 is not None:
+        update_kwargs["best_map75_95"] = f"{map75_95:.4f}"
+
     updated = update_run(
         registry_path,
         run_name,
-        best_map50=f"{metrics.get('mAP50', 0):.4f}",
-        best_map50_95=f"{metrics.get('mAP50_95', 0):.4f}",
-        notes="eval_complete",
+        **update_kwargs,
     )
     if updated:
         logger.info("_registry.csv 갱신 완료")
@@ -131,20 +169,22 @@ def main(argv: list[str] | None = None) -> None:
     # ── 7) 요약 출력 ────────────────────────────────────────
     logger.info("=" * 60)
     logger.info("STAGE 3 완료")
-    logger.info("  run_name     : %s", run_name)
-    logger.info("  best.pt      : %s", best_pt)
-    logger.info("  data.yaml    : %s", data_yaml)
-    logger.info("  eval_mAP50   : %.4f", metrics.get("mAP50", 0))
-    logger.info("  eval_mAP50-95: %.4f", metrics.get("mAP50_95", 0))
-    logger.info("  precision    : %.4f", metrics.get("precision", 0))
-    logger.info("  recall       : %.4f", metrics.get("recall", 0))
+    logger.info("  run_name         : %s", run_name)
+    logger.info("  weight_file      : %s", selected_weight)
+    logger.info("  data.yaml        : %s", data_yaml)
+    logger.info("  eval_artifacts   : %s", eval_artifacts_dir_abs)
+    logger.info("  eval_mAP50       : %.4f", metrics.get("mAP50", 0))
+    logger.info("  eval_mAP50-95    : %.4f", metrics.get("mAP50_95", 0))
+    logger.info("  eval_mAP75-95    : %s  ← 대회 평가 지표", map75_95_str)
+    logger.info("  precision        : %.4f", metrics.get("precision", 0))
+    logger.info("  recall           : %.4f", metrics.get("recall", 0))
 
-    # 클래스별 AP (있으면)
-    if "per_class_ap50" in metrics:
-        n_classes = len(metrics["per_class_ap50"])
-        logger.info("  per_class_ap50: %d classes", n_classes)
+    # 클래스별 mAP@[0.75:0.95] (있으면)
+    if "per_class_mAP75_95" in metrics:
+        n_classes = len(metrics["per_class_mAP75_95"])
+        logger.info("  per_class_mAP75_95: %d classes", n_classes)
         if n_classes <= 20:
-            for idx, ap in enumerate(metrics["per_class_ap50"]):
+            for idx, ap in enumerate(metrics["per_class_mAP75_95"]):
                 logger.info("    class %d: %.4f", idx, ap)
 
     logger.info("=" * 60)
