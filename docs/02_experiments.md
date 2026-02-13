@@ -6,8 +6,8 @@
 
 - 공통 기본값: `configs/base.yaml`
   - `train.competition_select` 설정을 통해 대회용 지표(mAP75_95) 기반 모델 재선정 기능을 제어할 수 있습니다.
-  - `paths.artifact_layout` 기본값은 `legacy`이며, `compact`는 실험 YAML에서 명시적으로 opt-in 합니다.
-  - `train.log_mode` 기본값은 `batch`, `train.debug_snapshots.enabled` 기본값은 `false`입니다.
+  - `paths.artifact_layout` 기본값은 `compact`이며, `legacy`는 실험 YAML에서 명시적으로 opt-in 합니다.
+  - `train.log_mode` 기본값은 `batch`, `train.debug_snapshots.enabled` 기본값은 `true`입니다.
 - 실험별 변경: `configs/experiments/*.yaml`
 - 코드보다 YAML override를 우선합니다.
 - 실행 시 병합 결과를 `runs/<run_name>/config_resolved.yaml`로 저장합니다.
@@ -28,18 +28,24 @@
 ## 3) 레지스트리 기록
 
 - 파일: `runs/_registry.csv`
-- 최소 기록 항목:
+- 현재 레지스트리 컬럼:
   - `run_name`
-  - `config_path`
+  - `created_at`
+  - `model`
+  - `epochs`
+  - `imgsz`
+  - `best_map50`
+  - `best_map50_95`
   - `best_map75_95` (대회 지표: mAP75_95)
-  - `submission_path`
-  - `git_commit` (가능 시)
+  - `weights_path`
+  - `config_path`
+  - `notes`
 
 실험 완료 후 반드시 레지스트리를 갱신합니다.
 
 ## 4) 결과물 저장 규칙
 
-- 학습 산출물: `runs/<run_name>/`
+- 학습 산출물: `runs/<run_name>/train/` (`compact` 기본), `runs/<run_name>/` (`legacy` 옵션)
 - 대회용 선정 가중치: `runs/<run_name>/weights/competition_best.pt`
 - 대회용 선정 리포트: `runs/<run_name>/competition_best.json`
 - 제출 CSV: `artifacts/submissions/`
@@ -61,11 +67,12 @@
 
 ## 5) 제출 운영 (하루 제한)
 
-- 팀 정책으로 1일 제출 횟수를 제한합니다.
-- 권장: 최종 후보 1~2개만 제출
+- 팀 정책으로 1일 제출 횟수(10회)를 제한합니다.
+- 권장: 최종 후보 인당 1~2개 제출
 - 제출 전 체크리스트:
   - 로컬 평가 지표 확인
   - `submission.py` 검증 통과
+  - 이미지당 최대 박스 수 확인 (기본 4, `submission.max_det_per_image` 또는 `--topk`로 조정 가능)
   - 파일명에 run_name + conf 포함
 
 예:
