@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="ko" data-theme="light" style=""><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>최종 결과</title>
+<link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&amp;family=Fira+Code:wght@400;600&amp;display=swap" rel="stylesheet">
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@1.0.2"></script>
+<style>
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+            background-color: #FFFFFF; /* White Background */
+            color: #172A3A; /* Body Text: Dark Navy */
+            width: 1280px;
+            height: 720px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .font-mono { font-family: 'Fira Code', monospace; }
+
+        /* New Color Palette Classes */
+        .text-accent { color: #75DDDD; } /* Bright Mint */
+        .bg-accent { background-color: #75DDDD; }
+        .border-accent { border-color: #75DDDD; }
+        
+        .text-primary { color: #508991; } /* Medium Teal */
+        .bg-primary { background-color: #508991; }
+        .border-primary { border-color: #508991; }
+        
+        .text-navy { color: #172A3A; } /* Dark Navy */
+        .bg-navy { background-color: #172A3A; }
+        .border-navy { border-color: #172A3A; }
+        
+        .text-deep { color: #004346; } /* Deep Teal */
+        .bg-deep { background-color: #004346; }
+        .border-deep { border-color: #004346; }
+
+        /* Card Styles for White Theme */
+        .card-bg { 
+            background-color: #FFFFFF; 
+            border: 1px solid #E2E8F0; 
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+        }
+        
+        .stat-card {
+            background-color: #F8FAFC;
+            border: 1px solid #508991;
+            border-radius: 12px;
+            padding: 1.5rem;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 4px 6px -1px rgba(80, 137, 145, 0.1);
+        }
+
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 6px;
+            height: 100%;
+        }
+
+        /* Specific border colors for left indicators */
+        .border-left-primary::before { background-color: #508991; }
+        .border-left-deep::before { background-color: #004346; }
+
+        .factor-icon-box {
+            width: 38px;
+            height: 38px;
+            border-radius: 9px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.05rem;
+            transition: all 0.3s ease;
+            flex-shrink: 0;
+        }
+
+        /* Clean Shadow for emphasis without glow */
+        .clean-shadow {
+            filter: drop-shadow(0 2px 4px rgba(23, 42, 58, 0.1));
+        }
+
+        .stat-card {
+            transition: all 0.25s ease;
+        }
+        .stat-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 24px rgba(0, 67, 70, 0.12);
+            border-color: #75DDDD;
+        }
+        .factor-icon-box:hover {
+            background-color: #E0F5F5;
+            transform: scale(1.1);
+        }
+    </style>
+</head>
+<body class="p-8 relative" style="">
+<!-- Background Decoration Elements (Subtle on White) -->
+<div class="absolute top-[-50px] right-[-50px] w-96 h-96 bg-accent rounded-full mix-blend-multiply filter blur-[80px] opacity-10 pointer-events-none"></div>
+<div class="absolute bottom-[-50px] left-[-50px] w-96 h-96 bg-primary rounded-full mix-blend-multiply filter blur-[80px] opacity-10 pointer-events-none"></div>
+<!-- Header Section -->
+<div class="flex flex-col mb-4 z-10">
+  <div class="flex items-center mb-2">
+    <span class="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-deep text-white">Final Outcomes</span>
+    <div class="h-px bg-gray-200 flex-grow ml-3"></div>
+  </div>
+  <div class="flex justify-between items-end">
+    <div>
+      <h1 class="text-4xl font-black text-[#172A3A]">프로젝트 주요 결과</h1>
+      <p class="text-primary text-lg font-medium mt-1">최종 점수, 상승 추이, 핵심 기여 요인을 한 화면에 정리했습니다.</p>
+    </div>
+    <div class="flex items-center bg-white border border-primary px-5 py-3 rounded-lg shadow-md">
+      <div class="bg-primary bg-opacity-10 p-2 rounded-full mr-3">
+        <i class="fas fa-trophy text-[#004346] text-xl"></i>
+      </div>
+      <div class="flex flex-col">
+        <span class="text-[10px] text-primary uppercase font-bold tracking-widest">Public Score 순위</span>
+        <span class="text-navy font-bold text-xl leading-none">1위 (1st Place)</span>
+      </div>
+    </div>
+  </div>
+</div>
+<!-- KPI Section (Top) -->
+<div class="grid grid-cols-2 gap-6 mb-4 z-10">
+<!-- Main KPI: Final Public Score -->
+<div class="stat-card border-left-deep flex items-center justify-between">
+<div class="flex flex-col">
+<span class="text-navy text-sm font-bold uppercase tracking-wide mb-1">Final Public Score</span>
+<span class="text-6xl font-black text-primary font-mono clean-shadow">0.99524</span>
+</div>
+<div class="text-right">
+<div class="bg-primary bg-opacity-10 px-3 py-1 rounded border border-primary border-opacity-30 inline-flex items-center mb-2">
+<i class="fas fa-check-circle text-[#004346] mr-2"></i>
+<span class="text-[#004346] font-bold text-sm">목표 초과 달성</span>
+</div>
+<p class="text-gray-500 text-xs mt-1">강건한 객체 탐지 성능 확보</p>
+</div>
+</div>
+<!-- Secondary KPI: Total Improvement -->
+<div class="stat-card border-left-primary flex items-center justify-between">
+<div class="flex flex-col">
+<span class="text-navy text-sm font-bold uppercase tracking-wide mb-1">성능 향상 (Total Improvement)</span>
+<div class="flex items-baseline">
+<span class="text-5xl font-black text-primary font-mono">+10.52%</span>
+<span class="text-gray-500 text-lg ml-2 font-light">초기 대비</span>
+</div>
+</div>
+<div class="flex flex-col items-end justify-center h-full">
+<p class="text-gray-600 text-sm text-right font-mono">
+<span class="text-gray-400">0.90052</span>
+<i class="fas fa-arrow-right text-accent mx-2"></i>
+<span class="text-deep font-bold">0.99524</span>
+</p>
+<!-- Progress Bar -->
+<div class="w-32 h-2 bg-gray-200 rounded-full mt-3 overflow-hidden border border-gray-300">
+<div class="h-full bg-primary w-full" style="opacity: 1;"></div>
+</div>
+</div>
+</div>
+</div>
+<!-- Content Split: Chart & Factors -->
+<div class="flex gap-3 flex-grow z-10 overflow-hidden">
+<!-- Left: Growth Chart -->
+<div class="w-2/3 card-bg rounded-xl p-5 flex flex-col">
+<div class="flex justify-between items-center mb-3">
+<h3 class="text-lg font-bold text-navy flex items-center">
+<i class="fas fa-chart-line text-primary mr-2"></i> Public Score 상승 그래프
+                </h3>
+<span class="text-xs text-deep bg-accent bg-opacity-20 px-2 py-1 rounded border border-accent border-opacity-50 font-mono">
+                    Run ID: exp_final_v5
+                </span>
+</div>
+<div class="flex-grow relative w-full h-full">
+<canvas id="growthChart" style="display: block; box-sizing: border-box; height: 254px; width: 656px;" width="656" height="254"></canvas>
+</div>
+</div>
+<!-- Right: Key Contribution Factors -->
+<div class="w-1/3 flex flex-col min-h-0">
+<h3 class="text-base font-bold text-navy flex items-center mb-1">
+<i class="fas fa-key text-primary mr-2"></i> 주요 성공 요인
+            </h3>
+<div class="grid grid-rows-3 gap-1 flex-1 min-h-0">
+<!-- Factor 1: External Data -->
+<div class="card-bg rounded-xl p-1 flex items-center h-full transition-shadow duration-300 hover:shadow-lg border-l-4 border-l-accent">
+<div class="factor-icon-box bg-white border border-gray-200 shadow-sm mr-3">
+<i class="fas fa-database text-primary"></i>
+</div>
+<div>
+<h4 class="text-navy font-bold text-base">외부 데이터 통합</h4>
+<p class="text-gray-600 text-sm leading-tight">
+                        데이터 부족 해결 (232 <i class="fas fa-arrow-right text-[10px] mx-1"></i> 1.4만장)<br>
+                        클래스 불균형 문제 해소
+                    </p>
+</div>
+</div>
+<!-- Factor 2: Model Scale -->
+<div class="card-bg rounded-xl p-1 flex items-center h-full transition-shadow duration-300 hover:shadow-lg border-l-4 border-l-primary">
+<div class="factor-icon-box bg-white border border-gray-200 shadow-sm mr-3">
+<i class="fas fa-layer-group text-deep"></i>
+</div>
+<div>
+<h4 class="text-navy font-bold text-base">모델 스케일 최적화</h4>
+<p class="text-gray-600 text-sm leading-tight">
+                        YOLOv8m 모델 전략적 선택<br>
+                        정밀도와 추론 속도의 최적 균형
+                    </p>
+</div>
+</div>
+<!-- Factor 3: Post-Processing -->
+<div class="card-bg rounded-xl p-1 flex items-center h-full transition-shadow duration-300 hover:shadow-lg border-l-4 border-l-deep">
+<div class="factor-icon-box bg-white border border-gray-200 shadow-sm mr-3">
+<i class="fas fa-filter text-accent"></i>
+</div>
+<div>
+<h4 class="text-navy font-bold text-base">고도화된 후처리</h4>
+<p class="text-gray-600 text-sm leading-tight">
+                        Top-4 로직 + 임계값(Threshold) 튜닝<br>
+                        최종 Public Score 추가 상승 (+0.00122)
+                    </p>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Chart Configuration -->
+<script>
+        Chart.defaults.font.family = "'Noto Sans KR', sans-serif";
+        Chart.defaults.color = '#172A3A';
+        
+        const ctx = document.getElementById('growthChart').getContext('2d');
+        
+        // Data
+        const versions = ['v0', 'v1', 'v2', 'v3', 'v4', 'v5 (Final)'];
+        const pointLabels = [
+            '\uCD08\uAE30 E2E',
+            'Baseline',
+            '\uB370\uC774\uD130 \uC815\uC81C\u00B7\uD29C\uB2DD',
+            'external+exclude',
+            'HD+rect+\uD6C4\uCC98\uB9AC',
+            'Hard+swap109'
+        ];
+        const scores = [0.90052, 0.96138, 0.96859, 0.99361, 0.99402, 0.99524];
+
+        const pointLabelPlugin = {
+            id: 'pointLabelPlugin',
+            afterDatasetsDraw(chart) {
+                const meta = chart.getDatasetMeta(0);
+                const { ctx, chartArea } = chart;
+
+                ctx.save();
+                ctx.font = "600 10px 'Noto Sans KR', sans-serif";
+                ctx.fillStyle = '#508991';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'top';
+
+                meta.data.forEach((point, index) => {
+                    const y = Math.min(point.y + 10, chartArea.bottom - 16);
+                    ctx.fillText(pointLabels[index], point.x, y);
+                });
+
+                ctx.restore();
+            }
+        };
+
+        new Chart(ctx, {
+            type: 'line',
+            plugins: [pointLabelPlugin],
+            data: {
+                labels: versions,
+                datasets: [{
+                    label: 'Public Score',
+                    data: scores,
+                    borderColor: '#508991', // Medium Teal for line
+                    backgroundColor: (context) => {
+                        const ctx = context.chart.ctx;
+                        const gradient = ctx.createLinearGradient(0, 0, 0, 300);
+                        gradient.addColorStop(0, 'rgba(117, 221, 221, 0.6)'); // Accent #75DDDD
+                        gradient.addColorStop(1, 'rgba(80, 137, 145, 0.05)'); // Fade out
+                        return gradient;
+                    },
+                    borderWidth: 3,
+                    pointBackgroundColor: '#FFFFFF',
+                    pointBorderColor: '#004346',
+                    pointBorderWidth: 2,
+                    pointRadius: 6,
+                    pointHoverRadius: 8,
+                    fill: true,
+                    tension: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                layout: {
+                    padding: {
+                        top: 20,
+                        right: 20,
+                        left: 10,
+                        bottom: 0
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: false,
+                        min: 0.88,
+                        max: 1.0,
+                        grid: {
+                            color: '#E5E7EB',
+                            borderColor: '#E5E7EB',
+                            tickColor: '#E5E7EB',
+                            borderDash: [5, 5],
+                        },
+                        ticks: {
+                            color: '#508991',
+                            font: { family: "'Fira Code', monospace" }
+                        }
+                    },
+                    x: {
+                        grid: {
+                            display: false,
+                            borderColor: '#E5E7EB'
+                        },
+                        ticks: {
+                            color: '#172A3A', 
+                            autoSkip: false,
+                            maxRotation: 0,
+                            minRotation: 0,
+                            font: { size: 11, weight: 'bold' }
+                        }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        backgroundColor: '#004346',
+                        titleColor: '#75DDDD',
+                        bodyColor: '#fff',
+                        borderColor: '#508991',
+                        borderWidth: 1,
+                        padding: 12,
+                        displayColors: false,
+                        callbacks: {
+                            label: function(context) {
+                                return `Score: ${context.raw}`;
+                            }
+                        }
+                    },
+                    annotation: {
+                        annotations: {
+                            line1: {
+                                type: 'line',
+                                yMin: 0.99524,
+                                yMax: 0.99524,
+                                borderColor: '#508991', 
+                                borderWidth: 1,
+                                borderDash: [4, 4],
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    </script>
+
+    <script src="./presentation-nav.js"></script>
+</body></html>
+
+

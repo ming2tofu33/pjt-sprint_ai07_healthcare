@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Closing Q&A</title>
+<link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&amp;display=swap" rel="stylesheet"/>
+<style>
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+            background-color: #FFFFFF;
+            color: #172A3A;
+            width: 1280px;
+            height: 720px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        .qa-badge {
+            transition: all 0.3s ease;
+            cursor: default;
+        }
+        .qa-badge:hover {
+            transform: scale(1.05);
+            box-shadow: 0 8px 24px rgba(0, 67, 70, 0.15);
+            background-color: #E0F9FA;
+        }
+
+        /* 도트 그리드 배경 패턴 */
+        .dot-bg {
+            background-image: radial-gradient(circle, #508991 1px, transparent 1px);
+            background-size: 32px 32px;
+            opacity: 0.07;
+        }
+
+        /* 메인 타이틀 민트 언더라인 */
+        .main-title {
+            position: relative;
+        }
+        .main-title::after {
+            content: '';
+            display: block;
+            margin: 14px auto 0;
+            width: 220px;
+            height: 4px;
+            background: linear-gradient(90deg, transparent, #75DDDD 30%, #508991 70%, transparent);
+            border-radius: 2px;
+        }
+
+        /* 중앙 세로 데코 라인 (타이틀 양쪽) */
+        .deco-vline {
+            width: 1px;
+            height: 64px;
+            background: linear-gradient(to bottom, transparent, #75DDDD 40%, #508991 60%, transparent);
+            opacity: 0.7;
+        }
+
+        /* 모서리 장식 점 */
+        .corner-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background-color: #75DDDD;
+            opacity: 0.5;
+        }
+    </style>
+</head>
+<body class="p-8 relative">
+<!-- 도트 그리드 배경 패턴 -->
+<div class="absolute inset-0 dot-bg pointer-events-none"></div>
+<!-- Background Decoration (블러 원) -->
+<div class="absolute top-[-120px] right-[-120px] w-[460px] h-[460px] rounded-full bg-[#75DDDD] opacity-15 filter blur-[100px] pointer-events-none"></div>
+<div class="absolute bottom-[-140px] left-[-120px] w-[500px] h-[500px] rounded-full bg-[#508991] opacity-10 filter blur-[120px] pointer-events-none"></div>
+<!-- 모서리 장식 점 (4개) -->
+<div class="absolute top-6 left-6 flex gap-1.5 pointer-events-none">
+  <div class="corner-dot"></div><div class="corner-dot opacity-30"></div><div class="corner-dot opacity-10"></div>
+</div>
+<div class="absolute top-6 right-6 flex gap-1.5 pointer-events-none">
+  <div class="corner-dot opacity-10"></div><div class="corner-dot opacity-30"></div><div class="corner-dot"></div>
+</div>
+<div class="absolute bottom-6 left-6 flex gap-1.5 pointer-events-none">
+  <div class="corner-dot"></div><div class="corner-dot opacity-30"></div><div class="corner-dot opacity-10"></div>
+</div>
+<div class="absolute bottom-6 right-6 flex gap-1.5 pointer-events-none">
+  <div class="corner-dot opacity-10"></div><div class="corner-dot opacity-30"></div><div class="corner-dot"></div>
+</div>
+
+
+<!-- Main Center Content -->
+<div class="flex-1 z-10 flex flex-col items-center justify-center text-center">
+<!-- 타이틀 양쪽 세로 데코 라인 -->
+<div class="flex items-center gap-10 mb-2">
+  <div class="deco-vline"></div>
+  <h1 class="text-[84px] leading-none font-black text-[#172A3A] tracking-tight main-title">
+    감사합니다
+  </h1>
+  <div class="deco-vline"></div>
+</div>
+<div class="mt-10 px-6 py-2 rounded-full bg-[#F0F9FA] border border-[#75DDDD] qa-badge">
+<p class="text-3xl font-bold text-[#004346] tracking-wide">Q&amp;A</p>
+</div>
+<p class="mt-6 text-2xl font-medium text-[#508991]">
+            질문 받겠습니다.
+        </p>
+</div>
+
+<script src="./presentation-nav.js"></script>
+</body>
+</html>
+

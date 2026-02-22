@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Engineering Insights</title>
+<link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&amp;family=Fira+Code:wght@400;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet"/>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+            background-color: #FFFFFF;
+            color: #172A3A;
+            width: 1280px;
+            height: 720px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .font-mono { font-family: 'Fira Code', monospace; }
+        
+        /* Palette */
+        .text-accent { color: #75DDDD; }
+        .bg-accent { background-color: #75DDDD; }
+        .border-accent { border-color: #75DDDD; }
+        
+        .text-primary { color: #508991; }
+        .bg-primary { background-color: #508991; }
+        .border-primary { border-color: #508991; }
+        
+        .text-dark { color: #172A3A; }
+        .bg-dark { background-color: #172A3A; }
+        
+        .text-secondary { color: #004346; }
+        .bg-secondary { background-color: #004346; }
+        .border-secondary { border-color: #004346; }
+
+        .card-bg { 
+            background-color: #FFFFFF; 
+            border: 1px solid #E2E8F0;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+            border-radius: 12px;
+        }
+        
+        .insight-pill {
+            display: inline-flex;
+            align-items: center;
+            padding: 4px 10px;
+            border-radius: 9999px;
+            font-size: 11px;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+    
+        .bg-deep { background-color: #004346; }
+
+        .card-bg {
+            transition: all 0.25s ease;
+        }
+        .card-bg:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 24px rgba(0, 67, 70, 0.1);
+            border-color: #75DDDD;
+        }
+        .stat-box {
+            transition: all 0.2s ease;
+        }
+        .stat-box:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 67, 70, 0.1);
+            border-color: #508991;
+        }
+    </style>
+</head>
+<body class="p-8 relative">
+    <!-- Background Decor -->
+    <div class="absolute top-0 right-0 w-64 h-64 bg-[#75DDDD] opacity-10 rounded-full filter blur-3xl pointer-events-none"></div>
+    <div class="absolute bottom-0 left-0 w-64 h-64 bg-[#508991] opacity-10 rounded-full filter blur-3xl pointer-events-none"></div>
+
+    <!-- Header -->
+<div class="flex flex-col mb-4 z-10 shrink-0">
+  <div class="flex items-center mb-2">
+    <span class="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-deep text-white">Key Insights</span>
+    <div class="h-px bg-gray-200 flex-grow ml-3"></div>
+  </div>
+  <h1 class="text-4xl font-black text-[#172A3A]">전략적 효율화와 핵심 발견</h1>
+  <p class="text-primary text-lg font-medium mt-1">병렬 운영 효과와 데이터 중심 개선 인사이트를 정리했습니다.</p>
+</div>
+<!-- Main Content -->
+    <div class="flex gap-8 flex-grow z-10 h-full overflow-hidden">
+        
+        <!-- Left: Parallel Strategy & Insights -->
+        <div class="w-5/12 flex flex-col gap-4">
+            
+            <!-- Strategy Card -->
+            <div class="card-bg p-5 flex flex-col">
+                <h3 class="text-lg font-bold text-secondary mb-4 flex items-center">
+                    <i class="fas fa-random text-primary mr-2"></i> 리소스 병렬 운영 (Parallel Ops)
+                </h3>
+                <div class="flex items-center justify-between bg-gray-50 rounded-lg p-4 border border-gray-200">
+                    <!-- Model Team -->
+                    <div class="text-center">
+                        <div class="w-12 h-12 bg-white rounded-full border-2 border-[#508991] flex items-center justify-center mx-auto mb-2 shadow-sm text-xl text-[#508991]">
+                            <i class="fas fa-brain"></i>
+                        </div>
+                        <p class="font-bold text-dark text-sm">Model Team</p>
+                        <p class="text-xs text-gray-500">3 Members</p>
+                    </div>
+                    <!-- Connector -->
+                    <div class="flex-grow mx-4 flex flex-col items-center">
+                        <span class="text-[10px] text-gray-400 font-mono mb-1">Daily Sync x2</span>
+                        <div class="h-px w-full bg-gray-300 relative">
+                            <div class="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 w-2 h-2 bg-[#75DDDD] rounded-full"></div>
+                        </div>
+                    </div>
+                    <!-- Data Team -->
+                    <div class="text-center">
+                        <div class="w-12 h-12 bg-white rounded-full border-2 border-[#004346] flex items-center justify-center mx-auto mb-2 shadow-sm text-xl text-[#004346]">
+                            <i class="fas fa-database"></i>
+                        </div>
+                        <p class="font-bold text-dark text-sm">Data Team</p>
+                        <p class="text-xs text-gray-500">2 Members</p>
+                    </div>
+                </div>
+                <p class="text-xs text-gray-600 mt-3 leading-relaxed">
+                    <i class="fas fa-quote-left text-primary mr-1"></i>
+                    제한된 기간 내 효율 극대화를 위해 아키텍처 개선과 데이터 정제를 병렬로 수행하여 실험 사이클을 가속화했습니다.
+                </p>
+            </div>
+
+            <!-- Key Discovery Card -->
+            <div class="card-bg p-5 flex-grow border-l-4 border-l-[#004346]">
+                <h3 class="text-xl font-bold text-secondary mb-3 flex items-center">
+                    <i class="fas fa-lightbulb text-[#004346] mr-2"></i> 핵심 발견: 증강의 역설
+                </h3>
+                <p class="text-base text-dark font-bold mb-2">"무조건적인 데이터 증강이 능사는 아니다"</p>
+                <ul class="text-sm text-gray-600 space-y-2 list-disc list-inside leading-relaxed">
+                    <li>통제된 환경(Controlled Env) 데이터 특성상 Flip/Rotation이 오히려 <span class="text-[#508991] font-bold">노이즈로 작용</span></li>
+                    <li>증강 제거 후 Baseline 점수 즉각 상승 확인</li>
+                    <li><span class="bg-[#004346] bg-opacity-10 text-[#004346] px-1 rounded font-bold">Lesson:</span> 도메인 특성에 맞는 선별적 증강 필수</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Right: Impact Analysis Chart -->
+        <div class="w-7/12 flex flex-col h-full">
+            <div class="card-bg p-6 h-full flex flex-col">
+                <div class="flex justify-between items-end mb-4">
+                    <div>
+                        <h3 class="text-xl font-bold text-secondary flex items-center">
+                            <i class="fas fa-chart-bar text-primary mr-2"></i> Action Impact Analysis
+                        </h3>
+                        <p class="text-sm text-gray-500 mt-1">각 엔지니어링 액션별 성능 기여도 (Score Gain)</p>
+                    </div>
+                    <div class="text-right">
+                        <span class="text-xs text-gray-400 uppercase font-bold">Total Improvement</span>
+                        <p class="text-2xl font-black text-[#004346]">+0.03386</p>
+                    </div>
+                </div>
+                
+                <div class="flex-grow relative w-full">
+                    <canvas id="impactChart"></canvas>
+                </div>
+
+                <div class="mt-4 grid grid-cols-3 gap-2">
+                    <div class="text-center p-2 bg-gray-50 rounded border border-gray-100 stat-box">
+                        <p class="text-[10px] text-gray-500">Step 1</p>
+                        <p class="text-xs font-bold text-dark">Data Quality</p>
+                        <p class="text-[10px] text-[#508991]">+0.00721</p>
+                    </div>
+                    <div class="text-center p-2 bg-[#F0FDFA] rounded border border-[#508991] stat-box">
+                        <p class="text-[10px] text-gray-500">Step 2</p>
+                        <p class="text-xs font-bold text-[#004346]">Data Quantity</p>
+                        <p class="text-[10px] text-[#004346] font-bold">+0.02502</p>
+                    </div>
+                    <div class="text-center p-2 bg-gray-50 rounded border border-gray-100 stat-box">
+                        <p class="text-[10px] text-gray-500">Step 3</p>
+                        <p class="text-xs font-bold text-dark">Consistency</p>
+                        <p class="text-[10px] text-[#508991]">+0.00163</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        Chart.defaults.font.family = "'Noto Sans KR', sans-serif";
+        Chart.defaults.color = '#64748B';
+
+        const ctx = document.getElementById('impactChart').getContext('2d');
+        
+        // Data derived from provided scores:
+        // v1 Baseline: 0.96138 (Start)
+        // v2 Quality (No Aug): 0.96859 (+0.00721)
+        // v3/v4 Quantity (Ext Data): 0.99361 (+0.02502)
+        // v5 Consistency (Final): 0.99524 (+0.00163) -> 0.99361 to 0.99524 is 0.00163 gain
+        
+        const impactData = [0.00721, 0.02502, 0.00163];
+        const labels = ['증강 제거 (Quality)', '외부 데이터 (Scale-up)', '정합성 개선 (Consistency)'];
+
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Score Improvement (+)',
+                    data: impactData,
+                    backgroundColor: [
+                        'rgba(80, 137, 145, 0.6)',  // #508991
+                        'rgba(0, 67, 70, 0.8)',     // #004346 (Main Impact)
+                        'rgba(117, 221, 221, 0.6)'  // #75DDDD
+                    ],
+                    borderColor: [
+                        '#508991',
+                        '#004346',
+                        '#75DDDD'
+                    ],
+                    borderWidth: 1,
+                    borderRadius: 6,
+                    barPercentage: 0.6
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                indexAxis: 'y', // Horizontal Bar Chart for clearer labels
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: '#172A3A',
+                        titleColor: '#fff',
+                        bodyColor: '#75DDDD',
+                        callbacks: {
+                            label: function(context) {
+                                return `+ ${context.raw.toFixed(5)}`;
+                            }
+                        }
+                    },
+                    datalabels: { // Requires plugin, assuming basic config here or handled by custom render
+                        anchor: 'end',
+                        align: 'end',
+                        color: '#172A3A',
+                        font: { weight: 'bold' },
+                        formatter: (value) => `+${value.toFixed(5)}`
+                    }
+                },
+                scales: {
+                    x: {
+                        beginAtZero: true,
+                        grid: { color: '#F1F5F9' },
+                        ticks: { color: '#94A3B8' }
+                    },
+                    y: {
+                        grid: { display: false },
+                        ticks: { 
+                            font: { weight: 'bold', size: 12 },
+                            color: '#172A3A'
+                        }
+                    }
+                },
+                animation: {
+                    onComplete: function () {
+                        const chartInstance = this;
+                        const ctx = chartInstance.ctx;
+                        ctx.textAlign = 'left';
+                        ctx.textBaseline = 'middle';
+                        ctx.fillStyle = '#172A3A';
+                        ctx.font = "bold 12px 'Fira Code'";
+
+                        this.data.datasets.forEach(function (dataset, i) {
+                            const meta = chartInstance.getDatasetMeta(i);
+                            meta.data.forEach(function (bar, index) {
+                                const data = dataset.data[index];
+                                ctx.fillText(`+${data.toFixed(5)}`, bar.x + 5, bar.y);
+                            });
+                        });
+                    }
+                }
+            }
+        });
+    </script>
+    <script src="./presentation-nav.js"></script>
+</body>
+</html>

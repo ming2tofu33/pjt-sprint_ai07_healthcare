@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+
+<html lang="ko">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>문제 해결 전략</title>
+<link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet"/>
+<style>
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+            background-color: #FFFFFF; /* White Background */
+            color: #172A3A; /* Dark Navy Text */
+            width: 1280px;
+            height: 720px;
+            overflow: hidden;
+            margin: 0;
+            padding: 0;
+        }
+        
+        /* Color Palette */
+        .text-accent { color: #75DDDD; } /* Light Mint */
+        .bg-accent { background-color: #75DDDD; }
+        
+        .text-secondary { color: #508991; } /* Medium Teal */
+        .bg-secondary { background-color: #508991; }
+        .border-secondary { border-color: #508991; }
+        
+        .text-primary-dark { color: #004346; } /* Dark Teal */
+        .bg-primary-dark { background-color: #004346; }
+        
+        .text-dark { color: #172A3A; } /* Dark Navy */
+        .bg-dark { background-color: #172A3A; }
+
+        .card-row {
+            background-color: #FFFFFF;
+            border: 1px solid #508991; /* Secondary border */
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+            transition: all 0.3s ease;
+        }
+        
+        .solution-inner {
+            background-color: #F0FCFC; /* Very Light Mint Tint */
+            border: 1px solid #75DDDD;
+        }
+
+        /* Hover effect */
+        .card-row:hover {
+            border-color: #004346;
+            transform: translateX(5px);
+            box-shadow: 4px 0 0 #004346 inset, 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .focus-row {
+            border-left: 6px solid transparent;
+        }
+        .focus-manual {
+            background-color: #F8FCFD;
+            border-left-color: #004346;
+            border-color: #4d8b8d;
+        }
+        .focus-targeted {
+            background-color: #F6FBFC;
+            border-left-color: #508991;
+            border-color: #6aa8ae;
+        }
+        .focus-row:hover {
+            transform: translateX(2px);
+            box-shadow: 2px 0 0 rgba(0, 67, 70, 0.35) inset, 0 6px 10px rgba(0, 0, 0, 0.08);
+        }
+
+        .icon-box {
+            background-color: #E6F7F7; /* Light Mint Tint */
+            color: #004346;
+        }
+        
+        .badge {
+            background-color: #F0FCFC;
+            color: #004346;
+            border: 1px solid #508991;
+        }
+        .impact-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            border-radius: 9999px;
+            padding: 1px 6px;
+            font-size: 10px;
+            font-weight: 700;
+            border: 1px solid;
+            line-height: 1.2;
+            white-space: nowrap;
+        }
+        .badge-manual {
+            background-color: #EAF9F8;
+            color: #004346;
+            border-color: #508991;
+        }
+        .badge-targeted {
+            background-color: #F0FCFC;
+            color: #004346;
+            border-color: #75DDDD;
+        }
+        .keyword {
+            color: #004346;
+            font-weight: 700;
+        }
+    
+        .text-primary { color: #508991; }
+    
+        .bg-deep { background-color: #004346; }
+    </style>
+</head>
+<body class="flex flex-col p-8 relative">
+<!-- Background Decoration (Corner Icon) -->
+<!-- Header Section -->
+<div class="flex flex-col mb-4 z-10">
+  <div class="flex items-center mb-2">
+    <span class="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-deep text-white">Solution Strategy</span>
+    <div class="h-px bg-gray-200 flex-grow ml-3"></div>
+  </div>
+  <h1 class="text-4xl font-black text-[#172A3A]">문제 해결 과정</h1>
+  <p class="text-primary text-lg font-medium mt-1">Problem → Analysis → Solution 구조로 엔지니어링 대응을 제시합니다.</p>
+</div>
+<!-- Column Headers -->
+<div class="grid grid-cols-12 gap-4 mb-1 px-2 text-xs font-bold uppercase tracking-wider text-secondary z-10">
+<div class="col-span-3 pl-2"><i class="fas fa-exclamation-circle mr-2"></i>이슈 (Issue)</div>
+<div class="col-span-4 pl-2"><i class="fas fa-search mr-2"></i>판단 (Judgement)</div>
+<div class="col-span-5 pl-2"><i class="fas fa-tools mr-2"></i>엔지니어링 솔루션 (Solution)</div>
+</div>
+<!-- Main Content List -->
+<div class="flex-grow flex flex-col gap-2 z-10 overflow-hidden">
+<!-- Row 1: JSON Structure -->
+<div class="grid grid-cols-12 gap-4 items-center card-row rounded-lg p-2">
+<!-- Issue -->
+<div class="col-span-3 flex items-center space-x-3">
+<div class="w-10 h-10 rounded icon-box flex items-center justify-center flex-shrink-0">
+<i class="fas fa-file-code"></i>
+</div>
+<div>
+<h3 class="text-dark font-bold text-sm">JSON 파편화</h3>
+<p class="text-xs text-secondary">Img 1장 : JSON 4개</p>
+</div>
+</div>
+<!-- Analysis -->
+<div class="col-span-4 relative pl-4 border-l border-secondary border-opacity-30">
+<p class="text-xs text-dark leading-snug">
+<span class="text-primary-dark font-bold">판단:</span> COCO 포맷이 객체 단위로 분리되어 있어, 이미지 단위의 문맥 파악 및 YOLO 모델 학습 불가
+                </p>
+</div>
+<!-- Solution -->
+<div class="col-span-5 solution-inner rounded p-2 flex items-center justify-between border-l-4 border-l-[#004346]">
+<div>
+<h4 class="text-primary-dark font-bold text-sm mb-1">JSON Merge &amp; Convert</h4>
+<p class="text-xs text-secondary"><span class="keyword">병합</span> 기준 라벨 통합 (COCO → YOLO txt)</p>
+</div>
+<i class="fas fa-check-circle text-secondary opacity-50"></i>
+</div>
+</div>
+<!-- Row 2: BBox Quality -->
+<div class="grid grid-cols-12 gap-4 items-center card-row focus-row focus-manual rounded-lg p-2">
+<!-- Issue -->
+<div class="col-span-3 flex items-center space-x-3">
+<div class="w-10 h-10 rounded icon-box flex items-center justify-center flex-shrink-0">
+<i class="fas fa-vector-square"></i>
+</div>
+<div>
+<h3 class="text-dark font-bold text-sm">BBox 소실 / 유격</h3>
+<p class="text-xs text-secondary">라벨 누락 및 부정확</p>
+</div>
+</div>
+<!-- Analysis -->
+<div class="col-span-4 relative pl-4 border-l border-secondary border-opacity-30">
+<p class="text-xs text-dark leading-snug">
+<span class="text-primary-dark font-bold">판단:</span> 모델 필터링 실패 데이터 존재. 학습 시 FP/FN 증가의 직접적 원인으로 작용
+                </p>
+</div>
+<!-- Solution -->
+<div class="col-span-5 solution-inner rounded p-2 flex items-center justify-between border-l-4 border-l-[#004346]">
+<div>
+<h4 class="text-primary-dark font-bold text-sm mb-1">Human-in-the-loop 검수</h4>
+<p class="text-xs text-secondary leading-tight"><span class="keyword">아날로그 전수 조사</span> 기반 수기 보정으로 누락/유격 라벨 복원</p>
+<div class="mt-1">
+<span class="impact-badge badge-manual"><i class="fas fa-hand-paper"></i>Manual Check 100%</span>
+</div>
+</div>
+<div class="flex items-center gap-2 text-secondary opacity-70">
+<i class="fas fa-eye"></i>
+<i class="fas fa-search"></i>
+</div>
+</div>
+</div>
+<!-- Row 3: Duplicate -->
+<div class="grid grid-cols-12 gap-4 items-center card-row rounded-lg p-2">
+<!-- Issue -->
+<div class="col-span-3 flex items-center space-x-3">
+<div class="w-10 h-10 rounded icon-box flex items-center justify-center flex-shrink-0">
+<i class="fas fa-clone"></i>
+</div>
+<div>
+<h3 class="text-dark font-bold text-sm">중복 BBox</h3>
+<p class="text-xs text-secondary">동일 객체 다중 라벨</p>
+</div>
+</div>
+<!-- Analysis -->
+<div class="col-span-4 relative pl-4 border-l border-secondary border-opacity-30">
+<p class="text-xs text-dark leading-snug">
+<span class="text-primary-dark font-bold">판단:</span> 미세하게 다른 좌표가 중첩되어 Loss 수렴 방해. 단순 NMS로 해결 불가한 케이스 존재
+                </p>
+</div>
+<!-- Solution -->
+<div class="col-span-5 solution-inner rounded p-2 flex items-center justify-between border-l-4 border-l-[#004346]">
+<div>
+<h4 class="text-primary-dark font-bold text-sm mb-1">Code-based Removal</h4>
+<p class="text-xs text-secondary">중복 탐지 알고리즘 적용 및 오류 이미지 <span class="keyword">삭제</span></p>
+</div>
+<i class="fas fa-trash-alt text-secondary opacity-50"></i>
+</div>
+</div>
+<!-- Row 4: Class Imbalance -->
+<div class="grid grid-cols-12 gap-4 items-center card-row focus-row focus-targeted rounded-lg p-2">
+<!-- Issue -->
+<div class="col-span-3 flex items-center space-x-3">
+<div class="w-10 h-10 rounded icon-box flex items-center justify-center flex-shrink-0">
+<i class="fas fa-balance-scale-right"></i>
+</div>
+<div>
+<h3 class="text-dark font-bold text-sm">데이터 불균형</h3>
+<p class="text-xs text-secondary">소수 클래스 부족</p>
+</div>
+</div>
+<!-- Analysis -->
+<div class="col-span-4 relative pl-4 border-l border-secondary border-opacity-30">
+<p class="text-xs text-dark leading-snug">
+<span class="text-primary-dark font-bold">판단:</span> <span class="keyword">100개 미만</span> 클래스의 검출력 저하. 전체 증강 시 과적합 우려
+                </p>
+</div>
+<!-- Solution -->
+<div class="col-span-5 solution-inner rounded p-2 flex items-center justify-between border-l-4 border-l-[#004346]">
+<div>
+<h4 class="text-primary-dark font-bold text-sm mb-1">Targeted Augmentation</h4>
+<p class="text-xs text-secondary leading-tight">전체 증강이 아닌 <span class="keyword">부족 클래스 한정</span> 증강(300개) &amp; 외부 데이터 병합</p>
+<div class="mt-1 flex flex-wrap gap-1">
+<span class="impact-badge badge-targeted">Targeted Aug</span>
+<span class="impact-badge badge-targeted">Low(&lt;100) → Boost(300)</span>
+</div>
+</div>
+<div class="flex items-center gap-2 text-secondary opacity-70">
+<i class="fas fa-layer-group"></i>
+<i class="fas fa-arrow-up"></i>
+</div>
+</div>
+</div>
+<!-- Row 5: Ratio Reversal -->
+<div class="grid grid-cols-12 gap-4 items-center card-row rounded-lg p-2">
+<!-- Issue -->
+<div class="col-span-3 flex items-center space-x-3">
+<div class="w-10 h-10 rounded icon-box flex items-center justify-center flex-shrink-0">
+<i class="fas fa-chart-pie"></i>
+</div>
+<div>
+<h3 class="text-dark font-bold text-sm">데이터셋 비율 역전</h3>
+<p class="text-xs text-secondary">Train(232) &lt; Test(842)</p>
+</div>
+</div>
+<!-- Analysis -->
+<div class="col-span-4 relative pl-4 border-l border-secondary border-opacity-30">
+<p class="text-xs text-dark leading-snug">
+<span class="text-primary-dark font-bold">판단:</span> 절대적인 학습 데이터 수 부족으로 인한 일반화 성능 확보 어려움
+                </p>
+</div>
+<!-- Solution -->
+<div class="col-span-5 solution-inner rounded p-2 flex items-center justify-between border-l-4 border-l-[#004346]">
+<div>
+<h4 class="text-primary-dark font-bold text-sm mb-1">External Data &amp; Scale Up</h4>
+<p class="text-xs text-secondary">외부 데이터셋 추가 확보 및 증강 기법 적극 도입</p>
+</div>
+<i class="fas fa-plus-circle text-secondary opacity-50"></i>
+</div>
+</div>
+</div>
+    <script src="./presentation-nav.js"></script>
+</body>
+</html>
+
+

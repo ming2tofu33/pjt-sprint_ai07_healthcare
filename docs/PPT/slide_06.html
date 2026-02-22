@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+
+<html lang="ko">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>데이터 구조 분석</title>
+<link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet"/>
+<style>
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+            background-color: #ffffff; /* White Background */
+            color: #172A3A; /* Dark Navy Text */
+            width: 1280px;
+            height: 720px;
+            overflow: hidden;
+        }
+        
+        /* Palette */
+        .text-primary { color: #508991; } /* Dark Navy */
+        .bg-primary { background-color: #172A3A; }
+        
+        .text-secondary { color: #508991; } /* Medium Teal */
+        .bg-secondary { background-color: #508991; }
+        .border-secondary { border-color: #508991; }
+        
+        .text-accent { color: #75DDDD; } /* Bright Mint */
+        .bg-accent { background-color: #75DDDD; }
+        
+        .text-dark-teal { color: #004346; } /* Dark Teal */
+        .bg-dark-teal { background-color: #004346; }
+        .border-dark-teal { border-color: #004346; }
+        .text-point-danger { color: #EF4444; }
+        .text-point-warning { color: #F59E0B; }
+        .text-point-success { color: #22C55E; }
+        .text-point-indigo { color: #6366F1; }
+        
+        /* point colors restored for visual emphasis */
+        
+        /* Components */
+        .card-bg { 
+            background-color: #ffffff; 
+            border: 1px solid #E2E8F0;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+        
+        .code-block {
+            font-family: 'Consolas', 'Monaco', monospace;
+            background-color: #F8FAFC; 
+            border: 2px solid #004346; /* Requested JSON Box Border */
+            border-radius: 6px;
+            padding: 1rem;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            overflow: hidden;
+            position: relative;
+            color: #172A3A;
+        }
+        
+        .json-key { color: #004346; font-weight: 600; }
+        .json-string { color: #508991; }
+        .json-number { color: #004346; }
+        .comment { color: #94a3b8; font-style: italic; }
+        
+        .badge-problem {
+            background-color: rgba(239, 68, 68, 0.12);
+            color: #991B1B;
+            border: 1px solid #FCA5A5;
+        }
+
+        .badge-solution {
+            background-color: rgba(34, 197, 94, 0.12);
+            color: #166534;
+            border: 1px solid #86EFAC;
+        }
+
+        .process-icon-container {
+            background-color: #ffffff;
+            border: 2px solid #508991;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+        }
+
+        .process-arrow {
+            color: #F59E0B;
+        }
+        
+        .file-box {
+            background-color: #F1F5F9;
+            border: 1px solid #004346;
+            transition: all 0.2s ease;
+        }
+        .file-box:hover {
+            border-color: #508991;
+            background-color: #F0FDFA;
+            transform: translateX(3px);
+        }
+        .code-block {
+            transition: box-shadow 0.2s ease;
+        }
+        .code-block:hover {
+            box-shadow: 0 4px 14px rgba(0, 67, 70, 0.12);
+        }
+        .badge-problem, .badge-solution {
+            transition: transform 0.2s ease;
+            cursor: default;
+        }
+        .badge-problem:hover, .badge-solution:hover {
+            transform: scale(1.06);
+        }
+
+        .bg-deep { background-color: #004346; }
+    </style>
+</head>
+<body class="flex flex-col p-8 relative">
+<!-- Header Section -->
+<div class="flex flex-col mb-4 z-10">
+  <div class="flex items-center mb-2">
+    <span class="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-deep text-white">Data Structure</span>
+    <div class="h-px bg-gray-200 flex-grow ml-3"></div>
+  </div>
+  <h1 class="text-4xl font-black text-[#172A3A]">데이터 구조 진단과 변환</h1>
+  <p class="text-primary text-lg font-medium mt-1">COCO 구조 이슈를 정리하고 YOLO 학습 형식으로 안정 변환했습니다.</p>
+</div>
+<!-- Main Content -->
+<div class="flex-grow flex items-stretch gap-6 z-10">
+<!-- Left Panel: AS-IS (Problem) -->
+<div class="w-5/12 flex flex-col">
+<div class="card-bg rounded-xl h-full flex flex-col relative overflow-hidden group">
+<div class="absolute top-0 left-0 w-full h-1 bg-[#508991]"></div>
+<!-- Header -->
+<div class="p-5 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+<div>
+<h3 class="text-xl font-bold text-primary"><i class="fas fa-exclamation-triangle text-point-danger mr-2"></i>원본 포맷 (AS-IS)</h3>
+<p class="text-xs text-gray-500 mt-1">Fragmented COCO JSON Format</p>
+</div>
+<span class="badge-problem text-xs px-2 py-1 rounded font-bold uppercase">Problem</span>
+</div>
+<!-- Visual Representation -->
+<div class="p-6 flex-grow flex flex-col justify-center space-y-4">
+<!-- File Structure Visual -->
+<div class="flex justify-center space-x-4 mb-2">
+<div class="flex flex-col items-center">
+<i class="fas fa-file-image text-4xl text-gray-400 mb-2"></i>
+<p class="text-xs text-gray-500">image_01.jpg</p>
+</div>
+<div class="flex flex-col justify-center space-y-1">
+<i class="fas fa-link text-gray-300"></i>
+<i class="fas fa-link text-gray-300"></i>
+<i class="fas fa-link text-gray-300"></i>
+</div>
+<div class="flex flex-col space-y-2">
+<div class="flex items-center space-x-2 file-box px-3 py-1 rounded border-l-4 border-l-[#508991]">
+<i class="fas fa-file-code text-secondary"></i>
+<p class="text-xs text-gray-600">img01_ann_1.json</p>
+</div>
+<div class="flex items-center space-x-2 file-box px-3 py-1 rounded border-l-4 border-l-[#508991]">
+<i class="fas fa-file-code text-secondary"></i>
+<p class="text-xs text-gray-600">img01_ann_2.json</p>
+</div>
+<div class="flex items-center space-x-2 file-box px-3 py-1 rounded border-l-4 border-l-[#508991]">
+<i class="fas fa-file-code text-secondary"></i>
+<p class="text-xs text-gray-600">img01_ann_3.json</p>
+</div>
+</div>
+</div>
+<!-- Description -->
+<div class="bg-[#F8FAFC] p-4 rounded border border-[#508991] border-dashed text-center">
+<p class="text-[#991B1B] font-bold text-sm mb-1">
+<i class="fas fa-times-circle mr-1"></i> 1 Pill = 1 JSON File
+                        </p>
+<p class="text-xs text-gray-600">
+                            이미지 1장에 포함된 알약 개수만큼 JSON 파일이 쪼개져 있어<br/>전체 문맥 파악 및 바로 학습 불가능
+                        </p>
+</div>
+<!-- Code Snippet -->
+<div class="code-block h-36 overflow-y-auto pb-2">
+<div class="flex">
+<span class="text-gray-400 mr-2 select-none">1</span>
+<span class="json-key">"annotation"</span>: {
+                        </div>
+<div class="flex">
+<span class="text-gray-400 mr-2 select-none">2</span>
+                              <span class="json-key">"image_id"</span>: <span class="json-number">1024</span>,
+                        </div>
+<div class="flex">
+<span class="text-gray-400 mr-2 select-none">3</span>
+                              <span class="json-key">"category_id"</span>: <span class="json-number">5</span>,
+                        </div>
+<div class="flex">
+<span class="text-gray-400 mr-2 select-none">4</span>
+                              <span class="json-key">"bbox"</span>: [<span class="json-number">100</span>, <span class="json-number">200</span>, <span class="json-number">50</span>, <span class="json-number">80</span>],
+                        </div>
+<div class="flex">
+<span class="text-gray-400 mr-2 select-none">5</span>
+                              <span class="comment">// bbox: [x_min, y_min, width, height]</span>
+</div>
+<div class="flex">
+<span class="text-gray-400 mr-2 select-none">6</span>
+                            }
+                        </div>
+</div>
+</div>
+</div>
+</div>
+<!-- Center: Process Arrow -->
+<div class="w-2/12 flex flex-col justify-center items-center relative">
+<div class="absolute h-full w-px bg-gray-200 z-0"></div>
+<!-- Process Step 1 -->
+<div class="z-10 process-icon-container rounded-lg p-3 mb-6 text-center w-36">
+<div class="w-8 h-8 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-2 border border-secondary">
+<i class="fas fa-object-group text-secondary"></i>
+</div>
+<p class="text-xs font-bold text-primary">병합 (Merge)</p>
+<p class="text-[10px] text-gray-500">by File Name</p>
+</div>
+<!-- Arrow Icon -->
+<div class="z-10 bg-white p-2 rounded-full border border-gray-200 mb-6 shadow-sm">
+<i class="fas fa-arrow-right process-arrow text-xl"></i>
+</div>
+<!-- Process Step 2 -->
+<div class="z-10 process-icon-container rounded-lg p-3 text-center w-36">
+<div class="w-8 h-8 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-2 border border-secondary">
+<i class="fas fa-calculator text-secondary"></i>
+</div>
+<p class="text-xs font-bold text-primary">변환 (Convert)</p>
+<p class="text-[10px] text-gray-500">Normalize BBox</p>
+</div>
+</div>
+<!-- Right Panel: TO-BE (Solution) -->
+<div class="w-5/12 flex flex-col">
+<div class="card-bg rounded-xl h-full flex flex-col relative overflow-hidden group">
+<div class="absolute top-0 left-0 w-full h-1 bg-[#75DDDD]"></div>
+<!-- Header -->
+<div class="p-5 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+<div>
+<h3 class="text-xl font-bold text-primary"><i class="fas fa-check-circle text-point-success mr-2"></i>최종 포맷 (TO-BE)</h3>
+<p class="text-xs text-gray-500 mt-1">Integrated YOLO TXT Format</p>
+</div>
+<span class="badge-solution text-xs px-2 py-1 rounded font-bold uppercase">Solution</span>
+</div>
+<!-- Visual Representation -->
+<div class="p-6 flex-grow flex flex-col justify-center space-y-4">
+<!-- File Structure Visual -->
+<div class="flex justify-center space-x-4 mb-2">
+<div class="flex flex-col items-center">
+<i class="fas fa-file-image text-4xl text-gray-400 mb-2"></i>
+<p class="text-xs text-gray-500">image_01.jpg</p>
+</div>
+<div class="flex flex-col justify-center">
+<i class="fas fa-link text-point-warning"></i>
+</div>
+<div class="flex flex-col items-center">
+<i class="fas fa-file-alt text-4xl text-secondary mb-2"></i>
+<p class="text-xs text-gray-500">image_01.txt</p>
+</div>
+</div>
+<!-- Description -->
+<div class="bg-[#F0FDFF] p-4 rounded border border-[#75DDDD] border-dashed text-center">
+<p class="text-[#004346] font-bold text-sm mb-1">
+<i class="fas fa-layer-group mr-1"></i> 1 Image = 1 Label File
+                        </p>
+<p class="text-xs text-gray-600">
+                            이미지별 모든 객체 정보를 하나의 파일로 통합<br/>YOLO 모델 학습을 위한 최적화된 구조
+                        </p>
+</div>
+<!-- Code Snippet -->
+<div class="code-block h-32 overflow-y-auto">
+<div class="flex text-gray-500 text-xs border-b border-gray-200 mb-1 pb-1">
+<span class="w-8 mr-2 font-bold text-dark-teal">cls</span>
+<span class="w-12 mr-2">x_center</span>
+<span class="w-12 mr-2">y_center</span>
+<span class="w-12 mr-2">width</span>
+<span class="w-12">height</span>
+</div>
+<div class="flex">
+<span class="text-gray-400 mr-2 select-none">1</span>
+<span class="json-number w-8 mr-2">5</span>
+<span class="json-string w-12 mr-2">0.523</span>
+<span class="json-string w-12 mr-2">0.412</span>
+<span class="json-string w-12 mr-2">0.150</span>
+<span class="json-string w-12">0.210</span>
+</div>
+<div class="flex">
+<span class="text-gray-400 mr-2 select-none">2</span>
+<span class="json-number w-8 mr-2">12</span>
+<span class="json-string w-12 mr-2">0.231</span>
+<span class="json-string w-12 mr-2">0.784</span>
+<span class="json-string w-12 mr-2">0.145</span>
+<span class="json-string w-12">0.205</span>
+</div>
+<div class="flex">
+<span class="text-gray-400 mr-2 select-none">3</span>
+<span class="comment">// Normalized (0.0 ~ 1.0)</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Footer Note -->
+<div class="mt-4 flex items-center justify-between text-xs text-gray-500 border-t border-gray-200 pt-4">
+<div class="flex items-center">
+<i class="fas fa-info-circle mr-2 text-point-indigo"></i>
+<p>핵심 사항: 이미지와 라벨의 매칭 여부 및 BBox 좌표 유효성(0~1 범위) 자동 검증 프로세스 포함</p>
+</div>
+<div class="font-mono text-secondary">scripts/1_preprocess.py</div>
+</div>
+    <script src="./presentation-nav.js"></script>
+</body>
+</html>

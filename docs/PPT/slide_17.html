@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Project Retrospective</title>
+<link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&amp;family=Fira+Code:wght@400;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet"/>
+<style>
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+            background-color: #FFFFFF;
+            color: #172A3A;
+            width: 1280px;
+            height: 720px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .font-mono { font-family: 'Fira Code', monospace; }
+
+        .theme-keep { color: #2F8F96; }
+        .bg-keep-light { background-color: #DDF6F7; }
+        .border-keep { border-color: #2F8F96; }
+        .hover-keep:hover { border-color: #2F8F96; box-shadow: 0 4px 12px rgba(47, 143, 150, 0.2); }
+
+        .theme-problem { color: #3B82A0; }
+        .theme-problem-accent { color: #25607A; }
+        .bg-problem-light { background-color: #E6F4FA; }
+        .border-problem { border-color: #8CC8DF; }
+        .hover-problem:hover { border-color: #3B82A0; box-shadow: 0 4px 12px rgba(59, 130, 160, 0.2); }
+
+        .theme-try { color: #004346; }
+        .bg-try-light { background-color: #E8F1F1; }
+        .border-try { border-color: #004346; }
+        .hover-try:hover { border-color: #004346; box-shadow: 0 4px 12px rgba(0, 67, 70, 0.18); }
+
+        .card-keep-bg { background-color: #E3F6F7; }
+        .card-problem-bg { background-color: #E4F1FA; }
+        .card-try-bg { background-color: #E6EEEE; }
+
+        .retro-card {
+            background-color: #FFFFFF;
+            border: 1px solid #E2E8F0;
+            border-top-width: 4px;
+            border-radius: 0.5rem;
+            transition: all 0.25s ease;
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+            min-height: 0;
+        }
+
+        .retro-card.card-keep-bg { background-color: #E3F6F7; }
+        .retro-card.card-problem-bg { background-color: #E4F1FA; }
+        .retro-card.card-try-bg { background-color: #E6EEEE; }
+
+        .retro-card:hover {
+            transform: translateY(-2px);
+        }
+
+        .retro-column {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            flex: 1;
+            min-height: 0;
+        }
+
+        .section-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 0.75rem;
+            padding-bottom: 0.35rem;
+            border-bottom: 2px solid #F1F5F9;
+        }
+
+        .kpt-stage {
+            flex: 1 1 auto;
+            min-height: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .kpt-grid {
+            width: 100%;
+            max-width: 1160px;
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 20px;
+        }
+
+        .keyword-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 6px;
+        }
+
+        .keyword-chip {
+            font-size: 12px;
+            font-weight: 700;
+            line-height: 1.1;
+            padding: 5px 10px;
+            border-radius: 9999px;
+            border: 1px solid transparent;
+            background: #FFFFFF;
+            white-space: nowrap;
+        }
+
+        .chip-keep {
+            color: #1F7076;
+            border-color: #8CCFD4;
+            background: #F7FEFE;
+        }
+
+        .chip-problem {
+            color: #255C7A;
+            border-color: #A6D2E5;
+            background: #F7FBFE;
+        }
+
+        .chip-try {
+            color: #004346;
+            border-color: #87B4B6;
+            background: #F5FAFA;
+        }
+
+        .text-primary { color: #508991; }
+        .bg-deep { background-color: #004346; }
+    </style>
+</head>
+<body class="p-6 relative">
+<!-- Header Section -->
+<div class="flex flex-col mb-4 z-10">
+  <div class="flex items-center mb-2">
+    <span class="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-deep text-white">Retrospective</span>
+    <div class="h-px bg-gray-200 flex-grow ml-3"></div>
+  </div>
+  <div class="flex justify-between items-end">
+    <div>
+      <h1 class="text-4xl font-black text-[#172A3A]">프로젝트 회고</h1>
+      <p class="text-primary text-lg font-medium mt-1">KPT 기반으로 유지할 점·아쉬운 점·다음 실행을 정리했습니다.</p>
+    </div>
+    <div class="flex space-x-3 text-sm font-medium text-[#172A3A] opacity-70">
+      <div class="flex items-center"><div class="w-3 h-3 rounded-full bg-[#2F8F96] mr-1"></div>Keep</div>
+      <div class="flex items-center"><div class="w-3 h-3 rounded-full bg-[#3B82A0] mr-1"></div>Problem</div>
+      <div class="flex items-center"><div class="w-3 h-3 rounded-full bg-[#004346] mr-1"></div>Try</div>
+    </div>
+  </div>
+</div>
+
+<!-- Main Content Grid -->
+<div class="kpt-stage z-10">
+  <div class="kpt-grid">
+    <!-- Keep -->
+    <div class="flex flex-col min-h-0">
+      <div class="section-header">
+        <div class="w-8 h-8 rounded-lg bg-keep-light flex items-center justify-center mr-3">
+          <i class="fas fa-thumbs-up theme-keep"></i>
+        </div>
+        <h2 class="text-xl font-bold theme-keep">유지할 점</h2>
+      </div>
+      <div class="retro-column">
+        <div class="retro-card card-keep-bg border-t-[#2F8F96] border-keep hover-keep p-4 shadow-sm">
+          <div class="flex justify-between items-start mb-1">
+            <h3 class="font-bold text-[#172A3A] text-base">데이터 검증 파이프라인</h3>
+            <i class="fas fa-check-circle theme-keep opacity-60"></i>
+          </div>
+          <div class="keyword-list">
+            <span class="keyword-chip chip-keep">스키마 검증</span>
+            <span class="keyword-chip chip-keep">BBox 유효성</span>
+            <span class="keyword-chip chip-keep">참조 무결성</span>
+          </div>
+        </div>
+
+        <div class="retro-card card-keep-bg border-t-[#2F8F96] border-keep hover-keep p-4 shadow-sm">
+          <div class="flex justify-between items-start mb-1">
+            <h3 class="font-bold text-[#172A3A] text-base">실험 재현성 확보</h3>
+            <i class="fas fa-history theme-keep opacity-60"></i>
+          </div>
+          <div class="keyword-list">
+            <span class="keyword-chip chip-keep">src/scripts/configs</span>
+            <span class="keyword-chip chip-keep">_registry.csv</span>
+            <span class="keyword-chip chip-keep">재현 실행</span>
+          </div>
+        </div>
+
+        <div class="retro-card card-keep-bg border-t-[#2F8F96] border-keep hover-keep p-4 shadow-sm">
+          <div class="flex justify-between items-start mb-1">
+            <h3 class="font-bold text-[#172A3A] text-base">Agile Communication</h3>
+            <i class="fas fa-comments theme-keep opacity-60"></i>
+          </div>
+          <div class="keyword-list">
+            <span class="keyword-chip chip-keep">일 2회 스탠드업</span>
+            <span class="keyword-chip chip-keep">30분 해결 원칙</span>
+            <span class="keyword-chip chip-keep">병목 해소</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Problem -->
+    <div class="flex flex-col min-h-0">
+      <div class="section-header">
+        <div class="w-8 h-8 rounded-lg bg-problem-light flex items-center justify-center mr-3">
+          <i class="fas fa-exclamation-triangle theme-problem-accent"></i>
+        </div>
+        <h2 class="text-xl font-bold theme-problem-accent">아쉬운 점</h2>
+      </div>
+      <div class="retro-column">
+        <div class="retro-card card-problem-bg border-t-[#8CC8DF] border-problem hover-problem p-4 shadow-sm">
+          <div class="flex justify-between items-start mb-1">
+            <h3 class="font-bold text-[#172A3A] text-base">실험 자동화 파이프라인 미구축</h3>
+            <i class="fas fa-cogs theme-problem-accent opacity-70"></i>
+          </div>
+          <div class="keyword-list">
+            <span class="keyword-chip chip-problem">수작업 비중 증가</span>
+            <span class="keyword-chip chip-problem">리드타임 증가</span>
+            <span class="keyword-chip chip-problem">run→evaluate→report 미연결</span>
+          </div>
+        </div>
+
+        <div class="retro-card card-problem-bg border-t-[#8CC8DF] border-problem hover-problem p-4 shadow-sm">
+          <div class="flex justify-between items-start mb-1">
+            <h3 class="font-bold text-[#172A3A] text-base">앙상블 실험 미시도</h3>
+            <i class="fas fa-object-group theme-problem-accent opacity-70"></i>
+          </div>
+          <div class="keyword-list">
+            <span class="keyword-chip chip-problem">단일 모델 중심</span>
+            <span class="keyword-chip chip-problem">v8/v11 조합 미흡</span>
+            <span class="keyword-chip chip-problem">WBF/NMS 미검증</span>
+          </div>
+        </div>
+
+        <div class="retro-card card-problem-bg border-t-[#8CC8DF] border-problem hover-problem p-4 shadow-sm">
+          <div class="flex justify-between items-start mb-1">
+            <h3 class="font-bold text-[#172A3A] text-base">불균형 예외 처리 부족</h3>
+            <i class="fas fa-balance-scale-left theme-problem-accent opacity-70"></i>
+          </div>
+          <div class="keyword-list">
+            <span class="keyword-chip chip-problem">소수 클래스 취약</span>
+            <span class="keyword-chip chip-problem">경계 케이스 누락</span>
+            <span class="keyword-chip chip-problem">회귀 테스트 부족</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Try -->
+    <div class="flex flex-col min-h-0">
+      <div class="section-header">
+        <div class="w-8 h-8 rounded-lg bg-try-light flex items-center justify-center mr-3">
+          <i class="fas fa-rocket theme-try"></i>
+        </div>
+        <h2 class="text-xl font-bold theme-try">다음 실행</h2>
+      </div>
+      <div class="retro-column">
+        <div class="retro-card card-try-bg border-t-[#004346] border-try hover-try p-4 shadow-sm">
+          <div class="flex justify-between items-start mb-1">
+            <h3 class="font-bold text-[#172A3A] text-base">자동화 파이프라인 구축</h3>
+            <i class="fas fa-play-circle theme-try opacity-70"></i>
+          </div>
+          <div class="keyword-list">
+            <span class="keyword-chip chip-try">원클릭 실행</span>
+            <span class="keyword-chip chip-try">자동 리포트</span>
+            <span class="keyword-chip chip-try">리드타임 단축</span>
+          </div>
+        </div>
+
+        <div class="retro-card card-try-bg border-t-[#004346] border-try hover-try p-4 shadow-sm">
+          <div class="flex justify-between items-start mb-1">
+            <h3 class="font-bold text-[#172A3A] text-base">앙상블 표준 단계 고정</h3>
+            <i class="fas fa-layer-group theme-try opacity-70"></i>
+          </div>
+          <div class="keyword-list">
+            <span class="keyword-chip chip-try">v8/v11 앙상블</span>
+            <span class="keyword-chip chip-try">WBF/NMS 필수</span>
+            <span class="keyword-chip chip-try">상한 성능 검증</span>
+          </div>
+        </div>
+
+        <div class="retro-card card-try-bg border-t-[#004346] border-try hover-try p-4 shadow-sm">
+          <div class="flex justify-between items-start mb-1">
+            <h3 class="font-bold text-[#172A3A] text-base">예외 처리 CI 체크리스트</h3>
+            <i class="fas fa-shield-alt theme-try opacity-70"></i>
+          </div>
+          <div class="keyword-list">
+            <span class="keyword-chip chip-try">Edge Case 회귀</span>
+            <span class="keyword-chip chip-try">누락 라벨 점검</span>
+            <span class="keyword-chip chip-try">CI 체크리스트</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="./presentation-nav.js"></script>
+</body>
+</html>

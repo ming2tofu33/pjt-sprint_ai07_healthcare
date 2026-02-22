@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="ko" data-theme="light" style=""><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>베이스라인 설정</title>
+<link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&amp;display=swap" rel="stylesheet">
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+<style>
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+            background-color: #FFFFFF; /* White Background */
+            color: #172A3A; /* Dark Navy Text */
+            width: 1280px;
+            height: 720px;
+            overflow: hidden;
+        }
+        
+        /* Code Syntax Highlighting Colors - Customized for White Theme */
+        .code-key { color: #508991; font-weight: 600; }    /* Medium Teal - Keywords */
+        .code-string { color: #75DDDD; }                   /* Bright Mint - Strings */
+        .code-number { color: #004346; font-weight: 700; } /* Deep Teal - Numbers */
+        .code-comment { color: #94A3B8; font-style: italic; } /* Gray - Comments */
+        
+        /* Backgrounds & Borders */
+        .bg-editor { background-color: #F7F9FB; } /* Light Gray-Blue */
+        .border-theme { border-color: #E2E8F0; }  /* Light Gray Border */
+        
+        .font-mono { font-family: 'Consolas', 'Monaco', 'Courier New', monospace; }
+        
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #F1F5F9;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #CBD5E1;
+            border-radius: 4px;
+        }
+        
+        .line-number {
+            color: #CBD5E1;
+            text-align: right;
+            padding-right: 1rem;
+            user-select: none;
+            font-size: 0.85rem;
+            line-height: 1.25rem;
+        }
+
+        .typing-cursor::after {
+            content: '|';
+            color: #508991;
+            animation: blink 1s step-end infinite;
+        }
+        
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0; }
+        }
+
+        /* Text Utilities */
+        .text-primary { color: #508991; }   /* Dark Navy */
+        .text-secondary { color: #508991; } /* Medium Teal */
+        .text-accent { color: #004346; }    /* Deep Teal */
+        .text-highlight { color: #75DDDD; } /* Bright Mint */
+        
+        .card-shadow {
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+        }
+    
+        .bg-deep { background-color: #004346; }
+
+        .summary-card {
+            transition: all 0.25s ease;
+        }
+        .summary-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(0, 67, 70, 0.1);
+            border-color: #75DDDD;
+        }
+        .kpi-box {
+            transition: all 0.2s ease;
+        }
+        .kpi-box:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 67, 70, 0.12);
+        }
+    </style>
+</head>
+<body class="flex flex-col p-8 relative" style="">
+<!-- Header Section -->
+<div class="flex flex-col mb-4 z-10">
+  <div class="flex items-center mb-2">
+    <span class="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-deep text-white">Baseline Setup</span>
+    <div class="h-px bg-gray-200 flex-grow ml-3"></div>
+  </div>
+  <div class="flex items-end justify-between">
+    <div>
+      <h1 class="text-4xl font-black text-[#172A3A]">베이스라인 설정</h1>
+      <p class="text-primary text-lg font-medium mt-1">v1 기준 실험 조건을 고정해 재현 가능한 출발점을 확보했습니다.</p>
+    </div>
+    <div class="flex items-center space-x-2 bg-[#172A3A] px-4 py-2 rounded-lg shadow-md">
+      <i class="fas fa-tag text-[#75DDDD]"></i>
+      <span class="text-[#E8FFFA] font-bold">v1.0.0</span>
+    </div>
+  </div>
+</div>
+<!-- Main Content -->
+<div class="flex-grow flex gap-4 z-10 h-full overflow-hidden">
+<!-- Left Column: Code Editor -->
+<div class="w-2/5 flex flex-col min-h-0">
+<div class="bg-editor border border-gray-300 rounded-xl overflow-hidden card-shadow flex-grow flex flex-col">
+<!-- Editor Tab Bar -->
+<div class="bg-gray-100 border-b border-gray-200 flex items-center px-4 py-2">
+<div class="flex space-x-2 mr-4">
+<div class="w-3 h-3 rounded-full bg-[#ff5f56] border border-red-300"></div>
+<div class="w-3 h-3 rounded-full bg-[#ffbd2e] border border-yellow-300"></div>
+<div class="w-3 h-3 rounded-full bg-[#27c93f] border border-green-300"></div>
+</div>
+<div class="bg-white px-3 py-1 rounded-t border-t border-l border-r border-gray-200 text-xs text-gray-600 flex items-center relative top-2 shadow-sm">
+<i class="fab fa-python text-[#508991] mr-2"></i>
+<span>configs/experiments/baseline.yaml</span>
+</div>
+</div>
+<!-- Code Content -->
+<div class="p-4 font-mono text-sm leading-5 overflow-y-auto flex-grow bg-editor">
+<div class="flex">
+<div class="line-number flex flex-col font-mono text-sm leading-5">
+<span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span><span>10</span><span>11</span><span>12</span><span>13</span><span>14</span><span>15</span><span>16</span><span>17</span><span>18</span><span>19</span><span>20</span>
+</div>
+<div class="flex-grow flex flex-col ml-2">
+<div><span class="code-comment"># 모델 아키텍처 (Base Model Architecture)</span></div>
+<div><span class="code-key">task:</span> <span class="code-string">detect</span></div>
+<div><span class="code-key">model:</span> <span class="code-string">yolov8s.pt</span> <span class="code-comment"># 균형 잡힌 소형 모델</span></div>
+<div class="h-5"></div>
+<div><span class="code-comment"># 데이터셋 설정 (Dataset Configuration)</span></div>
+<div><span class="code-key">data:</span></div>
+<div>&nbsp;&nbsp;<span class="code-key">path:</span> <span class="code-string">./data/processed</span></div>
+<div>&nbsp;&nbsp;<span class="code-key">train:</span> <span class="code-string">train.txt</span> <span class="code-comment"># 209 images</span></div>
+<div>&nbsp;&nbsp;<span class="code-key">val:</span> <span class="code-string">val.txt</span> <span class="code-comment"># 23 images (seed=42)</span></div>
+<div>&nbsp;&nbsp;<span class="code-key">names:</span> <span class="code-string">["pill_001", "pill_002", ...]</span></div>
+<div class="h-5"></div>
+<div><span class="code-comment"># 학습 하이퍼파라미터 (Hyperparameters)</span></div>
+<div><span class="code-key">epochs:</span> <span class="code-number">100</span></div>
+<div><span class="code-key">patience:</span> <span class="code-number">20</span> <span class="code-comment"># 조기 종료 (Early stopping)</span></div>
+<div><span class="code-key">batch:</span> <span class="code-number">-1</span> <span class="code-comment"># AutoBatch 활용</span></div>
+<div><span class="code-key">imgsz:</span> <span class="code-number">640</span> <span class="code-comment"># 표준 해상도</span></div>
+<div><span class="code-key">optimizer:</span> <span class="code-string">auto</span></div>
+<div><span class="code-key">seed:</span> <span class="code-number">42</span> <span class="code-comment"># 재현성 (Reproducibility)</span></div>
+<div class="h-5"></div>
+<div><span class="code-comment"># 증강 전략 (Augmentation - Default)</span></div>
+<div><span class="code-key">mosaic:</span> <span class="code-number">1.0</span></div>
+<div><span class="code-key">fliplr:</span> <span class="code-number">0.5</span></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Right Column: Summary Blocks -->
+<div class="w-3/5 flex flex-col gap-2 min-h-0">
+<!-- Block A + B -->
+<div class="bg-white border border-gray-200 rounded-xl p-3 card-shadow relative overflow-hidden summary-card">
+<div class="absolute top-0 left-0 w-1 h-full bg-[#508991]"></div>
+<h3 class="text-lg font-bold text-primary mb-1 flex items-center">
+<i class="fas fa-bullseye text-[#508991] mr-2"></i> 목적 &amp; 고정 설정 (v1 = YOLOv8s)
+                </h3>
+<ul class="space-y-1 text-sm text-gray-700 leading-snug">
+<li><span class="font-bold text-primary">목적:</span> 첫 실험 조건 고정, 재현 가능한 baseline 확립</li>
+<li><span class="font-bold text-primary">고정값:</span> imgsz 640 / epochs 100 / batch auto(-1) / seed 42 / patience 20 / pretrained</li>
+</ul>
+<p class="text-[11px] text-[#508991] mt-2 font-semibold">
+<i class="fas fa-arrow-right mr-1"></i> v0(YOLOv8n)와의 직접 비교는 Slide 12 참고
+                </p>
+</div>
+
+<!-- Block C + D -->
+<div class="bg-white border border-gray-200 rounded-xl p-3 card-shadow relative overflow-hidden flex-grow min-h-0 summary-card">
+<div class="absolute top-0 left-0 w-1 h-full bg-[#004346]"></div>
+<h3 class="text-lg font-bold text-primary mb-1 flex items-center">
+<i class="fas fa-shield-halved text-[#004346] mr-2"></i> 데이터 정합성 &amp; 제출 규칙
+                </h3>
+<ul class="space-y-1 text-sm text-gray-700 leading-snug">
+<li><span class="font-bold text-primary">file_name 병합:</span> 조각 JSON을 이미지 기준으로 통합</li>
+<li><span class="font-bold text-primary">검증 루프:</span> 스키마 → bbox 유효성 → 참조 무결성</li>
+<li><span class="font-bold text-primary">YOLO 변환:</span> train/val = 209/23 (seed=42)</li>
+<li><span class="font-bold text-primary">제출 규칙:</span> 이미지당 <span class="text-accent font-bold">Top-4</span> 강제</li>
+</ul>
+</div>
+
+<!-- KPI Block -->
+<div class="bg-white border border-gray-200 rounded-xl p-3 card-shadow relative overflow-hidden summary-card">
+<div class="absolute top-0 left-0 w-1 h-full bg-[#75DDDD]"></div>
+<h3 class="text-lg font-bold text-primary mb-1 flex items-center">
+<i class="fas fa-chart-line text-[#508991] mr-2"></i> 핵심 KPI (Public + mAP)
+                </h3>
+<div class="grid grid-cols-3 gap-1">
+<div class="col-span-1 bg-[#EFFFFD] border border-[#75DDDD] rounded p-2 kpi-box">
+<p class="text-[10px] text-[#508991] font-bold uppercase">Public</p>
+<p class="text-[#004346] text-2xl font-black">0.96138</p>
+</div>
+<div class="bg-[#F8FAFC] border border-gray-200 rounded p-2 kpi-box">
+<p class="text-[10px] text-[#508991] font-bold uppercase">mAP@0.5</p>
+<p class="text-[#172A3A] text-base font-black">0.98037</p>
+</div>
+<div class="bg-[#F8FAFC] border border-gray-200 rounded p-2 kpi-box">
+<p class="text-[10px] text-[#508991] font-bold uppercase">mAP75_95</p>
+<p class="text-[#172A3A] text-base font-black">0.96138</p>
+</div>
+</div>
+<p class="text-[10px] text-gray-500 mt-2">Public을 메인 지표로 사용하고 mAP 지표는 보조로 함께 추적</p>
+</div>
+
+<!-- Execution Command -->
+<div class="mt-auto">
+<div class="bg-white border border-gray-300 rounded-lg p-2 font-mono text-sm shadow-md flex items-center justify-between group cursor-pointer hover:bg-gray-50 transition">
+<div class="flex items-center text-gray-300 truncate">
+<span class="text-black mr-2 font-bold">➜</span>
+<span class="text-black mr-2">~</span>
+<span class="text-black">bash scripts/run_pipeline.sh --config baseline.yaml</span>
+<span class="typing-cursor ml-1"></span>
+</div>
+<i class="far fa-copy text-gray-500 group-hover:text-gray-700 transition"></i>
+</div>
+<p class="text-right text-[10px] text-[#508991] mt-1 font-medium">원클릭 재현 실행 (One-Click Reproducible Run)</p>
+</div>
+</div>
+</div>
+
+    <script src="./presentation-nav.js"></script>
+</body></html>

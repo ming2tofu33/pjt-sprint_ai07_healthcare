@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet"/>
+<style>
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+            background-color: #FFFFFF;
+            color: #172A3A;
+        }
+        .text-primary { color: #508991; }
+        .bg-primary { background-color: #508991; }
+        .text-deep { color: #004346; }
+        .bg-deep { background-color: #004346; }
+        .text-accent { color: #75DDDD; }
+        .bg-accent { background-color: #75DDDD; }
+        
+        .member-card {
+            background-color: #FFFFFF;
+            border: 1px solid #E2E8F0;
+            border-radius: 12px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+        .member-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 15px -3px rgba(80, 137, 145, 0.15);
+            border-color: #75DDDD;
+        }
+        
+        .role-badge {
+            font-size: 11px;
+            font-weight: 700;
+            padding: 3px 8px;
+            border-radius: 9999px;
+            display: inline-block;
+            margin-right: 0;
+            margin-bottom: 4px;
+        }
+        
+        .role-pm { background-color: #E0F7F7; color: #004346; border: 1px solid #75DDDD; }
+        .role-model { background-color: #E0F7F7; color: #004346; border: 1px solid #75DDDD; }
+        .role-data { background-color: #E0F7F7; color: #004346; border: 1px solid #75DDDD; }
+        .role-exp { background-color: #E0F7F7; color: #004346; border: 1px solid #75DDDD; }
+        .role-doc { background-color: #E0F7F7; color: #004346; border: 1px solid #75DDDD; }
+        .role-pres { background-color: #E0F7F7; color: #004346; border: 1px solid #75DDDD; }
+        .role-sub {
+            background-color: #F8FAFC;
+            color: #64748B;
+            border: 1px solid #CBD5E1;
+        }
+
+        .contribution-item {
+            position: relative;
+            padding-left: 12px;
+            font-size: 13px;
+            color: #475569;
+            margin-bottom: 4px;
+            line-height: 1.45;
+        }
+        .contribution-item::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 6px;
+            width: 4px;
+            height: 4px;
+            border-radius: 50%;
+            background-color: #508991;
+        }
+        
+        .bottom-panel {
+            background-color: #F8FAFC;
+            border-top: 1px solid #E2E8F0;
+        }
+    </style>
+</head>
+<body class="w-[1280px] h-[720px] overflow-hidden flex flex-col relative p-0 bg-white">
+<!-- Decorative Header Background -->
+<div class="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-[#004346] via-[#508991] to-[#75DDDD]"></div>
+
+<!-- Header -->
+<div class="px-10 pt-8 pb-3 flex justify-between items-end z-10">
+  <div>
+    <div class="flex items-center mb-2">
+      <span class="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-deep text-white">Team Introduction</span>
+      <div class="h-px bg-gray-200 flex-grow ml-3"></div>
+    </div>
+    <h1 class="text-4xl font-black text-[#172A3A]">팀 Venvoo 핵심 기여</h1>
+    <p class="text-primary text-lg font-medium mt-1">역할 배치와 산출물 중심으로 팀 기여를 정리했습니다.</p>
+  </div>
+  <div class="text-right">
+    <div class="text-sm font-bold text-[#004346] bg-[#F0FDFF] px-4 py-2 rounded-lg border border-[#75DDDD]">
+      <i class="fas fa-check-circle mr-2"></i>One Team, Clear Goal
+    </div>
+  </div>
+</div>
+<!-- Main Content: Team Grid -->
+<div class="px-10 flex-grow min-h-0 z-10 flex items-center">
+<div class="grid grid-cols-5 gap-4 w-full">
+<!-- Member 1: Kim Do-min -->
+<div class="member-card p-4">
+<div class="flex items-center justify-between mb-3">
+<div class="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center text-xl text-gray-600 border border-gray-200">
+<i class="fas fa-user-tie"></i>
+</div>
+<div class="text-right">
+<h3 class="text-xl font-black text-[#172A3A]">김도민</h3>
+<p class="text-sm text-gray-400">Team Leader</p>
+</div>
+</div>
+<div class="mb-4 flex flex-col items-start gap-1">
+<span class="role-badge role-pm">Project Manager</span>
+<span class="role-badge role-sub">Model Architect</span>
+</div>
+<div class="border-t border-gray-100 pt-3">
+<p class="text-sm font-bold text-[#004346] mb-2 uppercase tracking-wide">Key Deliverables</p>
+<div class="contribution-item">일정·의사결정 운영 리드</div>
+<div class="contribution-item">Git Flow·구조 표준화</div>
+<div class="contribution-item">v8s Baseline·자동화 기반 구축</div>
+</div>
+</div>
+
+<!-- Member 2: Kim Jun-hyeok -->
+<div class="member-card p-4">
+<div class="flex items-center justify-between mb-3">
+<div class="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center text-xl text-gray-600 border border-gray-200">
+<i class="fas fa-flask"></i>
+</div>
+<div class="text-right">
+<h3 class="text-xl font-black text-[#172A3A]">김준혁</h3>
+<p class="text-sm text-gray-400">Core Member</p>
+</div>
+</div>
+<div class="mb-4 flex flex-col items-start gap-1">
+<span class="role-badge role-exp">Experimentation Lead</span>
+<span class="role-badge role-sub">Data Engineer</span>
+</div>
+<div class="border-t border-gray-100 pt-3">
+<p class="text-sm font-bold text-[#004346] mb-2 uppercase tracking-wide">Key Deliverables</p>
+<div class="contribution-item">이미지 전처리·추가 데이터 정제</div>
+<div class="contribution-item">파이프라인·하이브리드 스윕 검증</div>
+<div class="contribution-item">하이퍼파라미터 튜닝·제출 운영</div>
+</div>
+</div>
+
+<!-- Member 3: Seo Ji-eun -->
+<div class="member-card p-4">
+<div class="flex items-center justify-between mb-3">
+<div class="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center text-xl text-gray-600 border border-gray-200">
+<i class="fas fa-file-alt"></i>
+</div>
+<div class="text-right">
+<h3 class="text-xl font-black text-[#172A3A]">서지은</h3>
+<p class="text-sm text-gray-400">Core Member</p>
+</div>
+</div>
+<div class="mb-4 flex flex-col items-start gap-1">
+<span class="role-badge role-doc">Documentation Lead</span>
+<span class="role-badge role-sub">Presentation Lead</span>
+</div>
+<div class="border-t border-gray-100 pt-3">
+<p class="text-sm font-bold text-[#004346] mb-2 uppercase tracking-wide">Key Deliverables</p>
+<div class="contribution-item">Baseline STAGE 점검·실험 지원</div>
+<div class="contribution-item">모델 개선 테스트·재현성 점검</div>
+<div class="contribution-item">실험 산출물·워크플로우 문서화</div>
+</div>
+</div>
+
+<!-- Member 4: Ahn Tteul-e-bom -->
+<div class="member-card p-4">
+<div class="flex items-center justify-between mb-3">
+<div class="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center text-xl text-gray-600 border border-gray-200">
+<i class="fas fa-database"></i>
+</div>
+<div class="text-right">
+<h3 class="text-xl font-black text-[#172A3A]">안뜰에봄</h3>
+<p class="text-sm text-gray-400">Core Member</p>
+</div>
+</div>
+<div class="mb-4 flex flex-col items-start gap-1">
+<span class="role-badge role-data">Data Engineer</span>
+<span class="role-badge role-sub">Experimentation Lead</span>
+</div>
+<div class="border-t border-gray-100 pt-3">
+<p class="text-sm font-bold text-[#004346] mb-2 uppercase tracking-wide">Key Deliverables</p>
+<div class="contribution-item">원본·외부 데이터 통합 전략</div>
+<div class="contribution-item">JSON 매핑 오류 탐지·수정</div>
+<div class="contribution-item">YOLOv11 로더 구축·리스크 롤백</div>
+</div>
+</div>
+
+<!-- Member 5: Lee Geon-ho -->
+<div class="member-card p-4">
+<div class="flex items-center justify-between mb-3">
+<div class="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center text-xl text-gray-600 border border-gray-200">
+<i class="fas fa-chalkboard-teacher"></i>
+</div>
+<div class="text-right">
+<h3 class="text-xl font-black text-[#172A3A]">이건호</h3>
+<p class="text-sm text-gray-400">Core Member</p>
+</div>
+</div>
+<div class="mb-4 flex flex-col items-start gap-1">
+<span class="role-badge role-pres">Presentation Lead</span>
+<span class="role-badge role-sub">Model Architect</span>
+</div>
+<div class="border-t border-gray-100 pt-3">
+<p class="text-sm font-bold text-[#004346] mb-2 uppercase tracking-wide">Key Deliverables</p>
+<div class="contribution-item">최종 발표 자료·성과 공유</div>
+<div class="contribution-item">Baseline 아키텍처 개선</div>
+<div class="contribution-item">회의록·커뮤니케이션·보고서 정리</div>
+</div>
+</div>
+</div>
+</div>
+
+<!-- Footer Panel -->
+<div class="bottom-panel mt-auto shrink-0 px-10 py-3 flex items-center justify-between h-[108px]">
+<div class="flex items-center space-x-8">
+<div>
+<h4 class="text-sm font-bold text-[#004346] mb-2 flex items-center">
+<i class="fas fa-box-open text-[#508991] mr-2"></i>핵심 산출물 (Artifacts)
+                </h4>
+<div class="flex space-x-2">
+<span class="px-3 py-1 bg-white border border-gray-200 rounded text-xs font-bold text-gray-600 shadow-sm">Risk &amp; Issue Log</span>
+<span class="px-3 py-1 bg-white border border-gray-200 rounded text-xs font-bold text-gray-600 shadow-sm">Test Records</span>
+<span class="px-3 py-1 bg-white border border-gray-200 rounded text-xs font-bold text-gray-600 shadow-sm">Code Archive</span>
+</div>
+</div>
+<div class="h-10 w-px bg-gray-300"></div>
+<div>
+<h4 class="text-sm font-bold text-[#004346] mb-2 flex items-center">
+<i class="fas fa-handshake text-[#508991] mr-2"></i>운영 원칙 (Principles)
+                </h4>
+<div class="flex space-x-4 text-xs text-gray-600">
+<span class="flex items-center"><i class="fas fa-check text-green-500 mr-1"></i>30분 내 병목 대응</span>
+<span class="flex items-center"><i class="fas fa-check text-green-500 mr-1"></i>WIP 상시 공유</span>
+<span class="flex items-center"><i class="fas fa-check text-green-500 mr-1"></i>'모름' 존중 문화</span>
+</div>
+</div>
+</div>
+<div class="bg-[#004346] w-12 h-12 rounded-full flex items-center justify-center text-white shadow-lg">
+<i class="fas fa-users"></i>
+</div>
+</div>
+
+    <script src="./presentation-nav.js"></script>
+</body>
+</html>

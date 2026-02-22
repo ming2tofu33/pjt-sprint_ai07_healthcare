@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Detected Data Issues</title>
+<link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet"/>
+<style>
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+            background-color: #FFFFFF;
+            color: #172A3A;
+            width: 1280px;
+            height: 720px;
+            overflow: hidden;
+        }
+        
+        .text-accent { color: #75DDDD; }
+        .bg-accent { background-color: #75DDDD; }
+        .border-accent { border-color: #75DDDD; }
+        
+        .text-primary { color: #508991; }
+        .bg-primary { background-color: #508991; }
+        .border-primary { border-color: #508991; }
+        
+        .text-dark { color: #172A3A; }
+        .bg-dark { background-color: #172A3A; }
+        .border-dark { border-color: #172A3A; }
+
+        .text-secondary { color: #004346; }
+        .bg-secondary { background-color: #004346; }
+        .border-secondary { border-color: #004346; }
+        
+        .card-base {
+            background-color: #FFFFFF;
+            border: 1px solid #508991;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+            transition: all 0.25s ease;
+        }
+        .card-base:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(0, 67, 70, 0.1);
+            border-color: #004346;
+        }
+        .pill-shape {
+            transition: opacity 0.2s ease, transform 0.2s ease;
+        }
+        .pill-shape:hover {
+            opacity: 1 !important;
+            transform: scale(1.05);
+        }
+        .issues-grid {
+            display: grid;
+            grid-template-columns: 6fr 4fr;
+            gap: 16px;
+            flex: 1 1 auto;
+            min-height: 0;
+        }
+        .issue-title {
+            font-size: 1.125rem;
+            line-height: 1.45rem;
+            font-weight: 700;
+            color: #172A3A;
+        }
+        .issue-body {
+            font-size: 0.8125rem;
+            line-height: 1.35;
+        }
+        
+        .pill-shape {
+            width: 68px;
+            height: 34px;
+            background-color: #508991;
+            border-radius: 17px;
+            position: relative;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .pill-line {
+            position: absolute;
+            left: 50%;
+            top: 0;
+            bottom: 0;
+            width: 1px;
+            background-color: #FFFFFF;
+            transform: translateX(-50%);
+            opacity: 0.6;
+        }
+        
+        .bbox {
+            position: absolute;
+            border: 3px solid;
+            pointer-events: none;
+        }
+        .bbox-loose {
+            width: 96px;
+            height: 60px;
+            border-color: #75DDDD;
+            top: -13px;
+            left: -14px;
+            border-style: dashed;
+        }
+        .bbox-duplicate-1 {
+            width: 78px;
+            height: 42px;
+            border-color: #004346;
+            top: -5px;
+            left: -5px;
+        }
+        .bbox-duplicate-2 {
+            width: 78px;
+            height: 42px;
+            border-color: #75DDDD;
+            top: 3px;
+            left: 3px;
+            opacity: 0.8;
+        }
+    
+        .bg-deep { background-color: #004346; }
+    </style>
+</head>
+<body class="flex flex-col p-6 relative">
+<!-- Header Section -->
+<div class="flex flex-col mb-4 z-10">
+  <div class="flex items-center mb-2">
+    <span class="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-deep text-white">Issue Diagnosis</span>
+    <div class="h-px bg-gray-200 flex-grow ml-3"></div>
+  </div>
+  <h1 class="text-4xl font-black text-[#172A3A]">데이터 품질 이슈 탐지</h1>
+  <p class="text-primary text-lg font-medium mt-1">EDA에서 확인한 5가지 핵심 품질 이슈를 정리했습니다.</p>
+</div>
+<!-- Main Content -->
+<div class="issues-grid z-10">
+<!-- Left Column: Quantitative Issues -->
+<div class="min-w-0 flex flex-col gap-4 min-h-0">
+<!-- Issue 1: Train/Test Split -->
+<div class="card-base rounded-xl p-4 flex-grow min-h-0 flex flex-col relative overflow-hidden">
+<div class="absolute top-0 left-0 w-1 h-full bg-primary"></div>
+<div class="flex items-center justify-between mb-2">
+<h3 class="issue-title">
+<span class="text-dark mr-2">01.</span>데이터 분할 불균형
+                    </h3>
+<i class="fas fa-balance-scale-left text-accent text-2xl drop-shadow-sm"></i>
+</div>
+<div class="bg-gray-50 rounded-lg p-3 border border-gray-100 mb-1 flex-grow flex flex-col justify-center">
+<div class="flex justify-between text-xs text-gray-600 mb-2 font-medium">
+<span>Train Set (232 images)</span>
+<span>Test Set (842 images)</span>
+</div>
+<div class="h-16 w-full flex rounded-md overflow-hidden font-bold text-xs bg-gray-200 shadow-inner border border-gray-300">
+<div class="bg-secondary text-white flex flex-col items-center justify-center border-r border-white/20 relative" style="width: 21.6%;">
+<span class="z-10 text-base font-black">21.6%</span>
+<span class="text-[10px] opacity-80">Train</span>
+</div>
+<div class="bg-primary text-white flex flex-col items-center justify-center relative" style="width: 78.4%;">
+<span class="z-10 text-base font-black">78.4%</span>
+<span class="text-[10px] opacity-80">Test</span>
+</div>
+</div>
+<div class="mt-2 text-xs text-secondary flex items-center font-medium bg-white p-2 rounded border border-gray-200">
+<i class="fas fa-exclamation-triangle mr-2 text-red-500"></i>
+<p>학습 데이터가 테스트 데이터보다 현저히 적은 역전 현상</p>
+</div>
+</div>
+</div>
+<!-- Issue 5: Class Imbalance (Corrected) -->
+<div class="card-base rounded-xl p-4 flex-grow min-h-0 flex flex-col relative overflow-hidden">
+<div class="absolute top-0 left-0 w-1 h-full bg-accent"></div>
+<div class="flex items-center justify-between mb-2">
+<h3 class="issue-title">
+<span class="text-dark mr-2">05.</span>클래스 불균형
+                    </h3>
+<div class="flex items-center space-x-2">
+<span class="bg-red-100 text-red-600 text-[10px] font-bold px-2 py-0.5 rounded border border-red-200">Ratio 1:51</span>
+<i class="fas fa-chart-area text-accent text-2xl drop-shadow-sm"></i>
+</div>
+</div>
+<div class="bg-gray-50 rounded-lg p-3 border border-gray-100 flex-grow flex items-end justify-between space-x-1 pb-0 h-36 shadow-inner relative">
+<div class="absolute top-5 left-0 w-full h-px bg-gray-200 border-t border-dashed border-gray-300"></div>
+<div class="absolute bottom-10 left-0 w-full h-px bg-gray-200 border-t border-dashed border-gray-300"></div>
+<!-- Bar 1: Max (153) -->
+<div class="w-1/12 bg-primary rounded-t opacity-90 border-t border-l border-r border-primary/20 relative group" style="height: 95%;">
+<div class="absolute -top-5 left-1/2 transform -translate-x-1/2 text-[10px] font-bold text-dark bg-white px-1 rounded shadow border border-gray-200">153</div>
+<div class="absolute bottom-4 left-1/2 transform -translate-x-1/2 text-[8px] text-white opacity-80">Max</div>
+</div>
+<!-- Bars 2-8 (scaled from real counts: 45, 37, 23, 22, 21, 20, 20) -->
+<div class="w-1/12 bg-primary rounded-t opacity-80 border-t border-l border-r border-primary/20" style="height: 29%;"></div>
+<div class="w-1/12 bg-primary rounded-t opacity-70 border-t border-l border-r border-primary/20" style="height: 24%;"></div>
+<div class="w-1/12 bg-primary rounded-t opacity-60 border-t border-l border-r border-primary/20" style="height: 15%;"></div>
+<div class="w-1/12 bg-primary rounded-t opacity-50 border-t border-l border-r border-primary/20" style="height: 14%;"></div>
+<div class="w-1/12 bg-primary rounded-t opacity-40 border-t border-l border-r border-primary/20" style="height: 14%;"></div>
+<div class="w-1/12 bg-primary rounded-t opacity-30 border-t border-l border-r border-primary/20" style="height: 13%;"></div>
+<div class="w-1/12 bg-primary rounded-t opacity-30 border-t border-l border-r border-primary/20" style="height: 13%;"></div>
+<!-- Bar 9: Min (3) -->
+<div class="w-1/12 bg-accent rounded-t border-t border-l border-r border-secondary/50 relative group" style="height: 5%;">
+<div class="absolute -top-6 left-1/2 transform -translate-x-1/2 text-[10px] font-bold text-red-500 bg-white px-1 rounded shadow border border-red-100 animate-pulse">3</div>
+<div class="absolute bottom-full mb-6 left-1/2 transform -translate-x-1/2 text-[8px] text-red-500 font-bold">Min</div>
+</div>
+</div>
+<div class="mt-2 bg-white p-2 rounded border border-gray-200">
+<p class="text-xs text-gray-600 leading-relaxed font-medium">
+<span class="text-red-500 font-bold mr-1">Warning:</span>
+                    최대 51배 차이의 Long-Tail 분포 확인<br>
+<span class="text-[10px] text-gray-400">(Raw Data 기준 하위 29개 클래스 10개 미만)</span>
+</p>
+</div>
+</div>
+</div>
+<!-- Right Column: Qualitative Issues -->
+<div class="min-w-0 flex flex-col gap-3 min-h-0">
+<!-- Issue 2: Missing BBox -->
+<div class="card-base rounded-xl p-3 flex-1 min-h-0 flex items-center relative overflow-hidden group hover:shadow-md transition duration-300">
+<div class="w-24 h-24 bg-gray-50 rounded-lg border border-gray-200 flex items-center justify-center mr-4 relative flex-shrink-0">
+<div class="pill-shape opacity-40">
+<div class="pill-line"></div>
+</div>
+<div class="absolute top-1 right-1 text-red-500 text-xs font-bold">
+<i class="fas fa-times"></i> No Label
+                    </div>
+</div>
+<div>
+<h3 class="issue-title mb-1">
+<span class="text-dark mr-2">02.</span>Missing BBox (소실)
+                    </h3>
+<p class="issue-body text-gray-600">
+                        육안으로 식별 가능한 알약임에도 라벨링 데이터(JSON)에 좌표 정보가 누락된 케이스. False Negative의 주원인.
+                    </p>
+</div>
+</div>
+<!-- Issue 3: Loose BBox -->
+<div class="card-base rounded-xl p-3 flex-1 min-h-0 flex items-center relative overflow-hidden group hover:shadow-md transition duration-300">
+<div class="w-24 h-24 bg-gray-50 rounded-lg border border-gray-200 flex items-center justify-center mr-4 relative flex-shrink-0">
+<div class="pill-shape">
+<div class="pill-line"></div>
+<div class="bbox bbox-loose"></div>
+</div>
+<div class="absolute bottom-0 right-1 text-accent text-[10px] font-bold">
+                        IoU &lt; 0.5
+                    </div>
+</div>
+<div>
+<h3 class="issue-title mb-1">
+<span class="text-dark mr-2">03.</span>Loose BBox (유격)
+                    </h3>
+<p class="issue-body text-gray-600">
+                        객체 크기에 비해 바운딩 박스가 지나치게 크게 설정되어 배경(Background) 영역을 과다하게 포함하는 문제.
+                    </p>
+</div>
+</div>
+<!-- Issue 4: Duplicate BBox -->
+<div class="card-base rounded-xl p-3 flex-1 min-h-0 flex items-center relative overflow-hidden group hover:shadow-md transition duration-300">
+<div class="w-24 h-24 bg-gray-50 rounded-lg border border-gray-200 flex items-center justify-center mr-4 relative flex-shrink-0">
+<div class="pill-shape">
+<div class="pill-line"></div>
+<div class="bbox bbox-duplicate-1"></div>
+<div class="bbox bbox-duplicate-2"></div>
+</div>
+<div class="absolute top-1 left-1 text-secondary text-[10px] font-bold">
+                        x2
+                    </div>
+</div>
+<div>
+<h3 class="issue-title mb-1">
+<span class="text-dark mr-2">04.</span>Duplicate BBox (중복)
+                    </h3>
+<p class="issue-body text-gray-600">
+                        동일한 객체에 대해 미세하게 다른 좌표의 박스가 중복으로 라벨링되어 있어, 학습 시 Loss 수렴을 방해함.
+                    </p>
+</div>
+</div>
+</div>
+</div>
+    <script src="./presentation-nav.js"></script>
+</body>
+</html>

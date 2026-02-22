@@ -1,0 +1,289 @@
+﻿<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet"/>
+<style>
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+            background-color: #FFFFFF;
+            color: #172A3A;
+            width: 1280px;
+            height: 720px;
+            overflow: hidden;
+        }
+        .text-teal { color: #508991; }
+        .bg-teal { background-color: #508991; }
+        .text-deep { color: #004346; }
+        .bg-deep { background-color: #004346; }
+        .panel {
+            background-color: #FFFFFF;
+            border: 1px solid #E2E8F0;
+            border-radius: 14px;
+            box-shadow: 0 4px 10px rgba(23, 42, 58, 0.06);
+        }
+        .week-timeline {
+            display: grid;
+            grid-template-columns: 3fr 44px 4fr 44px 3fr;
+            grid-template-rows: minmax(0, 1fr);
+            height: 100%;
+            gap: 8px;
+            flex: 1 1 auto;
+            min-height: 0;
+            align-items: center;
+        }
+        .week-card {
+            border: 1px solid #D9F2F2;
+            border-radius: 12px;
+            background: #FFFFFF;
+            padding: 10px 14px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            justify-content: flex-start;
+            height: auto;
+            min-height: 0;
+            transition: all 0.3s ease;
+        }
+        .week-card:hover {
+            box-shadow: 0 12px 24px rgba(0, 67, 70, 0.12);
+            border-color: #75DDDD;
+        }
+        .week-header {
+            display: flex;
+            align-items: flex-start;
+            gap: 6px;
+            flex-direction: column;
+        }
+        .week-badge {
+            border-radius: 9999px;
+            border: 1px solid #508991;
+            background: #EFFFFD;
+            color: #004346;
+            font-size: 13px;
+            font-weight: 800;
+            letter-spacing: .05em;
+            padding: 5px 12px;
+            white-space: nowrap;
+        }
+        .week-title {
+            color: #172A3A;
+            font-size: 22px;
+            font-weight: 800;
+        }
+        .week-line {
+            color: #004346;
+            font-size: 16px;
+            font-weight: 600;
+            line-height: 1.35;
+            text-align: left;
+        }
+        .mini-flow {
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+            margin-top: 2px;
+        }
+        .mini-step {
+            border: 1px solid #D9F2F2;
+            border-radius: 8px;
+            background: #F8FCFD;
+            color: #004346;
+            font-size: 14px;
+            font-weight: 700;
+            text-align: center;
+            line-height: 1.25;
+            padding: 8px 10px;
+        }
+        .mini-step-compact {
+            font-size: 13px;
+            line-height: 1.2;
+        }
+        .mini-arrow {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #508991;
+            font-size: 12px;
+            line-height: 1;
+        }
+        .week-arrow {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #508991;
+            font-size: 26px;
+            line-height: 1;
+            align-self: center;
+        }
+        .week-2 {
+            border-color: #508991;
+            background: linear-gradient(180deg, #F7FCFD 0%, #FFFFFF 100%);
+            box-shadow: 0 6px 16px rgba(80, 137, 145, 0.14);
+        }
+        .week-2 .week-title {
+            color: #004346;
+        }
+        .week2-flow {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        .week2-step {
+            border: 1px solid #D9F2F2;
+            border-radius: 10px;
+            background: #FFFFFF;
+            color: #004346;
+            font-size: 14px;
+            font-weight: 800;
+            text-align: center;
+            padding: 8px 10px;
+            line-height: 1.2;
+            transition: all 0.2s ease;
+        }
+        .week2-step:hover {
+            transform: scale(1.03);
+            box-shadow: 0 4px 12px rgba(0, 67, 70, 0.12);
+            border-color: #508991;
+        }
+        .week2-step-strong {
+            border-color: #508991;
+            background: #EFFFFD;
+        }
+        .week2-arrow {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #508991;
+            font-size: 13px;
+            line-height: 1;
+        }
+        .parallel-box {
+            border: 1px solid #75DDDD;
+            border-radius: 10px;
+            background: #F0FDFF;
+            padding: 8px 8px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        .track-row {
+            display: grid;
+            grid-template-columns: 112px 1fr;
+            align-items: center;
+            gap: 10px;
+            border-radius: 6px;
+            padding: 2px 4px;
+            transition: background-color 0.2s ease;
+        }
+        .track-row:hover {
+            background-color: rgba(117, 221, 221, 0.1);
+        }
+        .track-name {
+            border-radius: 9999px;
+            border: 1px solid #D9F2F2;
+            background: #FFFFFF;
+            color: #004346;
+            font-size: 12px;
+            font-weight: 800;
+            letter-spacing: .04em;
+            text-align: center;
+            padding: 5px 8px;
+            white-space: nowrap;
+        }
+        .track-desc {
+            color: #172A3A;
+            font-size: 13px;
+            font-weight: 700;
+            line-height: 1.2;
+        }
+        .week-3 .week-line {
+            font-size: 14px;
+        }
+    
+        .text-primary { color: #508991; }
+    </style>
+</head>
+<body class="overflow-hidden flex flex-col p-5 relative">
+<div class="absolute top-[-40px] right-[-30px] w-[240px] h-[240px] rounded-full opacity-10" style="background:#75DDDD;"></div>
+<div class="absolute bottom-[-40px] left-[-30px] w-[220px] h-[220px] rounded-full opacity-10" style="background:#508991;"></div>
+
+<div class="z-10 mb-3">
+  <div class="flex items-center mb-2">
+    <span class="px-3 py-1 rounded-full text-sm font-bold uppercase tracking-wider bg-deep text-white">Pipeline Flow</span>
+    <div class="h-px bg-gray-200 flex-grow ml-3"></div>
+  </div>
+  <h1 class="text-4xl font-black text-[#172A3A]">프로젝트 전체 실행 흐름</h1>
+  <p class="text-primary text-xl font-medium mt-1">DATA·MODEL·EXP 3트랙 병렬 운영으로 실험 사이클 시간을 단축했습니다.</p>
+</div>
+<div class="panel p-4 z-10 flex-1 overflow-hidden flex flex-col">
+<div class="week-timeline">
+<div class="week-card week-1">
+<div class="week-header">
+<span class="week-badge">WEEK 1</span>
+<h2 class="week-title">셋업 과정</h2>
+</div>
+<div class="mini-flow">
+<div class="mini-step">프로젝트 기획·설계</div>
+<div class="mini-arrow"><i class="fas fa-arrow-down"></i></div>
+<div class="mini-step">R&amp;R/RACI 작성</div>
+<div class="mini-arrow"><i class="fas fa-arrow-down"></i></div>
+<div class="mini-step">개발 환경 세팅</div>
+</div>
+</div>
+
+<div class="week-arrow"><i class="fas fa-arrow-right"></i></div>
+
+<div class="week-card week-2">
+<div class="week-header">
+<span class="week-badge">WEEK 2</span>
+<h2 class="week-title">3트랙 병렬 실행</h2>
+</div>
+<div class="week2-flow">
+<div class="week2-step week2-step-strong">데이터 확보</div>
+<div class="week2-arrow"><i class="fas fa-arrow-down"></i></div>
+<div class="parallel-box">
+<div class="track-row">
+<span class="track-name">DATA TRACK</span>
+<span class="track-desc">탐색 분석(EDA) ─ 데이터 통합·정제</span>
+</div>
+<div class="track-row">
+<span class="track-name">MODEL TRACK</span>
+<span class="track-desc">베이스라인 수립 ─ 성능 고도화</span>
+</div>
+<div class="track-row">
+<span class="track-name">EXP TRACK</span>
+<span class="track-desc">학습 실행 ─ 실험 관리(기록·비교)</span>
+</div>
+</div>
+<div class="week2-arrow"><i class="fas fa-arrow-down"></i></div>
+<div class="week2-step">추론 ─ 후처리 ─ Kaggle 제출</div>
+</div>
+</div>
+
+<div class="week-arrow"><i class="fas fa-arrow-right"></i></div>
+
+<div class="week-card week-3">
+<div class="week-header">
+<span class="week-badge">WEEK 3</span>
+<h2 class="week-title">재현성 기반 운영 체계</h2>
+</div>
+<div class="mini-flow">
+<div class="mini-step">공통 프로젝트 구조 구축</div>
+<div class="mini-arrow"><i class="fas fa-arrow-down"></i></div>
+<div class="mini-step">실험 레지스트리 운영</div>
+<div class="mini-arrow"><i class="fas fa-arrow-down"></i></div>
+<div class="mini-step mini-step-compact">코드 재현성 확보 + 팀원별 분산 실험 표준화</div>
+</div>
+</div>
+
+</div>
+
+</div>
+<script src="./presentation-nav.js"></script>
+</body>
+</html>
+

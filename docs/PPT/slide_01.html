@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html data-theme="light" lang="ko" style=""><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@100;300;400;500;700;900&amp;display=swap" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
+<style>
+        body { 
+            font-family: 'Noto Sans KR', sans-serif; 
+            background-color: #FFFFFF; /* White Background */
+            color: #172A3A; /* Dark Navy for Text */
+        }
+        
+        /* Color Palette Classes */
+        .text-primary { color: #172A3A; } /* Dark Navy */
+        .text-secondary { color: #508991; } /* Medium Teal */
+        .text-dark { color: #004346; } /* Deep Teal */
+        .text-accent { color: #75DDDD; } /* Bright Mint */
+        
+        .bg-primary { background-color: #172A3A; }
+        .bg-secondary { background-color: #508991; }
+        .bg-dark { background-color: #004346; }
+        .bg-accent { background-color: #75DDDD; }
+
+        .border-primary { border-color: #172A3A; }
+        .border-secondary { border-color: #508991; }
+        .border-dark { border-color: #004346; }
+        .border-accent { border-color: #75DDDD; }
+
+        /* Abstract Decoration - Blobs */
+        .blob {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(80px);
+            z-index: 0;
+        }
+        
+        /* Custom Shadow */
+        .custom-shadow {
+            box-shadow: 0 10px 30px -10px rgba(23, 42, 58, 0.15);
+        }
+
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(10px);
+        }
+
+        /* Hover: footer info items */
+        .footer-item {
+            transition: transform 0.25s ease;
+        }
+        .footer-item:hover {
+            transform: translateY(-4px);
+        }
+        .footer-item:hover .footer-icon {
+            background-color: rgba(117, 221, 221, 0.18);
+            border-color: #75DDDD;
+            border-opacity: 1;
+        }
+        .footer-item:hover .footer-label {
+            color: #004346;
+        }
+    </style>
+</head>
+<body class="w-[1280px] h-[720px] overflow-hidden flex flex-col justify-center items-center relative" style="width: 1280px; height: 720px;">
+<!-- Background Elements -->
+<!-- Blob 1: Bright Mint (Accent) Top Right -->
+<div class="blob w-[600px] h-[600px] -top-32 -right-32" style="background-color: #75DDDD; opacity: 0.15;"></div>
+<!-- Blob 2: Medium Teal Bottom Left -->
+<div class="blob w-[500px] h-[500px] -bottom-32 -left-32" style="background-color: #508991; opacity: 0.1;"></div>
+<!-- Blob 3: Deep Teal Center -->
+<div class="blob w-64 h-64 top-1/4 left-1/4" style="background-color: #004346; opacity: 0.05;"></div>
+<!-- Main Content Container -->
+<div class="z-10 flex flex-col items-center justify-center text-center w-full max-w-6xl px-8 flex-1">
+<!-- Top Tag (Button Link) -->
+<div class="mb-8">
+<a href="https://github.com/ming2tofu33/pjt-sprint_ai07_healthcare/blob/main/docs/%EC%95%8C%EC%95%BD_%ED%83%90%EC%A7%80_%EB%B0%8F_%EB%B6%84%EB%A5%98_%EB%AA%A8%EB%8D%B8(Pill_Detection)_%ED%94%84%EB%A1%9C%EC%A0%9D%ED%8A%B8_%EB%B3%B4%EA%B3%A0%EC%84%9C.pdf" target="_blank" class="px-5 py-2 rounded-full border border-secondary bg-white text-secondary text-sm font-medium tracking-wider custom-shadow inline-flex items-center hover:bg-gray-50 transition-colors cursor-pointer text-decoration-none">
+<i class="fas fa-file-pdf mr-2"></i>
+                프로젝트 보고서
+            </a>
+</div>
+<!-- Title Section -->
+<div class="mb-4">
+<h1 class="text-7xl font-black leading-tight tracking-tight text-primary drop-shadow-sm">
+                Healthcare&nbsp;</h1><h1 class="text-7xl font-black leading-tight tracking-tight text-primary drop-shadow-sm"><span class="text-dark">Object Detection</span>
+</h1>
+</div>
+<!-- Subtitle -->
+<div class="mt-6 mb-16 flex flex-col items-center">
+<p class="text-2xl font-light text-gray-500 mb-8">
+                객체 탐지 및 분류
+            </p>
+</div>
+<!-- Footer Info Section -->
+<div class="w-full max-w-4xl border-t border-secondary border-opacity-20 pt-10">
+<div class="grid grid-cols-3 gap-8 text-center">
+<!-- Team -->
+<div class="flex flex-col items-center group cursor-default footer-item">
+<div class="footer-icon w-12 h-12 rounded-full bg-white border-2 border-accent border-opacity-50 flex items-center justify-center mb-3 group-hover:bg-accent group-hover:bg-opacity-10 transition-colors duration-300 shadow-sm">
+<i class="fas fa-users text-secondary text-lg"></i>
+</div>
+<p class="footer-label text-lg font-bold text-primary">Team Venvoo</p>
+<p class="text-sm text-gray-500">프로젝트 팀</p>
+</div>
+<!-- Presenter -->
+<div class="flex flex-col items-center group cursor-default footer-item">
+<div class="footer-icon w-12 h-12 rounded-full bg-white border-2 border-accent border-opacity-50 flex items-center justify-center mb-3 group-hover:bg-accent group-hover:bg-opacity-10 transition-colors duration-300 shadow-sm">
+<i class="fas fa-microphone text-secondary text-lg"></i>
+</div>
+<p class="footer-label text-lg font-bold text-primary">팀 전원</p>
+<p class="text-sm text-gray-500">발표자</p>
+</div>
+<!-- Date -->
+<div class="flex flex-col items-center group cursor-default footer-item">
+<div class="footer-icon w-12 h-12 rounded-full bg-white border-2 border-accent border-opacity-50 flex items-center justify-center mb-3 group-hover:bg-accent group-hover:bg-opacity-10 transition-colors duration-300 shadow-sm">
+<i class="fas fa-calendar-day text-secondary text-lg"></i>
+</div>
+<p class="footer-label text-lg font-bold text-primary">2026. 02.23</p>
+<p class="text-sm text-gray-500">날짜</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Decorative Bottom Line -->
+<div class="absolute bottom-0 left-0 w-full h-3 bg-secondary"></div>
+<div class="absolute bottom-0 left-0 w-1/3 h-3 bg-dark"></div>
+<div class="absolute bottom-0 right-0 w-1/4 h-3 bg-accent"></div>
+
+    <script src="./presentation-nav.js"></script>
+</body></html>

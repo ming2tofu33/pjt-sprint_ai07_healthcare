@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet"/>
+<style>
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+            background-color: #FFFFFF;
+            color: #172A3A;
+        }
+        .text-primary { color: #508991; }
+        .bg-primary { background-color: #508991; }
+        .text-deep { color: #004346; }
+        .bg-deep { background-color: #004346; }
+        .text-accent { color: #75DDDD; }
+        .bg-accent { background-color: #75DDDD; }
+        
+        .card-base {
+            background-color: #FFFFFF;
+            border: 1px solid #E2E8F0;
+            border-radius: 16px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+        }
+
+        .flow-arrow-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            height: 100%;
+        }
+
+        .flow-line {
+            height: 4px;
+            background: linear-gradient(90deg, #508991 0%, #75DDDD 100%);
+            width: 100%;
+            border-radius: 2px;
+            position: absolute;
+            top: 50%;
+            z-index: 0;
+        }
+
+        .process-circle {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background-color: #FFFFFF;
+            border: 4px solid #508991;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+            box-shadow: 0 4px 10px rgba(80, 137, 145, 0.2);
+        }
+
+        .system-card {
+            border-left: 5px solid;
+            transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+        }
+        .system-card-risk {
+            border-left-color: #C65D64;
+        }
+        .system-card-test {
+            border-left-color: #4A7CA8;
+        }
+        .risk-accent {
+            color: #C65D64;
+        }
+        .risk-bg {
+            background-color: #FDF3F4;
+        }
+        .test-accent {
+            color: #4A7CA8;
+        }
+        .test-bg {
+            background-color: #EEF5FC;
+        }
+        .system-card:hover {
+            transform: translateX(6px);
+            box-shadow: -4px 0 0 #004346 inset, 0 6px 16px rgba(0, 67, 70, 0.12);
+            border-color: #508991;
+        }
+
+        /* Hover: 스킬 태그 */
+        .skill-tag {
+            transition: all 0.2s ease;
+        }
+        .skill-tag:hover {
+            transform: scale(1.05);
+            background-color: #E6F7F7;
+            color: #004346;
+            border-color: #508991;
+        }
+        
+        .grid-layout {
+            display: grid;
+            grid-template-columns: 3.5fr 1.5fr 5fr;
+            gap: 16px;
+            height: 100%;
+            align-items: center;
+        }
+    </style>
+</head>
+<body class="w-[1280px] max-w-[1280px] mx-auto h-[720px] overflow-hidden flex flex-col p-8 relative">
+<!-- Decorative Background -->
+<div class="absolute top-0 right-0 w-[400px] h-[400px] bg-[#E0F7FA] rounded-bl-full opacity-40 z-0"></div>
+
+<!-- Header -->
+<div class="flex flex-col mb-4 z-10">
+  <div class="flex items-center mb-2">
+    <span class="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-deep text-white">Collaboration System</span>
+    <div class="h-px bg-gray-200 flex-grow ml-3"></div>
+  </div>
+  <h1 class="text-4xl font-black text-[#172A3A]">데이터 기반 역할 배치와 운영 시스템</h1>
+  <p class="text-primary text-lg font-medium mt-1">사전 조사(Input) → 역할 배치(Process) → 운영 정착(Output) 흐름을 구축했습니다.</p>
+</div>
+<!-- Main Content Flow -->
+<div class="flex-grow min-h-0 z-10 flex items-center">
+<div class="grid-layout w-full">
+<!-- 1. Input: Pre-survey -->
+<div class="flex flex-col h-full justify-center">
+<div class="card-base p-6 flex flex-col justify-center relative border-t-4 border-t-[#004346]">
+<div class="absolute -top-4 left-6 bg-[#E0F2F1] text-[#004346] border border-[#004346] px-3 py-1 rounded-full text-xs font-bold shadow-md">
+                    INPUT
+                </div>
+<h3 class="text-2xl font-bold text-[#172A3A] mb-4 flex items-center">
+<i class="fas fa-clipboard-list text-[#508991] mr-3 text-2xl"></i>사전 조사 데이터
+                </h3>
+<div class="space-y-4">
+<div class="bg-gray-50 rounded-lg p-3 border border-gray-200">
+<p class="text-base font-bold text-[#004346] mb-1 flex items-center">
+<i class="fas fa-microchip text-[#508991] mr-2"></i>Python, PyTorch, CV, Tools
+</p>
+<div class="flex flex-wrap gap-2">
+<span class="skill-tag text-sm bg-white border border-gray-300 px-2 py-1 rounded text-gray-600">Python</span>
+<span class="skill-tag text-sm bg-white border border-gray-300 px-2 py-1 rounded text-gray-600">PyTorch</span>
+<span class="skill-tag text-sm bg-white border border-gray-300 px-2 py-1 rounded text-gray-600">CV</span>
+<span class="skill-tag text-sm bg-white border border-gray-300 px-2 py-1 rounded text-gray-600">Tools</span>
+</div>
+</div>
+<div class="bg-gray-50 rounded-lg p-3 border border-gray-200">
+<p class="text-base font-bold text-[#004346] mb-1 flex items-center">
+<i class="fas fa-users text-[#508991] mr-2"></i>소통 방식, 집중 시간, 피드백, 배경
+</p>
+<div class="flex flex-wrap gap-2">
+<span class="skill-tag text-sm bg-white border border-gray-300 px-2 py-1 rounded text-gray-600">소통 방식</span>
+<span class="skill-tag text-sm bg-white border border-gray-300 px-2 py-1 rounded text-gray-600">집중 시간</span>
+<span class="skill-tag text-sm bg-white border border-gray-300 px-2 py-1 rounded text-gray-600">피드백</span>
+<span class="skill-tag text-sm bg-white border border-gray-300 px-2 py-1 rounded text-gray-600">배경</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+
+<!-- 2. Process: RACI Allocation -->
+<div class="flow-arrow-container flex-col">
+<div class="flow-line"></div>
+<div class="process-circle">
+<i class="fas fa-user-check text-[#004346] text-2xl mb-1"></i>
+<span class="text-[10px] font-black text-[#508991]">RACI</span>
+</div>
+<div class="mt-3 text-center bg-white px-2 py-1 rounded border border-[#508991] shadow-sm z-10">
+<p class="text-xs font-bold text-[#004346]">역할 최적화</p>
+<p class="text-[10px] text-gray-500">책임 분산</p>
+</div>
+</div>
+
+<!-- 3. Output: Operational Systems -->
+<div class="flex flex-col h-full justify-center gap-4">
+<div class="relative flex flex-col gap-4">
+<div class="absolute -top-4 right-6 bg-[#E0F2F1] text-[#004346] border border-[#004346] px-3 py-1 rounded-full text-xs font-bold shadow-md z-20">
+                    SYSTEM OUTPUT
+                </div>
+<!-- System 1 -->
+<div class="card-base system-card system-card-risk p-5 flex-1 flex flex-col justify-center">
+<div class="flex justify-between items-center mb-2">
+<h3 class="text-2xl font-bold text-[#172A3A]">Risk &amp; Issue System</h3>
+<i class="fas fa-exclamation-circle risk-accent text-xl opacity-25"></i>
+</div>
+<p class="text-sm text-gray-600 mb-3">병목 현상 및 이슈 발생 시 즉각 대응 체계</p>
+<div class="flex items-center gap-2 text-sm font-medium text-gray-500 risk-bg p-2 rounded">
+<span class="font-bold risk-accent">Rule:</span> 상황(S) → 원인(C) → 해결(S) 기록화
+                    </div>
+</div>
+<!-- System 2 -->
+<div class="card-base system-card system-card-test p-5 flex-1 flex flex-col justify-center">
+<div class="flex justify-between items-center mb-2">
+<h3 class="text-2xl font-bold text-[#172A3A]">Test Record System</h3>
+<i class="fas fa-flask test-accent text-xl opacity-25"></i>
+</div>
+<p class="text-sm text-gray-600 mb-3">실험 재현성 확보 및 인사이트 아카이빙</p>
+<div class="flex items-center gap-2 text-sm font-medium text-gray-500 test-bg p-2 rounded">
+<span class="font-bold test-accent">Rule:</span> 가설 → 설정 → 결과 → 회고 루프
+                    </div>
+</div>
+</div>
+</div>
+</div>
+</div>
+
+<!-- Bottom Message -->
+<div class="mt-auto pt-1 shrink-0 text-center z-10">
+<span class="inline-flex items-center px-4 py-1 rounded-full bg-[#F0FDFF] border border-[#75DDDD] text-sm text-[#004346] font-bold">
+<i class="fas fa-check-double mr-2"></i>
+        개인의 역량(Input)을 시스템(Output)으로 전환하여 협업 효율 극대화
+    </span>
+</div>
+
+    <script src="./presentation-nav.js"></script>
+</body>
+</html>

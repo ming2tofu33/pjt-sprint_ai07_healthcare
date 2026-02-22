@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+
+<html lang="ko">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>엔지니어링 심화: 프로젝트 구조</title>
+<link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&amp;family=Fira+Code:wght@400;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet"/>
+<style>
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+            background-color: #FFFFFF; /* Main Background: White */
+            color: #172A3A; /* Main Text: Dark Navy */
+            width: 1280px;
+            height: 720px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .font-mono { font-family: 'Fira Code', monospace; }
+        
+        /* Palette Definitions */
+        .text-navy { color: #172A3A; }
+        .bg-navy { background-color: #172A3A; }
+        .border-navy { border-color: #172A3A; }
+        
+        .text-teal { color: #508991; }
+        .bg-teal { background-color: #508991; }
+        .border-teal { border-color: #508991; }
+        
+        .text-deep { color: #004346; }
+        .bg-deep { background-color: #004346; }
+        .border-deep { border-color: #004346; }
+        
+        .text-mint { color: #75DDDD; }
+        .bg-mint { background-color: #75DDDD; }
+        .border-mint { border-color: #75DDDD; }
+        
+        /* Layout Specifics */
+        .card-base {
+            background-color: #FFFFFF;
+            border: 2px solid #004346; /* Deep Teal Border */
+            border-radius: 12px;
+        }
+        
+        .code-bg {
+            background-color: #F8FAFC; /* Light Gray/White for Code Blocks */
+            border: 1px solid #E2E8F0;
+        }
+        
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #F1F5F9; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #508991; 
+            border-radius: 3px;
+        }
+
+        .tree-line {
+            border-left: 1px solid #508991; /* Tree Lines: Medium Teal */
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            left: 7px;
+        }`r`n    
+        .text-primary { color: #508991; }
+
+        .card-base {
+            transition: all 0.25s ease;
+        }
+        .card-base:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(0, 67, 70, 0.1);
+            border-color: #004346;
+        }
+    </style>
+</head>
+<body class="p-8 relative">
+<!-- Header -->
+<div class="flex flex-col mb-4 z-10">
+  <div class="flex items-center mb-2">
+    <span class="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-deep text-white">Reproducibility Architecture</span>
+    <div class="h-px bg-gray-200 flex-grow ml-3"></div>
+  </div>
+  <h1 class="text-4xl font-black text-[#172A3A]">프로젝트 구조와 재현성</h1>
+  <p class="text-primary text-lg font-medium mt-1">설정-코드 분리와 표준 파이프라인으로 재현 기반을 구축했습니다.</p>
+</div>
+<!-- Main Grid Layout -->
+<div class="flex-grow grid grid-cols-12 grid-rows-6 gap-5 min-h-0">
+<!-- 1. Directory Structure (Left Column, 4 cols, 6 rows) -->
+<div class="col-span-4 row-span-6 card-base p-0 flex flex-col relative overflow-hidden min-h-0 shadow-sm">
+<!-- Card Header -->
+<div class="p-3 border-b border-deep bg-deep flex justify-between items-center">
+<span class="text-sm font-bold text-white"><i class="fas fa-folder-open mr-2 text-mint"></i>Project Explorer</span>
+<span class="text-xs text-mint font-mono opacity-80">root/pjt-sprint_ai07</span>
+</div>
+<!-- Tree Content -->
+<div class="p-3 overflow-hidden min-h-0 flex-grow font-mono text-xs leading-4 relative">
+<div class="pl-2 relative">
+<!-- Configs -->
+<div class="mb-3 relative group">
+<div class="flex items-center text-deep font-bold mb-1">
+<i class="far fa-folder mr-2 text-teal"></i>configs/
+                        </div>
+<div class="pl-6 border-l border-teal ml-1 space-y-1">
+<p class="text-gray-500 flex items-center">
+<i class="fas fa-file-code mr-2 text-teal opacity-70"></i>base.yaml
+                            </p>
+<p class="text-deep font-bold flex items-center">
+<i class="fas fa-file-code mr-2 text-teal"></i>experiments/*.yaml
+<span class="ml-2 text-[10px] text-teal italic font-normal">실험 설정</span>
+                             </p>
+</div>
+</div>
+<!-- Scripts -->
+<div class="mb-3 relative group">
+<div class="flex items-center text-deep font-bold mb-1">
+<i class="far fa-folder mr-2 text-teal"></i>scripts/
+                        </div>
+<div class="pl-6 border-l border-teal ml-1 space-y-1 text-gray-500">
+<p>0_split_data.py</p>
+<p>1_preprocess.py</p>
+<p>2_train.py</p>
+<p>3_evaluate.py</p>
+<p>4_submission.py</p>
+<p class="text-deep font-bold flex items-center">
+<span class="bg-mint bg-opacity-20 px-1 rounded inline-block">run_pipeline.sh</span>
+<span class="ml-2 text-[10px] text-teal italic font-normal">0~4 엔드투엔드 파이프라인</span>
+</p>
+</div>
+</div>
+<!-- Src -->
+<div class="mb-3 relative group">
+<div class="flex items-center text-deep font-bold mb-1">
+<i class="far fa-folder mr-2 text-teal"></i>src/
+                        </div>
+<div class="pl-6 border-l border-teal ml-1 space-y-1 text-gray-400">
+<p>dataprep/ <span class="text-teal">...</span></p>
+<p>models/ <span class="text-teal">...</span></p>
+<p>utils/ <span class="text-teal">...</span></p>
+</div>
+</div>
+<!-- Runs -->
+<div class="mb-3 relative group">
+<div class="flex items-center text-deep font-bold mb-1">
+<i class="far fa-folder mr-2 text-teal"></i>runs/
+                        </div>
+<div class="pl-6 border-l border-teal ml-1 space-y-1">
+<p class="text-gray-400">exp_20260218_*/</p>
+<p class="text-deep font-bold flex items-center">
+<i class="fas fa-table mr-2 text-teal"></i>_registry.csv
+<span class="ml-2 text-[10px] text-teal italic font-normal">자동 로깅 &amp; 레지스트리</span>
+                             </p>
+</div>
+</div>
+<!-- Artifacts -->
+<div class="mb-1 relative group">
+<div class="flex items-center text-deep font-bold mb-1">
+<i class="far fa-folder mr-2 text-teal"></i>artifacts/
+                        </div>
+<div class="pl-6 border-l border-teal ml-1 space-y-1 text-gray-400">
+<p>best_models/</p>
+<p>submissions/</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Bottom Decoration -->
+<div class="h-1 w-full bg-teal"></div>
+</div>
+<!-- 2. Operating Principles (Right Top, 8 cols, 2 rows) -->
+<div class="col-span-8 row-span-2 grid grid-cols-3 gap-4">
+<!-- Principle 1 -->
+<div class="bg-white border border-teal rounded-xl p-4 flex flex-col justify-center relative overflow-hidden shadow-sm group hover:border-deep transition-colors">
+<div class="absolute top-0 left-0 w-1 h-full bg-teal"></div>
+<div class="flex items-center mb-2">
+<div class="w-8 h-8 rounded bg-teal flex items-center justify-center text-white mr-3">
+<i class="fas fa-layer-group"></i>
+</div>
+<h3 class="font-bold text-navy text-sm">표준화 파이프라인</h3>
+</div>
+<p class="text-xs text-gray-600 leading-relaxed">
+<span class="text-deep font-bold font-mono">STAGE 0~4</span> 실행 구조.<br/>
+                    데이터 분할, 전처리, 학습, 평가, 제출이 엄격하게 순서화됨.
+                </p>
+</div>
+<!-- Principle 2 -->
+<div class="bg-white border border-teal rounded-xl p-4 flex flex-col justify-center relative overflow-hidden shadow-sm group hover:border-deep transition-colors">
+<div class="absolute top-0 left-0 w-1 h-full bg-deep"></div>
+<div class="flex items-center mb-2">
+<div class="w-8 h-8 rounded bg-deep flex items-center justify-center text-white mr-3">
+<i class="fas fa-fingerprint"></i>
+</div>
+<h3 class="font-bold text-navy text-sm">결정론적 실행</h3>
+</div>
+<p class="text-xs text-gray-600 leading-relaxed">
+<span class="text-deep font-bold font-mono">SEED 42</span> 전역 고정.<br/>
+                    데이터 분할 및 모델 초기화를 동일하게 유지하여 공정한 비교 보장.
+                </p>
+</div>
+<!-- Principle 3 -->
+<div class="bg-white border border-teal rounded-xl p-4 flex flex-col justify-center relative overflow-hidden shadow-sm group hover:border-deep transition-colors">
+<div class="absolute top-0 left-0 w-1 h-full bg-mint"></div>
+<div class="flex items-center mb-2">
+<div class="w-8 h-8 rounded bg-teal flex items-center justify-center text-white mr-3">
+<i class="fas fa-list-check"></i>
+</div>
+<h3 class="font-bold text-navy text-sm">실험 레지스트리</h3>
+</div>
+<p class="text-xs text-gray-600 leading-relaxed">
+<span class="text-teal font-bold font-mono">_registry.csv</span> 자동 추적.<br/>
+                    모든 실행의 설정, mAP, 상태를 자동으로 기록.
+                </p>
+</div>
+</div>
+<!-- 3. Code & Config Separation (Right Middle, 8 cols, 2 rows) -->
+<div class="col-span-8 row-span-2 card-base p-2 flex flex-col relative overflow-hidden min-h-0 shadow-sm border-dashed">
+<h3 class="text-sm font-bold text-navy mb-2 flex items-center">
+<i class="fas fa-puzzle-piece text-teal mr-2"></i>관심사의 분리: 설정 vs 코드
+            </h3>
+<div class="flex items-center justify-center h-full min-h-0 px-4 gap-3 pt-4">
+<!-- YAML Config -->
+<div class="w-[29%] code-bg border border-teal rounded-lg p-2 relative shadow-inner mt-2">
+<div class="absolute -top-3 left-2 bg-deep px-2 text-xs text-white font-bold border border-deep rounded">
+                        experiments/*.yaml
+                    </div>
+<pre class="text-xs font-mono text-navy leading-4">
+model: <span class="text-deep font-bold">yolov8m</span>
+epochs: <span class="text-teal font-bold">60</span>
+imgsz: <span class="text-teal font-bold">1280</span>
+data:
+  aug: <span class="text-gray-400">false</span>
+  rect: <span class="text-deep font-bold">true</span></pre>
+</div>
+<!-- Arrow -->
+<div class="flex flex-col items-center text-teal opacity-80 shrink-0">
+<span class="text-xs mb-1 font-bold">주입</span>
+<i class="fas fa-arrow-right text-base"></i>
+</div>
+<!-- Python Logic -->
+<div class="w-[29%] code-bg border border-teal rounded-lg p-2 relative shadow-inner mt-2">
+<div class="absolute -top-3 left-2 bg-teal px-2 text-xs text-white font-bold border border-teal rounded">
+                        src/engine/*.py
+                    </div>
+<pre class="text-xs font-mono text-navy leading-4">
+<span class="text-deep">def</span> <span class="text-teal">train</span>(cfg):
+  model = YOLO(cfg.<span class="text-deep font-bold">model</span>)
+  model.train(
+    epochs=cfg.<span class="text-teal">epochs</span>,
+    imgsz=cfg.<span class="text-teal">imgsz</span>
+  )</pre>
+</div>
+<!-- Arrow -->
+<div class="flex flex-col items-center text-teal opacity-80 shrink-0">
+<span class="text-xs mb-1 font-bold">산출</span>
+<i class="fas fa-arrow-right text-base"></i>
+</div>
+<!-- Output -->
+<div class="w-[18%] flex flex-col items-center justify-center">
+<div class="text-center p-2 rounded-xl bg-mint bg-opacity-10 border border-mint w-full">
+<i class="fas fa-box-archive text-xl text-teal mb-1"></i>
+<p class="text-xs font-bold text-deep leading-tight">재현 가능한<br/>산출물</p>
+</div>
+</div>
+</div>
+</div>
+<!-- 4. One-Command Execution (Right Bottom, 8 cols, 2 rows) -->
+<div class="col-span-8 row-span-2 card-base p-0 flex flex-col relative overflow-hidden min-h-0 shadow-sm">
+<!-- Terminal Header -->
+<div class="bg-navy border-b border-navy px-4 py-2 flex items-center justify-between">
+<div class="flex space-x-2">
+<div class="w-3 h-3 rounded-full bg-[#ff5f56]"></div>
+<div class="w-3 h-3 rounded-full bg-[#ffbd2e]"></div>
+<div class="w-3 h-3 rounded-full bg-[#27c93f]"></div>
+</div>
+<span class="text-xs font-mono text-mint opacity-80">bash terminal - run_pipeline.sh</span>
+</div>
+<!-- Terminal Body -->
+<div class="p-3 bg-navy flex-grow min-h-0 overflow-hidden font-mono text-xs leading-4 text-gray-300 flex items-start">
+<div class="w-full">
+<p class="mb-1 text-teal"># 단일 명령으로 전체 파이프라인 실행</p>
+<div class="flex items-center flex-wrap break-all">
+<span class="text-mint mr-2">➜</span>
+<span class="text-white">~</span>
+<span class="mx-2 text-white">bash scripts/run_pipeline.sh</span>
+<span class="text-mint">--run-name</span>
+<span class="text-gray-400 ml-1">exp_final</span>
+<span class="text-mint ml-2">--config</span>
+<span class="text-gray-400 ml-1">configs/experiments/kaggle_exp_v1.yaml</span>
+</div>
+<div class="mt-1 text-teal pl-4">
+<span class="block">✓ [Step 1] Data Split (Seed 42)</span>
+<span class="block">✓ [Step 2] Preprocess &amp; Merge</span>
+<span class="block">✓ [Step 3] Training (YOLOv8m) ... <span class="text-mint animate-pulse font-bold">Running</span></span>
+</div>
+</div>
+</div>
+</div>
+</div>
+    <script src="./presentation-nav.js"></script>
+</body>
+</html>
+
+

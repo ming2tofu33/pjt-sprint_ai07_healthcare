@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+
+<html lang="ko">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet"/>
+<style>
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+            background-color: #FFFFFF;
+            color: #172A3A;
+            width: 1280px;
+            height: 720px;
+            overflow: hidden;
+        }
+        
+        /* Color Palette */
+        .text-accent { color: #75DDDD; } /* Bright Mint - Improvement/Next Steps */
+        .bg-accent { background-color: #75DDDD; }
+        .border-accent { border-color: #75DDDD; }
+        
+        .text-primary { color: #508991; } /* Medium Teal - Positive/Achievements */
+        .bg-primary { background-color: #508991; }
+        .border-primary { border-color: #508991; }
+        
+        .text-dark { color: #172A3A; } /* Dark Navy - Text/Body */
+        .bg-dark { background-color: #172A3A; }
+        .border-dark { border-color: #172A3A; }
+        
+        .text-deep { color: #004346; } /* Deep Teal - Problems/Structure */
+        .bg-deep { background-color: #004346; }
+        .border-deep { border-color: #004346; }
+        
+        /* Card Styles */
+        .analysis-card {
+            background-color: #FFFFFF;
+            border: 1px solid #E5E7EB;
+            border-radius: 16px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            transition: all 0.3s ease;
+        }
+        
+        .card-positive {
+            border-left: 6px solid #508991;
+        }
+        
+        .card-problem {
+            border-left: 6px solid #004346;
+        }
+        
+        .card-strategy {
+            border: 2px solid #75DDDD;
+            background-color: #F8FDFF;
+        }
+
+        .step-item {
+            background-color: #FFFFFF;
+            border: 1px solid #E2E8F0;
+            border-radius: 12px;
+            padding: 12px;
+            transition: all 0.2s;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            height: 100%;
+        }
+        
+        .step-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgba(117, 221, 221, 0.2);
+            border-color: #75DDDD;
+        }
+        
+        .step-item::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            height: 100%;
+            width: 4px;
+            background-color: #75DDDD;
+        }
+
+        .arrow-connector {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 24px;
+            color: #508991;
+            opacity: 0.6;
+        }
+
+        .content-box {
+            background-color: #F9FAFB;
+            border: 1px solid #E5E7EB;
+            border-radius: 8px;
+            padding: 12px;
+            display: flex;
+            align-items: center;
+        }
+    </style>
+</head>
+<body class="overflow-hidden flex flex-col relative p-8">
+<!-- Background Elements -->
+<div class="absolute top-0 right-0 w-[500px] h-[500px] bg-[#75DDDD] rounded-full mix-blend-multiply filter blur-[120px] opacity-10"></div>
+<div class="absolute bottom-0 left-0 w-[400px] h-[400px] bg-[#508991] rounded-full mix-blend-multiply filter blur-[100px] opacity-10"></div>
+<!-- Header Section -->
+<div class="flex flex-col mb-4 z-10">
+  <div class="flex items-center mb-2">
+    <span class="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-deep text-white">Analysis &amp; Next Steps</span>
+    <div class="h-px bg-gray-200 flex-grow ml-3"></div>
+  </div>
+  <h1 class="text-4xl font-black text-[#172A3A]">베이스라인 분석과 후속 전략</h1>
+  <p class="text-primary text-lg font-medium mt-1">Baseline 한계를 진단하고 다음 실험 액션으로 연결했습니다.</p>
+</div>
+<!-- Main Content: Two Columns -->
+<div class="flex-grow min-h-0 flex gap-5 z-10">
+<!-- Left Column: Analysis (Achievements vs Issues) -->
+<div class="w-1/2 flex flex-col gap-4 min-h-0">
+<!-- Achievements (Positive) -->
+<div class="analysis-card card-positive p-4 flex-1 flex flex-col">
+<div class="flex items-center mb-3 pb-2 border-b border-gray-100">
+<div class="w-10 h-10 rounded-full bg-[#E0F7FA] flex items-center justify-center mr-3 text-primary">
+<i class="fas fa-check-circle text-xl"></i>
+</div>
+<div>
+<h3 class="text-xl font-bold text-dark">잘된 점 (What Went Well)</h3>
+</div>
+</div>
+<div class="flex-grow flex flex-col justify-center gap-4">
+<div class="content-box">
+<i class="fas fa-database text-primary mr-3 text-lg"></i>
+<p class="text-dark font-bold text-base">데이터 병합 &amp; 파이프라인 안정화</p>
+</div>
+<div class="content-box">
+<i class="fas fa-cogs text-primary mr-3 text-lg"></i>
+<p class="text-dark font-bold text-base">End-to-End 정상 동작</p>
+</div>
+</div>
+</div>
+<!-- Issues (Problems) -->
+<div class="analysis-card card-problem p-4 flex-1 flex flex-col">
+<div class="flex items-center mb-3 pb-2 border-b border-gray-100">
+<div class="w-10 h-10 rounded-full bg-[#E6FFFA] flex items-center justify-center mr-3 text-deep">
+<i class="fas fa-exclamation-triangle text-xl"></i>
+</div>
+<div>
+<h3 class="text-xl font-bold text-dark">발견된 문제점 (Identified Problems)</h3>
+</div>
+</div>
+<div class="flex-grow flex flex-col justify-center gap-4">
+<div class="content-box">
+<i class="fas fa-boxes text-deep mr-3 text-lg"></i>
+<p class="text-dark font-bold text-base">과다 Raw 예측 (Low Confidence)</p>
+</div>
+<div class="content-box">
+<i class="fas fa-search-minus text-deep mr-3 text-lg"></i>
+<p class="text-dark font-bold text-base">Recall 저하 (Precision 대비)</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Right Column: Next Steps (Improvements) -->
+<div class="w-1/2 min-h-0">
+<div class="analysis-card card-strategy p-4 h-full flex flex-col relative overflow-hidden bg-white">
+<!-- Decorative BG -->
+<div class="absolute top-0 right-0 w-32 h-32 bg-[#E0F7FA] rounded-bl-full opacity-50 pointer-events-none"></div>
+<div class="flex items-center mb-4 z-10">
+<div class="w-12 h-12 rounded-xl bg-[#004346] flex items-center justify-center mr-4 text-[#75DDDD] shadow-lg">
+<i class="fas fa-rocket text-2xl"></i>
+</div>
+<div>
+<h3 class="text-xl font-black text-dark">다음 액션 (Next Actions)</h3>
+<p class="text-sm text-primary font-medium">Performance Improvement Strategy</p>
+</div>
+</div>
+<div class="flex-grow flex flex-col justify-between z-10 py-1">
+<!-- Step 1 -->
+<div class="step-item">
+<div class="flex justify-between items-center mb-2">
+<span class="text-[#004346] font-extrabold text-xs tracking-wider">STRATEGY 01</span>
+<i class="fas fa-sliders-h text-primary"></i>
+</div>
+<h4 class="text-lg font-bold text-dark mb-2">conf threshold + top-4 조합 전략</h4>
+<div class="flex gap-2 flex-wrap">
+<span class="px-2 py-1 bg-[#E0F7FA] rounded text-xs text-[#004346] font-medium border border-[#75DDDD]">Conf 0.05~0.20</span>
+<span class="px-2 py-1 bg-[#E0F7FA] rounded text-xs text-[#004346] font-medium border border-[#75DDDD]">Threshold + Top-4</span>
+</div>
+</div>
+<!-- Connector -->
+<div class="arrow-connector">
+<i class="fas fa-arrow-down text-2xl"></i>
+</div>
+<!-- Step 2 -->
+<div class="step-item">
+<div class="flex justify-between items-center mb-2">
+<span class="text-[#004346] font-extrabold text-xs tracking-wider">STRATEGY 02</span>
+<i class="fas fa-expand text-primary"></i>
+</div>
+<h4 class="text-lg font-bold text-dark mb-2">해상도 or 모델 스케일 업</h4>
+<div class="flex gap-2 flex-wrap">
+<span class="px-2 py-1 bg-[#E0F7FA] rounded text-xs text-[#004346] font-medium border border-[#75DDDD]">imgsz 640→960/1280</span>
+<span class="px-2 py-1 bg-[#E0F7FA] rounded text-xs text-[#004346] font-medium border border-[#75DDDD]">v8s→v8m 비교</span>
+</div>
+</div>
+<!-- Connector -->
+<div class="arrow-connector">
+<i class="fas fa-arrow-down text-2xl"></i>
+</div>
+<!-- Step 3 -->
+<div class="step-item">
+<div class="flex justify-between items-center mb-2">
+<span class="text-[#004346] font-extrabold text-xs tracking-wider">STRATEGY 03</span>
+<i class="fas fa-magic text-primary"></i>
+</div>
+<h4 class="text-lg font-bold text-dark mb-2">최소한의 데이터 증강</h4>
+<div class="flex gap-2 flex-wrap">
+<span class="px-2 py-1 bg-[#F0FDFA] rounded text-xs text-gray-600 border border-gray-200">ColorJitter</span>
+<span class="px-2 py-1 bg-[#F0FDFA] rounded text-xs text-gray-600 border border-gray-200">Blur</span>
+<span class="px-2 py-1 bg-[#F0FDFA] rounded text-xs text-gray-600 border border-gray-200">RandomBrightnessContrast</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+    <script src="./presentation-nav.js"></script>
+</body>
+</html>
