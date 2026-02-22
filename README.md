@@ -44,18 +44,18 @@
 
 ---
 
-## 📈 Results ⭐⭐⭐⭐⭐
+## 📈 Results
 
 ### Performance Metrics
 
-| 단계 | 모델 | 핵심 기법 | mAP@0.5 | mAP@0.75_0.95 | Epoch | Public Score | 개선 폭 |
+| 단계 | 모델 | 핵심 기법 | mAP@0.5 | mAP@0.5:0.95 | Epoch | Public Score | 개선 폭 |
 |------|------|-----------|---------|--------------|-------|--------------|---------|
-| v0 First Model | YOLOv8n | 초기 E2E 검증 | 0.98037 | - | 50 | **0.90052** | +0.06086 |
-| v1 Baseline Model | YOLOv8s | 파이프라인 baseline 확정 | 0.95502 | - | 92/100 | **0.96138** | +0.06086p |
-| v2 (Baseline 개선 1차) | YOLOv8m | 데이터 정제 + 튜닝 | 0.9691 | **0.95200** | 60 | **0.96859** | +0.00721p |
+| v0 First Model | YOLOv8n | 초기 E2E 검증 | - | - |  50 | **0.90052** | - |
+| v1 Baseline Model | YOLOv8s | 파이프라인 baseline 확정 | - | - | 92/100 | **0.96138** | +0.06086p |
+| v2 (Baseline 개선 1차) | YOLOv8m | 데이터 정제 + 튜닝 | - | **0.95200** | 60 | **0.96859** | +0.00721p |
 | v3 (개선 2차) | YOLOv8m | external 통합 + `exclude_4444_208` 적용 | - | **0.98682** | 60 | **0.99361** | +0.02502p |
 | v4 (최종 제출본 1) | YOLOv8m | 고해상도/rect + 제출 후처리 | **0.98937** | **0.98615** | 48/60 | **0.99402** | +0.00041p |
-| **v5 (최종 제출본 2)** | **YOLOv8m** | **하드케이스 보강 + 저신뢰 구간 보정(`swap109_q10`)** | **0.99004** | **0.98682** | **49/60**(최고점) | **0.99524** | **+0.00122p** |
+| **v5 (최종 제출본 2)** | **YOLOv8m** | **하드케이스 보강 + 저신뢰 구간 보정(`swap109_q10`)** | **0.99004** | **0.98682** | **49/60** | **0.99524** | **+0.00122p** |
 
 ### Key Improvements
 
@@ -124,15 +124,17 @@
 ### 3. 실험 과정 요약
 
 ```
-v0 : First Model Public 0.90052
-  ↓ -
-v1: Baseline Model Public 0.96859
-  ↓ external 통합 + exclude_4444_208
-v2 Public 0.99361
-  ↓ 고해상도/rect + 후처리 튜닝
-v3 Public 0.99402
-  ↓ 하드케이스 보강 + 저신뢰 구간 보정
-v4 Public 0.99524
+v0 (First Model, YOLOv8n): Public 0.90052
+  ↓ E2E 파이프라인 초기 검증
+v1 (Baseline Model, YOLOv8s): Public 0.96138
+  ↓ YOLOv8m 전환 + 데이터 정제/튜닝
+v2 (Baseline 개선 1차): Public 0.96859
+  ↓ external 통합 + exclude_4444_208 적용
+v3 (개선 2차): Public 0.99361
+  ↓ 고해상도/rect + 제출 후처리 튜닝
+v4 (최종 제출본 1): Public 0.99402
+  ↓ 하드케이스 보강 + 저신뢰 구간 보정(swap109_q10)
+v5 (최종 제출본 2): Public 0.99524
 ```
 
 
@@ -359,7 +361,7 @@ type runs\\_registry.csv   # Windows
 
 ---
 
-## 🎓 Lessons Learned ⭐⭐⭐
+## 🎓 Lessons Learned
 
 본 프로젝트를 통해 배운 점:
 
@@ -372,7 +374,7 @@ type runs\\_registry.csv   # Windows
 
 ---
 
-## 📌 Conclusion ⭐⭐⭐⭐⭐
+## 📌 Conclusion
 
 본 프로젝트를 통해 다음을 달성했습니다:
 
@@ -383,9 +385,9 @@ type runs\\_registry.csv   # Windows
 
 ### 향후 개선 방향
 
-- Public 중심 의사결정 편향을 줄이기 위한 검증 전략 고도화
-- 하드케이스 보강으로 인한 클래스 편향 리스크 모니터링 체계 구축
-- 고해상도(`imgsz=1280`)·rect 설정의 비용 대비 효율 최적화
+- **Public 편향 완화 검증 전략**: Public 단일 최적화 대신 `CV/holdout + Public`을 함께 모니터링하고, 최종 채택은 CV 평균/분산 기준을 우선 적용
+- **하드케이스·클래스 편향 모니터링**: 클래스별 Precision/Recall, 오탐·미탐, 하드케이스 전용 성능 지표를 정기 리포트로 관리
+- **`imgsz=1280`·`rect` 비용 효율 최적화**: 성능 상승폭(mAP/Public) 대비 학습 시간·추론 시간·VRAM 사용량을 함께 비교해 채택 기준 명문화
 
 ---
 
