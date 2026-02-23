@@ -261,7 +261,14 @@
                         }
                     }
                 },
+                animations: {
+                    x: {
+                        from: 0
+                    }
+                },
                 animation: {
+                    duration: 1000,
+                    easing: 'easeOutQuart',
                     onComplete: function () {
                         const chartInstance = this;
                         const ctx = chartInstance.ctx;

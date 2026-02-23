@@ -149,11 +149,11 @@
 <span>Test Set (842 images)</span>
 </div>
 <div class="h-16 w-full flex rounded-md overflow-hidden font-bold text-xs bg-gray-200 shadow-inner border border-gray-300">
-<div class="bg-secondary text-white flex flex-col items-center justify-center border-r border-white/20 relative" style="width: 21.6%;">
+<div class="grow-width-bar bg-secondary text-white flex flex-col items-center justify-center border-r border-white/20 relative" style="width: 21.6%;">
 <span class="z-10 text-base font-black">21.6%</span>
 <span class="text-[10px] opacity-80">Train</span>
 </div>
-<div class="bg-primary text-white flex flex-col items-center justify-center relative" style="width: 78.4%;">
+<div class="grow-width-bar bg-primary text-white flex flex-col items-center justify-center relative" style="width: 78.4%;">
 <span class="z-10 text-base font-black">78.4%</span>
 <span class="text-[10px] opacity-80">Test</span>
 </div>
@@ -180,20 +180,20 @@
 <div class="absolute top-5 left-0 w-full h-px bg-gray-200 border-t border-dashed border-gray-300"></div>
 <div class="absolute bottom-10 left-0 w-full h-px bg-gray-200 border-t border-dashed border-gray-300"></div>
 <!-- Bar 1: Max (153) -->
-<div class="w-1/12 bg-primary rounded-t opacity-90 border-t border-l border-r border-primary/20 relative group" style="height: 95%;">
+<div class="grow-height-bar w-1/12 bg-primary rounded-t opacity-90 border-t border-l border-r border-primary/20 relative group" style="height: 95%;">
 <div class="absolute -top-5 left-1/2 transform -translate-x-1/2 text-[10px] font-bold text-dark bg-white px-1 rounded shadow border border-gray-200">153</div>
 <div class="absolute bottom-4 left-1/2 transform -translate-x-1/2 text-[8px] text-white opacity-80">Max</div>
 </div>
 <!-- Bars 2-8 (scaled from real counts: 45, 37, 23, 22, 21, 20, 20) -->
-<div class="w-1/12 bg-primary rounded-t opacity-80 border-t border-l border-r border-primary/20" style="height: 29%;"></div>
-<div class="w-1/12 bg-primary rounded-t opacity-70 border-t border-l border-r border-primary/20" style="height: 24%;"></div>
-<div class="w-1/12 bg-primary rounded-t opacity-60 border-t border-l border-r border-primary/20" style="height: 15%;"></div>
-<div class="w-1/12 bg-primary rounded-t opacity-50 border-t border-l border-r border-primary/20" style="height: 14%;"></div>
-<div class="w-1/12 bg-primary rounded-t opacity-40 border-t border-l border-r border-primary/20" style="height: 14%;"></div>
-<div class="w-1/12 bg-primary rounded-t opacity-30 border-t border-l border-r border-primary/20" style="height: 13%;"></div>
-<div class="w-1/12 bg-primary rounded-t opacity-30 border-t border-l border-r border-primary/20" style="height: 13%;"></div>
+<div class="grow-height-bar w-1/12 bg-primary rounded-t opacity-80 border-t border-l border-r border-primary/20" style="height: 29%;"></div>
+<div class="grow-height-bar w-1/12 bg-primary rounded-t opacity-70 border-t border-l border-r border-primary/20" style="height: 24%;"></div>
+<div class="grow-height-bar w-1/12 bg-primary rounded-t opacity-60 border-t border-l border-r border-primary/20" style="height: 15%;"></div>
+<div class="grow-height-bar w-1/12 bg-primary rounded-t opacity-50 border-t border-l border-r border-primary/20" style="height: 14%;"></div>
+<div class="grow-height-bar w-1/12 bg-primary rounded-t opacity-40 border-t border-l border-r border-primary/20" style="height: 14%;"></div>
+<div class="grow-height-bar w-1/12 bg-primary rounded-t opacity-30 border-t border-l border-r border-primary/20" style="height: 13%;"></div>
+<div class="grow-height-bar w-1/12 bg-primary rounded-t opacity-30 border-t border-l border-r border-primary/20" style="height: 13%;"></div>
 <!-- Bar 9: Min (3) -->
-<div class="w-1/12 bg-accent rounded-t border-t border-l border-r border-secondary/50 relative group" style="height: 5%;">
+<div class="grow-height-bar w-1/12 bg-accent rounded-t border-t border-l border-r border-secondary/50 relative group" style="height: 5%;">
 <div class="absolute -top-6 left-1/2 transform -translate-x-1/2 text-[10px] font-bold text-red-500 bg-white px-1 rounded shadow border border-red-100 animate-pulse">3</div>
 <div class="absolute bottom-full mb-6 left-1/2 transform -translate-x-1/2 text-[8px] text-red-500 font-bold">Min</div>
 </div>
@@ -274,6 +274,48 @@
 </div>
 </div>
 </div>
+    <script>
+        (function () {
+            const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+            if (prefersReducedMotion) {
+                return;
+            }
+
+            const DURATION_MS = 2200;
+            const STAGGER_MS = 0;
+            const EASING = 'cubic-bezier(0.25, 1, 0.5, 1)'; // easeOutQuart-like
+
+            function animateBars(selector, property, origin, initialDelayMs = 0) {
+                document.querySelectorAll(selector).forEach((bar, index) => {
+                    const target = bar.style[property];
+                    if (!target || target === '0%' || target === '0px') {
+                        return;
+                    }
+
+                    const delayMs = initialDelayMs + (index * STAGGER_MS);
+                    bar.style[property] = '0%';
+                    bar.style.transformOrigin = origin;
+                    bar.style.transition = `${property} ${DURATION_MS}ms ${EASING} ${delayMs}ms`;
+                    bar.style.willChange = property;
+
+                    requestAnimationFrame(() => {
+                        requestAnimationFrame(() => {
+                            bar.style[property] = target;
+                        });
+                    });
+
+                    window.setTimeout(() => {
+                        bar.style.willChange = 'auto';
+                    }, DURATION_MS + delayMs + 120);
+                });
+            }
+
+            window.addEventListener('load', () => {
+                animateBars('.grow-width-bar', 'width', 'left center', 0);
+                animateBars('.grow-height-bar', 'height', 'center bottom', 120);
+            });
+        })();
+    </script>
     <script src="./presentation-nav.js"></script>
 </body>
 </html>

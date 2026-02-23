@@ -268,9 +268,32 @@
             }
         };
 
+        // Draw a fixed reference line at 0.99524 without annotation animation.
+        const fixedReferenceLinePlugin = {
+            id: 'fixedReferenceLinePlugin',
+            beforeDatasetsDraw(chart) {
+                const yScale = chart.scales?.y;
+                const { ctx, chartArea } = chart;
+                if (!yScale || !chartArea) return;
+
+                const y = yScale.getPixelForValue(0.99524);
+                if (y < chartArea.top || y > chartArea.bottom) return;
+
+                ctx.save();
+                ctx.strokeStyle = '#508991';
+                ctx.lineWidth = 1;
+                ctx.setLineDash([4, 4]);
+                ctx.beginPath();
+                ctx.moveTo(chartArea.left, y);
+                ctx.lineTo(chartArea.right, y);
+                ctx.stroke();
+                ctx.restore();
+            }
+        };
+
         new Chart(ctx, {
             type: 'line',
-            plugins: [pointLabelPlugin],
+            plugins: [fixedReferenceLinePlugin, pointLabelPlugin],
             data: {
                 labels: versions,
                 datasets: [{
@@ -297,6 +320,26 @@
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
+                animations: {
+                    y: {
+                        from: (ctx) => {
+                            const yScale = ctx.chart?.scales?.y;
+                            if (!yScale) return 0;
+                            return yScale.getPixelForValue(yScale.min);
+                        },
+                        duration: 700,
+                        easing: 'easeOutQuart',
+                        delay: (ctx) => {
+                            if (ctx.type !== 'data' || ctx.yStarted) return 0;
+                            ctx.yStarted = true;
+                            return ctx.index * 260;
+                        }
+                    }
+                },
+                animation: {
+                    duration: 700,
+                    easing: 'easeOutQuart'
+                },
                 layout: {
                     padding: {
                         top: 20,
@@ -350,18 +393,6 @@
                         callbacks: {
                             label: function(context) {
                                 return `Score: ${context.raw}`;
-                            }
-                        }
-                    },
-                    annotation: {
-                        annotations: {
-                            line1: {
-                                type: 'line',
-                                yMin: 0.99524,
-                                yMax: 0.99524,
-                                borderColor: '#508991', 
-                                borderWidth: 1,
-                                borderDash: [4, 4],
                             }
                         }
                     }
