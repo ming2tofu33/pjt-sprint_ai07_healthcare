@@ -234,17 +234,17 @@
 <!-- Analysis -->
 <div class="col-span-4 relative pl-4 border-l border-secondary border-opacity-30">
 <p class="text-xs text-dark leading-snug">
-<span class="text-primary-dark font-bold">판단:</span> <span class="keyword">100개 미만</span> 클래스의 검출력 저하. 전체 증강 시 과적합 우려
+<span class="text-primary-dark font-bold">판단:</span> <span class="keyword">100개 미만</span> 클래스의 검출력 저하. 단순 증강 적용 시 심각한 과적합(Overfitting) 발생 우려
                 </p>
 </div>
 <!-- Solution -->
 <div class="col-span-5 solution-inner rounded p-2 flex items-center justify-between border-l-4 border-l-[#004346]">
 <div>
-<h4 class="text-primary-dark font-bold text-sm mb-1">Targeted Augmentation</h4>
-<p class="text-xs text-secondary leading-tight">전체 증강이 아닌 <span class="keyword">부족 클래스 한정</span> 증강(300개) &amp; 외부 데이터 병합</p>
+<h4 class="text-primary-dark font-bold text-sm mb-1">External Data Integration</h4>
+<p class="text-xs text-secondary leading-tight">인위적 증강 전면 배제 및 <span class="keyword">고품질 외부 데이터</span> 집중 병합</p>
 <div class="mt-1 flex flex-wrap gap-1">
-<span class="impact-badge badge-targeted">Targeted Aug</span>
-<span class="impact-badge badge-targeted">Low(&lt;100) → Boost(300)</span>
+<span class="impact-badge badge-targeted">100% Real Data</span>
+<span class="impact-badge badge-targeted">External Integration</span>
 </div>
 </div>
 <div class="flex items-center gap-2 text-secondary opacity-70">
@@ -275,7 +275,7 @@
 <div class="col-span-5 solution-inner rounded p-2 flex items-center justify-between border-l-4 border-l-[#004346]">
 <div>
 <h4 class="text-primary-dark font-bold text-sm mb-1">External Data &amp; Scale Up</h4>
-<p class="text-xs text-secondary">외부 데이터셋 추가 확보 및 증강 기법 적극 도입</p>
+<p class="text-xs text-secondary">대규모 외부 데이터 통합으로 절대적인 학습 볼륨 확보 및 일반화 성능 강화</p>
 </div>
 <i class="fas fa-plus-circle text-secondary opacity-50"></i>
 </div>
