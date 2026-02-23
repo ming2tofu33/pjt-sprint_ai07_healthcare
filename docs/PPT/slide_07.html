@@ -276,44 +276,77 @@
 </div>
     <script>
         (function () {
-            const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-            if (prefersReducedMotion) {
-                return;
-            }
-
-            const DURATION_MS = 2200;
+            const DURATION_WIDTH_MS = 2200;
+            const DURATION_HEIGHT_MS = 2600;
+            const INITIAL_DELAY_WIDTH_MS = 120;
+            const INITIAL_DELAY_HEIGHT_MS = 220;
             const STAGGER_MS = 0;
-            const EASING = 'cubic-bezier(0.25, 1, 0.5, 1)'; // easeOutQuart-like
+            const EASING = 'cubic-bezier(0.45, 0, 0.55, 1)';
 
-            function animateBars(selector, property, origin, initialDelayMs = 0) {
+            function animateWidthBars(selector, initialDelayMs = 0) {
                 document.querySelectorAll(selector).forEach((bar, index) => {
-                    const target = bar.style[property];
+                    const target = bar.dataset.targetWidth || bar.style.width;
                     if (!target || target === '0%' || target === '0px') {
                         return;
                     }
+                    bar.dataset.targetWidth = target;
 
                     const delayMs = initialDelayMs + (index * STAGGER_MS);
-                    bar.style[property] = '0%';
-                    bar.style.transformOrigin = origin;
-                    bar.style.transition = `${property} ${DURATION_MS}ms ${EASING} ${delayMs}ms`;
-                    bar.style.willChange = property;
+                    bar.style.transition = 'none';
+                    bar.style.width = '0%';
+                    bar.style.transformOrigin = 'left center';
+                    bar.style.willChange = 'width';
+                    void bar.offsetWidth;
 
+                    bar.style.transition = `width ${DURATION_WIDTH_MS}ms ${EASING} ${delayMs}ms`;
                     requestAnimationFrame(() => {
-                        requestAnimationFrame(() => {
-                            bar.style[property] = target;
-                        });
+                        bar.style.width = target;
                     });
 
                     window.setTimeout(() => {
                         bar.style.willChange = 'auto';
-                    }, DURATION_MS + delayMs + 120);
+                    }, DURATION_WIDTH_MS + delayMs + 120);
                 });
             }
 
-            window.addEventListener('load', () => {
-                animateBars('.grow-width-bar', 'width', 'left center', 0);
-                animateBars('.grow-height-bar', 'height', 'center bottom', 120);
-            });
+            function animateHeightBars(selector, initialDelayMs = 0) {
+                document.querySelectorAll(selector).forEach((bar, index) => {
+                    const target = bar.dataset.targetHeight || bar.style.height;
+                    if (!target || target === '0%' || target === '0px') {
+                        return;
+                    }
+                    bar.dataset.targetHeight = target;
+
+                    const delayMs = initialDelayMs + (index * STAGGER_MS);
+                    bar.style.transition = 'none';
+                    bar.style.height = '0%';
+                    bar.style.transformOrigin = 'center bottom';
+                    bar.style.willChange = 'height';
+                    void bar.offsetHeight;
+
+                    bar.style.transition = `height ${DURATION_HEIGHT_MS}ms ${EASING} ${delayMs}ms`;
+                    requestAnimationFrame(() => {
+                        bar.style.height = target;
+                    });
+
+                    window.setTimeout(() => {
+                        bar.style.willChange = 'auto';
+                    }, DURATION_HEIGHT_MS + delayMs + 120);
+                });
+            }
+
+            function runAnimations() {
+                animateWidthBars('.grow-width-bar', INITIAL_DELAY_WIDTH_MS);
+                animateHeightBars('.grow-height-bar', INITIAL_DELAY_HEIGHT_MS);
+            }
+
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', runAnimations, { once: true });
+            } else {
+                runAnimations();
+            }
+
+            window.addEventListener('pageshow', runAnimations);
         })();
     </script>
     <script src="./presentation-nav.js"></script>
