@@ -179,16 +179,6 @@
     }
   }
 
-  var autoFullscreenAttempted = false;
-
-  function requestFullscreenOnce() {
-    if (autoFullscreenAttempted) {
-      return;
-    }
-    autoFullscreenAttempted = true;
-    requestFullscreen();
-  }
-
   renderThemeIcon();
   renderPageBadge();
 
@@ -216,8 +206,6 @@
       }
       return;
     }
-
-    requestFullscreenOnce();
 
     if (isNext) {
       goToSlide(currentSlide + 1);

@@ -10,6 +10,10 @@
             font-family: 'Noto Sans KR', sans-serif; 
             background-color: #FFFFFF; /* White Background */
             color: #172A3A; /* Dark Navy for Text */
+            width: 1280px;
+            height: 720px;
+            overflow: hidden;
+            margin: 0;
         }
         
         /* Color Palette Classes */
@@ -63,7 +67,7 @@
         }
     </style>
 </head>
-<body class="w-[1280px] h-[720px] overflow-hidden flex flex-col justify-center items-center relative" style="width: 1280px; height: 720px;">
+<body class="overflow-hidden flex flex-col relative">
 <!-- Background Elements -->
 <!-- Blob 1: Bright Mint (Accent) Top Right -->
 <div class="blob w-[600px] h-[600px] -top-32 -right-32" style="background-color: #75DDDD; opacity: 0.15;"></div>
@@ -72,28 +76,28 @@
 <!-- Blob 3: Deep Teal Center -->
 <div class="blob w-64 h-64 top-1/4 left-1/4" style="background-color: #004346; opacity: 0.05;"></div>
 <!-- Main Content Container -->
-<div class="z-10 flex flex-col items-center justify-center text-center w-full max-w-6xl px-8 flex-1">
+<div class="z-10 w-full h-full flex flex-col items-center justify-center text-center px-10">
 <!-- Top Tag (Button Link) -->
-<div class="mb-8">
+<div class="mb-6">
 <a href="https://github.com/ming2tofu33/pjt-sprint_ai07_healthcare/blob/main/docs/%EC%95%8C%EC%95%BD_%ED%83%90%EC%A7%80_%EB%B0%8F_%EB%B6%84%EB%A5%98_%EB%AA%A8%EB%8D%B8(Pill_Detection)_%ED%94%84%EB%A1%9C%EC%A0%9D%ED%8A%B8_%EB%B3%B4%EA%B3%A0%EC%84%9C.pdf" target="_blank" class="px-5 py-2 rounded-full border border-secondary bg-white text-secondary text-sm font-medium tracking-wider custom-shadow inline-flex items-center hover:bg-gray-50 transition-colors cursor-pointer text-decoration-none">
 <i class="fas fa-file-pdf mr-2"></i>
                 프로젝트 보고서
             </a>
 </div>
 <!-- Title Section -->
-<div class="mb-4">
+<div class="mb-3">
 <h1 class="text-7xl font-black leading-tight tracking-tight text-primary drop-shadow-sm">
                 Healthcare&nbsp;</h1><h1 class="text-7xl font-black leading-tight tracking-tight text-primary drop-shadow-sm"><span class="text-dark">Object Detection</span>
 </h1>
 </div>
 <!-- Subtitle -->
-<div class="mt-6 mb-16 flex flex-col items-center">
+<div class="mt-4 mb-8 flex flex-col items-center">
 <p class="text-2xl font-light text-gray-500 mb-8">
                 객체 탐지 및 분류
             </p>
 </div>
 <!-- Footer Info Section -->
-<div class="w-full max-w-4xl border-t border-secondary border-opacity-20 pt-10">
+<div class="w-full max-w-4xl border-t border-secondary border-opacity-20 pt-8">
 <div class="grid grid-cols-3 gap-8 text-center">
 <!-- Team -->
 <div class="flex flex-col items-center group cursor-default footer-item">
@@ -108,7 +112,7 @@
 <div class="footer-icon w-12 h-12 rounded-full bg-white border-2 border-accent border-opacity-50 flex items-center justify-center mb-3 group-hover:bg-accent group-hover:bg-opacity-10 transition-colors duration-300 shadow-sm">
 <i class="fas fa-microphone text-secondary text-lg"></i>
 </div>
-<p class="footer-label text-lg font-bold text-primary">팀 전원</p>
+<p class="footer-label text-lg font-bold text-primary">전 팀원</p>
 <p class="text-sm text-gray-500">발표자</p>
 </div>
 <!-- Date -->
